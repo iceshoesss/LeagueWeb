@@ -83,7 +83,7 @@
 </div>
 {% endblock %}
 
-{% block head %}
+{% block scripts %}
 <script>
 // 排行榜数据
 const players = {{ players | tojson }};
@@ -98,7 +98,6 @@ function renderLeaderboard() {
     const sorted = [...players].sort((a, b) => {
         let va = a[currentSort], vb = b[currentSort];
         if (currentSort === 'avgPlacement') {
-            // 场均排名越低越好
             return currentOrder === 'desc' ? va - vb : vb - va;
         }
         if (currentSort === 'winRate') {
@@ -129,6 +128,20 @@ function renderLeaderboard() {
     }).join('');
 }
 
+// 实时计时器
+function updateTimers() {
+    const now = Math.floor(Date.now() / 1000);
+    document.querySelectorAll('[data-started-epoch]').forEach(el => {
+        const started = parseFloat(el.dataset.startedEpoch);
+        const diff = Math.max(0, now - Math.floor(started));
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        el.textContent = `⏱️ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    });
+}
+
+renderLeaderboard();
+
 // 点击列头排序
 document.querySelectorAll('.sort-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -143,20 +156,7 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
     });
 });
 
-renderLeaderboard();
-
-// 实时计时器
-function updateTimers() {
-    const now = Math.floor(Date.now() / 1000);
-    document.querySelectorAll('[data-started-epoch]').forEach(el => {
-        const started = parseFloat(el.dataset.startedEpoch);
-        const diff = Math.max(0, now - Math.floor(started));
-        const m = Math.floor(diff / 60);
-        const s = diff % 60;
-        el.textContent = `⏱️ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
-    });
-}
-setInterval(updateTimers, 1000);
 updateTimers();
+setInterval(updateTimers, 1000);
 </script>
 {% endblock %}
