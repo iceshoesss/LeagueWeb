@@ -1,0 +1,53 @@
+[
+  {
+    "gameUuid": "match-001-20260407",
+    "players": [
+      { "battleTag": "南怀北瑾丨少头脑#5267", "accountIdLo": 1708070391, "displayName": "南怀北瑾丨少头脑", "heroName": "阿莱克丝塔萨", "placement": 1, "points": 9 },
+      { "battleTag": "冰霜法师#6677", "accountIdLo": 8843012456, "displayName": "冰霜法师", "heroName": "苔丝·格雷迈恩", "placement": 2, "points": 7 },
+      { "battleTag": "烈焰凤凰#1199", "accountIdLo": 3367201845, "displayName": "烈焰凤凰", "heroName": "阮大师", "placement": 3, "points": 6 },
+      { "battleTag": "影舞者#2276", "accountIdLo": 6634019278, "displayName": "影舞者", "heroName": "舞者达瑞尔", "placement": 4, "points": 5 },
+      { "battleTag": "雷霆战神#9908", "accountIdLo": 1245890367, "displayName": "雷霆战神", "heroName": "诺兹多姆", "placement": 5, "points": 4 },
+      { "battleTag": "虚空行者#8891", "accountIdLo": 3345678901, "displayName": "虚空行者", "heroName": "奥拉基尔", "placement": 6, "points": 3 },
+      { "battleTag": "圣光守护#7734", "accountIdLo": 9901234567, "displayName": "圣光守护", "heroName": "亚煞极", "placement": 7, "points": 2 },
+      { "battleTag": "龙裔战士#1102", "accountIdLo": 5578901234, "displayName": "龙裔战士", "heroName": "沙德沃克", "placement": 8, "points": 1 }
+    ],
+    "region": "CN",
+    "mode": "solo",
+    "startedAt": "2026-04-07T12:15:00Z",
+    "endedAt": "2026-04-07T12:28:00Z"
+  },
+  {
+    "gameUuid": "match-002-20260407",
+    "players": [
+      { "battleTag": "疾风剑豪#8842", "accountIdLo": 2831045762, "displayName": "疾风剑豪", "heroName": "挂机的阿凯", "placement": 1, "points": 9 },
+      { "battleTag": "南怀北瑾丨少头脑#5267", "accountIdLo": 1708070391, "displayName": "南怀北瑾丨少头脑", "heroName": "阿塔尼斯", "placement": 2, "points": 7 },
+      { "battleTag": "暗夜精灵#3351", "accountIdLo": 5520198374, "displayName": "暗夜精灵", "heroName": "尤朵拉船长", "placement": 3, "points": 6 },
+      { "battleTag": "月光骑士#5563", "accountIdLo": 4490127835, "displayName": "月光骑士", "heroName": "希尔瓦娜斯", "placement": 4, "points": 5 },
+      { "battleTag": "星辰大海#4420", "accountIdLo": 7712034589, "displayName": "星辰大海", "heroName": "林地守护者欧穆", "placement": 5, "points": 4 },
+      { "battleTag": "烈焰凤凰#1199", "accountIdLo": 3367201845, "displayName": "烈焰凤凰", "heroName": "舞者达瑞尔", "placement": 6, "points": 3 },
+      { "battleTag": "雷霆战神#9908", "accountIdLo": 1245890367, "displayName": "雷霆战神", "heroName": "萨鲁法尔大王", "placement": 7, "points": 2 },
+      { "battleTag": "虚空行者#8891", "accountIdLo": 3345678901, "displayName": "虚空行者", "heroName": "苔丝·格雷迈恩", "placement": 8, "points": 1 }
+    ],
+    "region": "CN",
+    "mode": "solo",
+    "startedAt": "2026-04-07T11:30:00Z",
+    "endedAt": "2026-04-07T11:45:00Z"
+  },
+  {
+    "gameUuid": "match-003-20260407",
+    "players": [
+      { "battleTag": "暗夜精灵#3351", "accountIdLo": 5520198374, "displayName": "暗夜精灵", "heroName": "阿莱克丝塔萨", "placement": 1, "points": 9 },
+      { "battleTag": "星辰大海#4420", "accountIdLo": 7712034589, "displayName": "星辰大海", "heroName": "诺兹多姆", "placement": 2, "points": 7 },
+      { "battleTag": "疾风剑豪#8842", "accountIdLo": 2831045762, "displayName": "疾风剑豪", "heroName": "阮大师", "placement": 3, "points": 6 },
+      { "battleTag": "圣光守护#7734", "accountIdLo": 9901234567, "displayName": "圣光守护", "heroName": "奥拉基尔", "placement": 4, "points": 5 },
+      { "battleTag": "南怀北瑾丨少头脑#5267", "accountIdLo": 1708070391, "displayName": "南怀北瑾丨少头脑", "heroName": "亚煞极", "placement": 5, "points": 4 },
+      { "battleTag": "影舞者#2276", "accountIdLo": 6634019278, "displayName": "影舞者", "heroName": "挂机的阿凯", "placement": 6, "points": 3 },
+      { "battleTag": "龙裔战士#1102", "accountIdLo": 5578901234, "displayName": "龙裔战士", "heroName": "希尔瓦娜斯", "placement": 7, "points": 2 },
+      { "battleTag": "冰霜法师#6677", "accountIdLo": 8843012456, "displayName": "冰霜法师", "heroName": "苔丝·格雷迈恩", "placement": 8, "points": 1 }
+    ],
+    "region": "CN",
+    "mode": "solo",
+    "startedAt": "2026-04-07T10:00:00Z",
+    "endedAt": "2026-04-07T10:18:00Z"
+  }
+]

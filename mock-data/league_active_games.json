@@ -1,0 +1,30 @@
+[
+  {
+    "gameUuid": "active-001-current",
+    "players": [
+      { "displayName": "南怀北瑾丨少头脑" },
+      { "displayName": "月光骑士" },
+      { "displayName": "虚空行者" },
+      { "displayName": "冰霜法师" },
+      { "displayName": "星辰大海" },
+      { "displayName": "影舞者" },
+      { "displayName": "圣光守护" },
+      { "displayName": "龙裔战士" }
+    ],
+    "startedAt": "2026-04-07T12:23:00Z"
+  },
+  {
+    "gameUuid": "active-002-current",
+    "players": [
+      { "displayName": "疾风剑豪" },
+      { "displayName": "暗夜精灵" },
+      { "displayName": "烈焰凤凰" },
+      { "displayName": "雷霆战神" },
+      { "displayName": "测试玩家A" },
+      { "displayName": "测试玩家B" },
+      { "displayName": "测试玩家C" },
+      { "displayName": "测试玩家D" }
+    ],
+    "startedAt": "2026-04-07T12:35:00Z"
+  }
+]
