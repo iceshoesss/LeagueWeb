@@ -72,8 +72,8 @@
                         {% endfor %}
                     </div>
                     <div class="flex items-center justify-between text-xs text-hearth-dim">
-                        <span>开始: {{ game.startedAt[11:16] }}</span>
-                        <span class="text-hearth-gold font-mono" data-started="{{ game.startedAt }}">⏱️ --:--</span>
+                        <span>8 人对局</span>
+                        <span class="text-hearth-gold font-mono" data-started-epoch="{{ game.startedAt }}">⏱️ --:--</span>
                     </div>
                 </div>
                 {% endfor %}
@@ -147,11 +147,10 @@ renderLeaderboard();
 
 // 实时计时器
 function updateTimers() {
-    document.querySelectorAll('[data-started]').forEach(el => {
-        const started = new Date(el.dataset.started + 'Z');
-        const now = new Date();
-        const diff = Math.floor((now - started) / 1000);
-        if (diff < 0) { el.textContent = '⏱️ 00:00'; return; }
+    const now = Math.floor(Date.now() / 1000);
+    document.querySelectorAll('[data-started-epoch]').forEach(el => {
+        const started = parseFloat(el.dataset.startedEpoch);
+        const diff = Math.max(0, now - Math.floor(started));
         const m = Math.floor(diff / 60);
         const s = diff % 60;
         el.textContent = `⏱️ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;

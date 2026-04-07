@@ -5,9 +5,12 @@
 
 from flask import Flask, render_template, jsonify, request
 from datetime import datetime, timedelta
+import time
 import random
 
 app = Flask(__name__)
+
+_now_ts = time.time()
 
 # ── Mock 数据 ──────────────────────────────────────────
 
@@ -95,7 +98,7 @@ ACTIVE_GAMES = [
             {"displayName": "风暴之锤"},
             {"displayName": "星辰大海"},
         ],
-        "startedAt": (now - timedelta(minutes=8, seconds=42)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "startedAt": _now_ts - 522,  # 8分42秒前
     },
     {
         "gameUuid": "active-002",
@@ -109,7 +112,7 @@ ACTIVE_GAMES = [
             {"displayName": "永恒者托奇"},
             {"displayName": "凯瑞尔·罗姆"},
         ],
-        "startedAt": (now - timedelta(minutes=2, seconds=13)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "startedAt": _now_ts - 133,  # 2分13秒前
     },
 ]
 
