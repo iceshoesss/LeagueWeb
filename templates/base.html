@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}酒馆战棋联赛{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        hearth: {
+                            bg: '#1a1a2e',
+                            card: '#16213e',
+                            gold: '#e2b714',
+                            accent: '#c9a84c',
+                            dim: '#8b8b9e',
+                            border: '#2a2a4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; }
+        .rank-1 { color: #ffd700; }
+        .rank-2 { color: #c0c0c0; }
+        .rank-3 { color: #cd7f32; }
+        .sort-btn { cursor: pointer; user-select: none; }
+        .sort-btn:hover { color: #e2b714; }
+        .active-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .hearth-gradient { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+        .gold-border { border: 1px solid rgba(226, 183, 20, 0.3); }
+        .gold-border:hover { border-color: rgba(226, 183, 20, 0.6); }
+    </style>
+    {% block head %}{% endblock %}
+</head>
+<body class="hearth-gradient min-h-screen text-gray-200">
+    <nav class="border-b border-hearth-border bg-black/30 backdrop-blur">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <a href="/" class="text-xl font-bold text-hearth-gold flex items-center gap-2">
+                🍺 酒馆战棋联赛
+            </a>
+            <div class="flex items-center gap-4 text-sm text-hearth-dim">
+                <span class="active-pulse text-green-400">● 2 场对局进行中</span>
+                <span>|</span>
+                <span>12 名选手</span>
+            </div>
+        </div>
+    </nav>
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

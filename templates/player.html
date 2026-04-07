@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}{{ player.displayName }} — 酒馆战棋联赛{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <!-- 选手信息卡 -->
+    <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-6">
+        <div class="px-6 py-5 border-b border-hearth-border flex items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-hearth-gold/20 flex items-center justify-center text-2xl">
+                🎮
+            </div>
+            <div class="flex-1">
+                <h1 class="text-2xl font-bold text-hearth-gold">{{ player.displayName }}</h1>
+                <p class="text-hearth-dim text-sm">{{ player.battleTag }}
+                    {% if player.verified %}<span class="text-green-400 ml-1">✅ 已认证</span>{% else %}<span class="text-yellow-400 ml-1">🔸 未认证</span>{% endif %}
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-hearth-border">
+            <div class="px-5 py-4 text-center">
+                <div class="text-2xl font-bold text-hearth-gold">{{ player.totalPoints }}</div>
+                <div class="text-xs text-hearth-dim mt-1">总积分</div>
+            </div>
+            <div class="px-5 py-4 text-center">
+                <div class="text-2xl font-bold">{{ player.totalGames }}</div>
+                <div class="text-xs text-hearth-dim mt-1">总场次</div>
+            </div>
+            <div class="px-5 py-4 text-center">
+                <div class="text-2xl font-bold">{{ "%.0f"|format((player.wins / player.totalGames * 100) if player.totalGames > 0 else 0) }}%</div>
+                <div class="text-xs text-hearth-dim mt-1">吃鸡率</div>
+            </div>
+            <div class="px-5 py-4 text-center">
+                <div class="text-2xl font-bold">{{ "%.1f"|format(player.avgPlacement) }}</div>
+                <div class="text-xs text-hearth-dim mt-1">场均排名</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 历史对局 -->
+    <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+        <div class="px-5 py-4 border-b border-hearth-border">
+            <h2 class="text-lg font-bold text-hearth-gold">📋 历史对局</h2>
+        </div>
+        {% if matches %}
+        <div class="divide-y divide-hearth-border">
+            {% for m in matches %}
+            <a href="/match/{{ m.gameUuid }}" class="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+                        {% if m.placement == 1 %}bg-yellow-500/20 text-yellow-400
+                        {% elif m.placement == 2 %}bg-gray-400/20 text-gray-300
+                        {% elif m.placement == 3 %}bg-orange-500/20 text-orange-400
+                        {% else %}bg-white/5 text-hearth-dim{% endif %}">
+                        {{ m.placement }}
+                    </span>
+                    <div>
+                        <div class="text-sm">{{ m.heroName }}</div>
+                        <div class="text-xs text-hearth-dim">{{ m.endedAt[:16].replace('T', ' ') }}</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-bold {% if m.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">
+                        +{{ m.points }}
+                    </div>
+                    <div class="text-xs text-hearth-dim">积分</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-hearth-dim">暂无对局记录</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

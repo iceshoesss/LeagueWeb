@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}酒馆战棋联赛 — 排行榜{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-6">
+    <!-- 左侧：排行榜 + 最近对局 -->
+    <div class="flex-1 min-w-0">
+        <!-- 排行榜 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-6">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
+                <span class="text-xs text-hearth-dim">共 {{ players|length }} 名选手</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="leaderboard">
+                    <thead>
+                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
+                            <th class="px-5 py-3 text-left w-12">#</th>
+                            <th class="px-5 py-3 text-left">玩家</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="totalPoints">积分 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="totalGames">场次 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="avgPlacement">场均排名 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="wins">吃鸡 ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 最近对局 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border">
+                <h2 class="text-lg font-bold text-hearth-gold">📋 最近对局</h2>
+            </div>
+            <div class="divide-y divide-hearth-border">
+                {% for match in matches[:5] %}
+                <a href="/match/{{ match.gameUuid }}" class="block px-5 py-3 hover:bg-white/5 transition">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-hearth-dim">#{{ loop.index }} &middot; {{ match.endedAt[:16].replace('T', ' ') }}</span>
+                        <span class="text-xs px-2 py-0.5 rounded bg-hearth-gold/10 text-hearth-gold">{{ match.mode }}</span>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        {% for p in match.players[:4] %}
+                        <span class="{% if p.placement == 1 %}rank-1 font-bold{% elif p.placement == 2 %}rank-2{% elif p.placement == 3 %}rank-3{% endif %}">
+                            {{ p.placement }}. {{ p.displayName }}
+                        </span>
+                        {% endfor %}
+                        <span class="text-hearth-dim">...</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：实时对局 -->
+    <div class="w-full lg:w-72 flex-shrink-0">
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden sticky top-6">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-2">
+                <span class="active-pulse text-green-400">⚔️</span>
+                <h2 class="text-lg font-bold text-hearth-gold">正在进行</h2>
+            </div>
+            <div class="divide-y divide-hearth-border">
+                {% for game in active_games %}
+                <div class="px-5 py-3">
+                    <div class="space-y-1 mb-2">
+                        {% for p in game.players %}
+                        <div class="text-sm">{{ p.displayName }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="flex items-center justify-between text-xs text-hearth-dim">
+                        <span>开始: {{ game.startedAt[11:16] }}</span>
+                        <span class="text-hearth-gold font-mono" data-started="{{ game.startedAt }}">⏱️ --:--</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<script>
+// 排行榜数据
+const players = {{ players | tojson }};
+
+// 计算胜率
+players.forEach(p => { p.winRate = p.totalGames > 0 ? (p.wins / p.totalGames) : 0; });
+
+let currentSort = 'totalPoints';
+let currentOrder = 'desc';
+
+function renderLeaderboard() {
+    const sorted = [...players].sort((a, b) => {
+        let va = a[currentSort], vb = b[currentSort];
+        if (currentSort === 'avgPlacement') {
+            // 场均排名越低越好
+            return currentOrder === 'desc' ? va - vb : vb - va;
+        }
+        if (currentSort === 'winRate') {
+            return currentOrder === 'desc' ? vb - va : va - vb;
+        }
+        return currentOrder === 'desc' ? vb - va : va - vb;
+    });
+
+    const tbody = document.getElementById('leaderboard-body');
+    tbody.innerHTML = sorted.map((p, i) => {
+        const rank = i + 1;
+        const rankClass = rank <= 3 ? `rank-${rank} font-bold` : 'text-hearth-dim';
+        const verified = p.verified ? '✅' : '🔸';
+        const winRate = (p.winRate * 100).toFixed(0) + '%';
+        return `<tr class="border-b border-hearth-border/50 hover:bg-white/5 transition">
+            <td class="px-5 py-3 ${rankClass}">${rank}</td>
+            <td class="px-5 py-3">
+                <a href="/player/${encodeURIComponent(p.battleTag)}" class="hover:text-hearth-gold transition">
+                    ${verified} ${p.displayName}
+                </a>
+            </td>
+            <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.totalPoints}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.totalGames}</td>
+            <td class="px-5 py-3 text-right font-mono">${winRate}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.wins}</td>
+        </tr>`;
+    }).join('');
+}
+
+// 点击列头排序
+document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const sort = btn.dataset.sort;
+        if (currentSort === sort) {
+            currentOrder = currentOrder === 'desc' ? 'asc' : 'desc';
+        } else {
+            currentSort = sort;
+            currentOrder = sort === 'avgPlacement' ? 'asc' : 'desc';
+        }
+        renderLeaderboard();
+    });
+});
+
+renderLeaderboard();
+
+// 实时计时器
+function updateTimers() {
+    document.querySelectorAll('[data-started]').forEach(el => {
+        const started = new Date(el.dataset.started + 'Z');
+        const now = new Date();
+        const diff = Math.floor((now - started) / 1000);
+        if (diff < 0) { el.textContent = '⏱️ 00:00'; return; }
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        el.textContent = `⏱️ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    });
+}
+setInterval(updateTimers, 1000);
+updateTimers();
+</script>
+{% endblock %}
