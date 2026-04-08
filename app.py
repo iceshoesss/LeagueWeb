@@ -271,5 +271,48 @@ def api_active_games():
     return jsonify(get_active_games())
 
 
+# ── 报名队列 API ──────────────────────────────────────
+
+@app.route("/api/queue")
+def api_queue():
+    """获取报名队列"""
+    db = get_db()
+    queue = list(db.league_queue.find().sort("joinedAt", 1))
+    for q in queue:
+        q["_id"] = str(q["_id"])
+        q["joinedAt"] = to_iso_str(q.get("joinedAt"))
+    return jsonify(queue)
+
+
+@app.route("/api/queue/join", methods=["POST"])
+def api_queue_join():
+    """加入报名队列"""
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "名字不能为空"}), 400
+
+    db = get_db()
+    db.league_queue.update_one(
+        {"name": name},
+        {"$setOnInsert": {"name": name, "joinedAt": datetime.utcnow().isoformat() + "Z"}},
+        upsert=True,
+    )
+    return jsonify({"ok": True, "name": name})
+
+
+@app.route("/api/queue/leave", methods=["POST"])
+def api_queue_leave():
+    """退出报名队列"""
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "名字不能为空"}), 400
+
+    db = get_db()
+    db.league_queue.delete_one({"name": name})
+    return jsonify({"ok": True, "name": name})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -57,8 +57,9 @@
         </div>
     </div>
 
-    <!-- 右侧：实时对局 -->
-    <div class="w-full lg:w-72 flex-shrink-0">
+    <!-- 右侧：实时对局 + 报名队列 -->
+    <div class="w-full lg:w-72 flex-shrink-0 space-y-6">
+        <!-- 正在进行 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden sticky top-6">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-2">
                 <span class="active-pulse text-green-400">⚔️</span>
@@ -78,6 +79,22 @@
                     </div>
                 </div>
                 {% endfor %}
+            </div>
+        </div>
+
+        <!-- 报名队列 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">📋 报名队列</h2>
+                <span class="text-xs text-hearth-dim" id="queue-count">0 人</span>
+            </div>
+            <div id="queue-list" class="divide-y divide-hearth-border">
+                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+            <div class="px-5 py-4 border-t border-hearth-border">
+                <button id="queue-btn" onclick="toggleQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30">
+                    ✋ 报名参加
+                </button>
             </div>
         </div>
     </div>
@@ -160,5 +177,65 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
 
 updateTimers();
 setInterval(updateTimers, 1000);
+
+// ── 报名队列 ──
+const MY_NAME = '衣锦夜行';
+let queueData = [];
+
+async function fetchQueue() {
+    try {
+        const res = await fetch('/api/queue');
+        queueData = await res.json();
+        renderQueue();
+    } catch (e) {
+        document.getElementById('queue-list').innerHTML =
+            '<div class="px-5 py-6 text-center text-sm text-hearth-dim">加载失败</div>';
+    }
+}
+
+function renderQueue() {
+    const list = document.getElementById('queue-list');
+    const count = document.getElementById('queue-count');
+    const btn = document.getElementById('queue-btn');
+
+    count.textContent = `${queueData.length} 人`;
+
+    if (queueData.length === 0) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无报名</div>';
+    } else {
+        list.innerHTML = queueData.map((q, i) => `
+            <div class="flex items-center gap-3 px-5 py-2.5 text-sm">
+                <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
+                <span class="${q.name === MY_NAME ? 'text-hearth-gold font-bold' : ''}">${q.name}</span>
+            </div>
+        `).join('');
+    }
+
+    const inQueue = queueData.some(q => q.name === MY_NAME);
+    if (inQueue) {
+        btn.textContent = '❌ 取消报名';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30';
+    } else {
+        btn.textContent = '✋ 报名参加';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30';
+    }
+}
+
+async function toggleQueue() {
+    const inQueue = queueData.some(q => q.name === MY_NAME);
+    const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
+    try {
+        await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: MY_NAME }),
+        });
+        await fetchQueue();
+    } catch (e) {
+        alert('操作失败，请重试');
+    }
+}
+
+fetchQueue();
 </script>
 {% endblock %}
