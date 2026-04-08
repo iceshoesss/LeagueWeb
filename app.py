@@ -56,7 +56,7 @@ def to_iso_str(dt_val):
 
 
 def get_players():
-    """从 league_matches 聚合生成排行榜"""
+    """从 league_matches 聚合 + bg_ratings 获取排行榜"""
     db = get_db()
     pipeline = [
         {"$match": {"endedAt": {"$ne": None}}},
@@ -67,14 +67,22 @@ def get_players():
             "displayName": {"$first": "$players.displayName"},
             "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
-            "totalGames": {"$sum": 1},
+            "leagueGames": {"$sum": 1},
             "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
         }},
+        # 从 bg_ratings 查 gameCount
+        {"$lookup": {
+            "from": "bg_ratings",
+            "localField": "_id",
+            "foreignField": "playerId",
+            "as": "rating",
+        }},
         {"$addFields": {
-            "avgPlacement": {"$divide": ["$totalPlacement", "$totalGames"]},
-            "winRate": {"$divide": ["$wins", "$totalGames"]},
+            "totalGames": {"$ifNull": [{"$first": "$rating.gameCount"}, "$leagueGames"]},
+            "avgPlacement": {"$divide": ["$totalPlacement", "$leagueGames"]},
+            "winRate": {"$divide": ["$wins", "$leagueGames"]},
         }},
         {"$sort": {"totalPoints": -1}},
     ]
@@ -89,6 +97,7 @@ def get_players():
             "verified": True,
             "totalPoints": p.get("totalPoints", 0),
             "totalGames": p.get("totalGames", 0),
+            "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
             "avgPlacement": round(p.get("avgPlacement", 0), 1),
             "winRate": p.get("winRate", 0),
@@ -127,7 +136,7 @@ def get_active_games():
 
 
 def get_player(battle_tag):
-    """从 league_matches 聚合获取单个选手信息"""
+    """从 league_matches + bg_ratings 聚合获取单个选手信息"""
     db = get_db()
     pipeline = [
         {"$match": {"endedAt": {"$ne": None}, "players.battleTag": battle_tag}},
@@ -138,16 +147,25 @@ def get_player(battle_tag):
             "displayName": {"$first": "$players.displayName"},
             "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
-            "totalGames": {"$sum": 1},
+            "leagueGames": {"$sum": 1},
             "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
+        }},
+        {"$lookup": {
+            "from": "bg_ratings",
+            "localField": "_id",
+            "foreignField": "playerId",
+            "as": "rating",
+        }},
+        {"$addFields": {
+            "totalGames": {"$ifNull": [{"$first": "$rating.gameCount"}, "$leagueGames"]},
         }},
     ]
     result = list(db.league_matches.aggregate(pipeline))
     if result:
         p = result[0]
-        total_games = max(p.get("totalGames", 1), 1)
+        league_games = max(p.get("leagueGames", 1), 1)
         return {
             "_id": str(p["_id"]),
             "battleTag": p["_id"],
@@ -156,9 +174,10 @@ def get_player(battle_tag):
             "verified": True,
             "totalPoints": p.get("totalPoints", 0),
             "totalGames": p.get("totalGames", 0),
+            "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
-            "avgPlacement": round(p.get("totalPlacement", 0) / total_games, 1),
-            "winRate": p.get("wins", 0) / total_games,
+            "avgPlacement": round(p.get("totalPlacement", 0) / league_games, 1),
+            "winRate": p.get("wins", 0) / league_games,
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         }
     return None
