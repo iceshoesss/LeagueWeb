@@ -41,21 +41,21 @@
         <div class="grid grid-cols-2 divide-x divide-hearth-border border-t border-hearth-border">
             <div class="px-5 py-4 text-center">
                 {% if rival.softestShrimp %}
-                <div class="text-2xl">🦐</div>
+                <div class="text-xs text-hearth-dim">最软的虾 🦐</div>
                 <div class="text-sm font-bold text-orange-300 mt-1">{{ rival.softestShrimp.name }}</div>
-                <div class="text-xs text-hearth-dim">被 {{ rival.softestShrimp.count }} 次踩在脚下</div>
+                <div class="text-xs text-hearth-dim mt-1">把{{ rival.softestShrimp.name }} {{ rival.softestShrimp.count }} 次踩在脚下</div>
                 {% else %}
-                <div class="text-2xl">🦐</div>
+                <div class="text-xs text-hearth-dim">最软的虾 🦐</div>
                 <div class="text-sm text-hearth-dim mt-1">暂无数据</div>
                 {% endif %}
             </div>
             <div class="px-5 py-4 text-center">
                 {% if rival.hardestDuck %}
-                <div class="text-2xl">🦆</div>
+                <div class="text-xs text-hearth-dim">最硬的鸭 🦆</div>
                 <div class="text-sm font-bold text-blue-300 mt-1">{{ rival.hardestDuck.name }}</div>
-                <div class="text-xs text-hearth-dim">被 {{ rival.hardestDuck.count }} 次踩在头上</div>
+                <div class="text-xs text-hearth-dim mt-1">被{{ rival.hardestDuck.name }} {{ rival.hardestDuck.count }} 次踩在头上</div>
                 {% else %}
-                <div class="text-2xl">🦆</div>
+                <div class="text-xs text-hearth-dim">最硬的鸭 🦆</div>
                 <div class="text-sm text-hearth-dim mt-1">暂无数据</div>
                 {% endif %}
             </div>
