@@ -65,7 +65,7 @@
                 <span class="active-pulse text-green-400">⚔️</span>
                 <h2 class="text-lg font-bold text-hearth-gold">正在进行</h2>
             </div>
-            <div class="divide-y divide-hearth-border">
+            <div id="active-games-list" class="divide-y divide-hearth-border">
                 {% for game in active_games %}
                 <div class="px-5 py-3">
                     <div class="space-y-1 mb-2">
@@ -237,5 +237,52 @@ async function toggleQueue() {
 }
 
 fetchQueue();
+
+// ── 对局实时刷新（每 5 秒轮询） ──
+let activeGamesCache = JSON.stringify([]);
+
+async function pollActiveGames() {
+    try {
+        const res = await fetch('/api/active-games');
+        const games = await res.json();
+        const next = JSON.stringify(games);
+        if (next !== activeGamesCache) {
+            activeGamesCache = next;
+            renderActiveGames(games);
+            updateNavCount(games.length);
+        }
+    } catch (e) { /* 静默失败 */ }
+}
+
+function renderActiveGames(games) {
+    const list = document.getElementById('active-games-list');
+    if (!games.length) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
+        return;
+    }
+    list.innerHTML = games.map(g => {
+        const players = g.players.map(p =>
+            `<div class="text-sm">${p.displayName}</div>`
+        ).join('');
+        const started = g.startedAtEpoch;
+        return `<div class="px-5 py-3">
+            <div class="space-y-1 mb-2">${players}</div>
+            <div class="flex items-center justify-between text-xs text-hearth-dim">
+                <span>8 人对局</span>
+                <span class="text-hearth-gold font-mono" data-started-epoch="${started}">⏱️ --:--</span>
+            </div>
+        </div>`;
+    }).join('');
+    updateTimers();
+}
+
+function updateNavCount(count) {
+    document.querySelectorAll('[data-nav-active-count]').forEach(el => {
+        el.textContent = `● ${count} 场对局进行中`;
+    });
+}
+
+pollActiveGames();
+setInterval(pollActiveGames, 5000);
 </script>
 {% endblock %}
