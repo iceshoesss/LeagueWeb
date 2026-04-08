@@ -19,6 +19,22 @@ _client = None
 _db = None
 
 
+@app.context_processor
+def inject_counts():
+    """每个页面自动注入进行中对局数和选手数"""
+    try:
+        db = get_db()
+        active_count = db.league_matches.count_documents(
+            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]}
+        )
+        player_count = len(db.league_matches.distinct("players.battleTag",
+            {"endedAt": {"$ne": None}}))
+    except Exception:
+        active_count = 0
+        player_count = 0
+    return {"active_game_count": active_count, "total_player_count": player_count}
+
+
 def get_db():
     global _client, _db
     if _db is None:
