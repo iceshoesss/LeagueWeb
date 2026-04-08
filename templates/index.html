@@ -2,11 +2,11 @@
 {% block title %}酒馆战棋联赛 — 排行榜{% endblock %}
 
 {% block content %}
-<div class="flex flex-col lg:flex-row gap-6">
+<div class="flex flex-col lg:flex-row gap-3">
     <!-- 左侧：排行榜 + 最近对局 + 广告 -->
     <div class="flex-1 min-w-0">
         <!-- 排行榜 -->
-        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-6">
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
                 <span class="text-xs text-hearth-dim">共 {{ players|length }} 名选手</span>
@@ -58,7 +58,7 @@
     </div>
 
     <!-- 右侧：正在进行 + 报名/等待队列 -->
-    <div class="w-full lg:w-auto flex-shrink-0 flex gap-6">
+    <div class="w-full lg:w-auto flex-shrink-0 flex gap-3">
         <!-- 正在进行 -->
         <div class="w-72 bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-2">
@@ -93,7 +93,7 @@
         </div>
 
         <!-- 报名 + 等待队列 -->
-        <div class="w-72 space-y-6">
+        <div class="w-72 space-y-3">
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
