@@ -424,7 +424,7 @@ def api_queue_join():
     # 优先补入未满的等待组
     incomplete_group = None
     for g in db.league_waiting_queue.find().sort("createdAt", 1):
-        if len(g.get("players", [])) < 2:
+        if len(g.get("players", [])) < 8:
             incomplete_group = g
             break
 
@@ -444,8 +444,8 @@ def api_queue_join():
 
     # 检查是否满N人
     signup_count = db.league_queue.count_documents({})
-    if signup_count >= 2:
-        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(2))
+    if signup_count >= 8:
+        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(8))
         players = [{"name": p["name"]} for p in signup]
         names = [p["name"] for p in signup]
         db.league_waiting_queue.insert_one({
