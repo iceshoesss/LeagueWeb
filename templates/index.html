@@ -239,19 +239,22 @@ async function toggleQueue() {
 fetchQueue();
 
 // ── 对局实时刷新（每 5 秒轮询） ──
-let activeGamesCache = JSON.stringify([]);
+let activeGamesCache = '';
 
 async function pollActiveGames() {
     try {
         const res = await fetch('/api/active-games');
         const games = await res.json();
-        const next = JSON.stringify(games);
-        if (next !== activeGamesCache) {
-            activeGamesCache = next;
+        // 用 gameUuid 拼接做指纹，避免完整 JSON 比较的时序/精度问题
+        const fingerprint = games.map(g => g.gameUuid || g._id).sort().join(',');
+        if (fingerprint !== activeGamesCache) {
+            activeGamesCache = fingerprint;
             renderActiveGames(games);
             updateNavCount(games.length);
         }
-    } catch (e) { /* 静默失败 */ }
+    } catch (e) {
+        console.error('pollActiveGames failed:', e);
+    }
 }
 
 function renderActiveGames(games) {
@@ -281,6 +284,16 @@ function updateNavCount(count) {
         el.textContent = `● ${count} 场对局进行中`;
     });
 }
+
+// 初始化：记录当前已渲染的对局指纹
+(function initCache() {
+    const list = document.getElementById('active-games-list');
+    if (!list) return;
+    const items = list.querySelectorAll('[data-started-epoch]');
+    // 页面初始渲染的对局没有 gameUuid，用 epoch 做临时指纹
+    const epochs = Array.from(items).map(el => el.dataset.startedEpoch).sort().join(',');
+    activeGamesCache = epochs || 'empty';
+})();
 
 pollActiveGames();
 setInterval(pollActiveGames, 5000);
