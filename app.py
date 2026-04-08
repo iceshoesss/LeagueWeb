@@ -345,6 +345,11 @@ def match_page(game_uuid):
     return render_template("match.html", match=match)
 
 
+@app.route("/register")
+def register_page():
+    return render_template("register.html")
+
+
 # ── API 路由 ──────────────────────────────────────────
 
 @app.route("/api/players")

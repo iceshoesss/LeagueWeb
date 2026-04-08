@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}注册 — 酒馆战棋联赛{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+        <div class="px-6 py-5 border-b border-hearth-border text-center">
+            <h2 class="text-2xl font-bold text-hearth-gold mb-1">🍺 选手注册</h2>
+            <p class="text-sm text-hearth-dim">使用插件验证码绑定你的战网账号</p>
+        </div>
+
+        <div class="px-6 py-6 space-y-5">
+            <!-- BattleTag -->
+            <div>
+                <label class="block text-sm font-medium text-hearth-dim mb-1.5">BattleTag</label>
+                <input id="battleTag" type="text" placeholder="南怀北瑾丨少头脑#5267"
+                    class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-hearth-border text-gray-200 placeholder-hearth-dim/50 focus:outline-none focus:border-hearth-gold/60 transition">
+            </div>
+
+            <!-- 验证码 -->
+            <div>
+                <label class="block text-sm font-medium text-hearth-dim mb-1.5">验证码</label>
+                <input id="verifyCode" type="text" placeholder="从插件日志获取（8位）" maxlength="8"
+                    class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-hearth-border text-gray-200 placeholder-hearth-dim/50 focus:outline-none focus:border-hearth-gold/60 transition font-mono tracking-widest uppercase">
+                <p class="mt-1.5 text-xs text-hearth-dim">
+                    完成一局游戏后，查看插件日志获取验证码<br>
+                    日志位置：<code class="text-hearth-gold/70">%AppData%\HearthstoneDeckTracker\BGTracker\tracker.log</code>
+                </p>
+            </div>
+
+            <!-- 提交按钮 -->
+            <button id="submitBtn" onclick="doRegister()"
+                class="w-full py-3 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 active:scale-[0.98]">
+                注册
+            </button>
+
+            <!-- 结果提示 -->
+            <div id="result" class="hidden rounded-lg px-4 py-3 text-sm"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showResult(msg, isError) {
+    const el = document.getElementById('result');
+    el.className = 'rounded-lg px-4 py-3 text-sm ' +
+        (isError ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                 : 'bg-green-500/10 text-green-400 border border-green-500/20');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+
+async function doRegister() {
+    const btn = document.getElementById('submitBtn');
+    const battleTag = document.getElementById('battleTag').value.trim();
+    const code = document.getElementById('verifyCode').value.trim();
+
+    document.getElementById('result').classList.add('hidden');
+
+    if (!battleTag) { showResult('请输入 BattleTag', true); return; }
+    if (!code) { showResult('请输入验证码', true); return; }
+
+    btn.disabled = true;
+    btn.textContent = '验证中...';
+
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ battleTag, verificationCode: code }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            showResult(`✅ 注册成功！欢迎 ${data.displayName}，你已加入联赛。`, false);
+            btn.textContent = '已注册 ✓';
+            btn.className = 'w-full py-3 rounded-lg font-bold text-sm bg-green-500/20 text-green-400 cursor-default';
+        } else {
+            showResult(data.error || '注册失败', true);
+            btn.disabled = false;
+            btn.textContent = '注册';
+        }
+    } catch (e) {
+        showResult('网络错误，请重试', true);
+        btn.disabled = false;
+        btn.textContent = '注册';
+    }
+}
+
+// 回车提交
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doRegister();
+});
+</script>
+{% endblock %}
