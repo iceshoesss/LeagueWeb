@@ -1,12 +1,12 @@
 {% extends "base.html" %}
-{% block title %}注册 — 酒馆战棋联赛{% endblock %}
+{% block title %}注册/登录 — 酒馆战棋联赛{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto">
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
         <div class="px-6 py-5 border-b border-hearth-border text-center">
-            <h2 class="text-2xl font-bold text-hearth-gold mb-1">🍺 选手注册</h2>
-            <p class="text-sm text-hearth-dim">使用插件验证码绑定你的战网账号</p>
+            <h2 id="formTitle" class="text-2xl font-bold text-hearth-gold mb-1">🍺 选手注册</h2>
+            <p id="formDesc" class="text-sm text-hearth-dim">使用插件验证码绑定你的战网账号</p>
         </div>
 
         <div class="px-6 py-6 space-y-5">
@@ -29,10 +29,17 @@
             </div>
 
             <!-- 提交按钮 -->
-            <button id="submitBtn" onclick="doRegister()"
+            <button id="submitBtn" onclick="doSubmit()"
                 class="w-full py-3 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 active:scale-[0.98]">
                 注册
             </button>
+
+            <!-- 切换模式 -->
+            <div class="text-center">
+                <button onclick="toggleMode()" class="text-xs text-hearth-dim hover:text-hearth-gold transition" id="toggleBtn">
+                    已有账号？点击登录
+                </button>
+            </div>
 
             <!-- 结果提示 -->
             <div id="result" class="hidden rounded-lg px-4 py-3 text-sm"></div>
@@ -43,6 +50,21 @@
 
 {% block scripts %}
 <script>
+let isRegister = true;
+
+function toggleMode() {
+    isRegister = !isRegister;
+    document.getElementById('formTitle').textContent = isRegister ? '🍺 选手注册' : '🔑 选手登录';
+    document.getElementById('formDesc').textContent = isRegister
+        ? '使用插件验证码绑定你的战网账号'
+        : '输入 BattleTag 和验证码登录';
+    document.getElementById('submitBtn').textContent = isRegister ? '注册' : '登录';
+    document.getElementById('toggleBtn').textContent = isRegister
+        ? '已有账号？点击登录'
+        : '没有账号？点击注册';
+    document.getElementById('result').classList.add('hidden');
+}
+
 function showResult(msg, isError) {
     const el = document.getElementById('result');
     el.className = 'rounded-lg px-4 py-3 text-sm ' +
@@ -52,7 +74,7 @@ function showResult(msg, isError) {
     el.classList.remove('hidden');
 }
 
-async function doRegister() {
+async function doSubmit() {
     const btn = document.getElementById('submitBtn');
     const battleTag = document.getElementById('battleTag').value.trim();
     const code = document.getElementById('verifyCode').value.trim();
@@ -62,11 +84,12 @@ async function doRegister() {
     if (!battleTag) { showResult('请输入 BattleTag', true); return; }
     if (!code) { showResult('请输入验证码', true); return; }
 
+    const endpoint = isRegister ? '/api/register' : '/api/login';
     btn.disabled = true;
-    btn.textContent = '验证中...';
+    btn.textContent = isRegister ? '注册中...' : '登录中...';
 
     try {
-        const res = await fetch('/api/register', {
+        const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ battleTag, verificationCode: code }),
@@ -74,24 +97,26 @@ async function doRegister() {
         const data = await res.json();
 
         if (res.ok) {
-            showResult(`✅ 注册成功！欢迎 ${data.displayName}，你已加入联赛。`, false);
-            btn.textContent = '已注册 ✓';
+            const action = isRegister ? '注册' : '登录';
+            showResult(`✅ ${action}成功！欢迎 ${data.displayName}，即将跳转...`, false);
+            btn.textContent = '✓';
             btn.className = 'w-full py-3 rounded-lg font-bold text-sm bg-green-500/20 text-green-400 cursor-default';
+            setTimeout(() => window.location.href = '/', 1200);
         } else {
-            showResult(data.error || '注册失败', true);
+            showResult(data.error || '操作失败', true);
             btn.disabled = false;
-            btn.textContent = '注册';
+            btn.textContent = isRegister ? '注册' : '登录';
         }
     } catch (e) {
         showResult('网络错误，请重试', true);
         btn.disabled = false;
-        btn.textContent = '注册';
+        btn.textContent = isRegister ? '注册' : '登录';
     }
 }
 
 // 回车提交
 document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doRegister();
+    if (e.key === 'Enter') doSubmit();
 });
 </script>
 {% endblock %}

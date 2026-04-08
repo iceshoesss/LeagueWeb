@@ -3,13 +3,16 @@
 从 MongoDB 读取真实数据
 """
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from bson import datetime as bson_datetime
+import hashlib
+import secrets
 import time
 
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(32)
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
@@ -24,7 +27,7 @@ _db = None
 
 @app.context_processor
 def inject_counts():
-    """每个页面自动注入进行中对局数和选手数"""
+    """每个页面自动注入进行中对局数、选手数、当前登录用户"""
     try:
         db = get_db()
         cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
@@ -39,7 +42,18 @@ def inject_counts():
     except Exception:
         active_count = 0
         player_count = 0
-    return {"active_game_count": active_count, "total_player_count": player_count}
+
+    # 当前登录用户
+    current_user = None
+    battle_tag = session.get("battleTag")
+    if battle_tag:
+        current_user = {"battleTag": battle_tag, "displayName": session.get("displayName", battle_tag)}
+
+    return {
+        "active_game_count": active_count,
+        "total_player_count": player_count,
+        "current_user": current_user,
+    }
 
 
 def get_db():
@@ -475,6 +489,10 @@ def api_register():
         upsert=True,
     )
 
+    # 自动登录
+    session["battleTag"] = battle_tag
+    session["displayName"] = display_name
+
     return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
 
 
@@ -493,6 +511,53 @@ def api_verify():
             "displayName": player.get("displayName", ""),
         })
     return jsonify({"verified": False})
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    """
+    登录：BattleTag + 验证码 → 从 bg_ratings 比对 → 发 session
+    """
+    data = request.get_json() or {}
+    battle_tag = data.get("battleTag", "").strip()
+    verification_code = data.get("verificationCode", "").strip().upper()
+
+    if not battle_tag:
+        return jsonify({"error": "BattleTag 不能为空"}), 400
+    if not verification_code:
+        return jsonify({"error": "验证码不能为空"}), 400
+
+    db = get_db()
+
+    # 查 bg_ratings 验证码
+    rating = db.bg_ratings.find_one({"playerId": battle_tag})
+    if not rating:
+        return jsonify({"error": f"未找到 {battle_tag} 的游戏记录"}), 404
+
+    stored_code = rating.get("verificationCode")
+    if not stored_code:
+        return jsonify({"error": "该记录尚未生成验证码，请使用最新版插件完成一局游戏"}), 400
+
+    if verification_code != stored_code.upper():
+        return jsonify({"error": "验证码不正确"}), 403
+
+    # 提取 displayName
+    display_name = battle_tag
+    hash_idx = battle_tag.find("#")
+    if hash_idx > 0:
+        display_name = battle_tag[:hash_idx]
+
+    # 写 session
+    session["battleTag"] = battle_tag
+    session["displayName"] = display_name
+
+    return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
 
 
 if __name__ == "__main__":

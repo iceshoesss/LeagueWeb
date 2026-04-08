@@ -188,7 +188,7 @@ updateTimers();
 setInterval(updateTimers, 1000);
 
 // ── 报名队列 ──
-const MY_NAME = '衣锦夜行';
+const MY_NAME = {% if current_user %}{{ current_user.battleTag | tojson }}{% else %}null{% endif %};
 let queueData = [];
 
 async function fetchQueue() {
@@ -215,9 +215,15 @@ function renderQueue() {
         list.innerHTML = queueData.map((q, i) => `
             <div class="flex items-center gap-3 px-5 py-2.5 text-sm">
                 <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
-                <span class="${q.name === MY_NAME ? 'text-hearth-gold font-bold' : ''}">${q.name}</span>
+                <span>${q.name}</span>
             </div>
         `).join('');
+    }
+
+    if (!MY_NAME) {
+        btn.textContent = '请先登录';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-border text-hearth-dim cursor-not-allowed';
+        return;
     }
 
     const inQueue = queueData.some(q => q.name === MY_NAME);
@@ -231,6 +237,7 @@ function renderQueue() {
 }
 
 async function toggleQueue() {
+    if (!MY_NAME) { window.location.href = '/register'; return; }
     const inQueue = queueData.some(q => q.name === MY_NAME);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
     try {
