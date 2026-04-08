@@ -57,10 +57,10 @@
         </div>
     </div>
 
-    <!-- 右侧：实时对局 + 报名队列 -->
-    <div class="w-full lg:w-72 flex-shrink-0 space-y-6">
+    <!-- 右侧：正在进行 + 报名/等待队列 -->
+    <div class="w-full lg:w-auto flex-shrink-0 flex gap-6">
         <!-- 正在进行 -->
-        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+        <div class="w-72 bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-2">
                 <span class="active-pulse text-green-400">⚔️</span>
                 <h2 class="text-lg font-bold text-hearth-gold">正在进行</h2>
@@ -92,6 +92,8 @@
             </div>
         </div>
 
+        <!-- 报名 + 等待队列 -->
+        <div class="w-72 space-y-6">
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
@@ -122,6 +124,7 @@
                     ❌ 退出等待
                 </button>
             </div>
+        </div>
         </div>
     </div>
 </div>
