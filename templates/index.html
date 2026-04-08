@@ -92,22 +92,6 @@
             </div>
         </div>
 
-        <!-- 等待队列 -->
-        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
-            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
-                <h2 class="text-lg font-bold text-hearth-gold">⏳ 等待队列</h2>
-                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0/8 人</span>
-            </div>
-            <div id="waiting-queue-list" class="divide-y divide-hearth-border">
-                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
-            </div>
-            <div class="px-5 py-4 border-t border-hearth-border" id="waiting-queue-action" style="display:none">
-                <button id="waiting-leave-btn" onclick="leaveWaitingQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
-                    ❌ 退出等待
-                </button>
-            </div>
-        </div>
-
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
@@ -120,6 +104,22 @@
             <div class="px-5 py-4 border-t border-hearth-border">
                 <button id="queue-btn" onclick="toggleQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30">
                     ✋ 报名参加
+                </button>
+            </div>
+        </div>
+
+        <!-- 等待队列 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">⏳ 等待队列</h2>
+                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0/8 人</span>
+            </div>
+            <div id="waiting-queue-list" class="divide-y divide-hearth-border">
+                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+            <div class="px-5 py-4 border-t border-hearth-border" id="waiting-queue-action" style="display:none">
+                <button id="waiting-leave-btn" onclick="leaveWaitingQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                    ❌ 退出等待
                 </button>
             </div>
         </div>
