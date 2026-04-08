@@ -21,8 +21,8 @@
                             <th class="px-5 py-3 text-right sort-btn" data-sort="totalGames">场次 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="avgPlacement">场均排名 ↕</th>
-                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickenRate">吃鸡率 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="chickens">吃鸡 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickenRate">吃鸡率 ↕</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboard-body">
@@ -124,8 +124,8 @@ function renderLeaderboard() {
             <td class="px-5 py-3 text-right font-mono">${p.totalGames}</td>
             <td class="px-5 py-3 text-right font-mono">${winRate}</td>
             <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
-            <td class="px-5 py-3 text-right font-mono">${(p.chickenRate * 100).toFixed(0)}%</td>
             <td class="px-5 py-3 text-right font-mono">${p.chickens}</td>
+            <td class="px-5 py-3 text-right font-mono">${(p.chickenRate * 100).toFixed(0)}%</td>
         </tr>`;
     }).join('');
 }
