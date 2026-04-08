@@ -117,7 +117,7 @@ def get_players():
             "as": "rating",
         }},
         {"$addFields": {
-            "totalGames": {"$ifNull": [{"$first": "$rating.gameCount"}, "$leagueGames"]},
+            "totalGames": {"$ifNull": [{"$first": "$rating.leagueCount"}, "$leagueGames"]},
             "avgPlacement": {"$divide": ["$totalPlacement", "$leagueGames"]},
             "winRate": {"$divide": ["$wins", "$leagueGames"]},
             "chickenRate": {"$divide": ["$chickens", "$leagueGames"]},
@@ -223,7 +223,7 @@ def get_player(battle_tag):
             "as": "rating",
         }},
         {"$addFields": {
-            "totalGames": {"$ifNull": [{"$first": "$rating.gameCount"}, "$leagueGames"]},
+            "totalGames": {"$ifNull": [{"$first": "$rating.leagueCount"}, "$leagueGames"]},
         }},
     ]
     result = list(db.league_matches.aggregate(pipeline))
