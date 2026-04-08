@@ -27,11 +27,11 @@ def inject_counts():
     """每个页面自动注入进行中对局数和选手数"""
     try:
         db = get_db()
-        cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
+        cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
         active_count = db.league_matches.count_documents({
             "$and": [
                 {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-                {"startedAt": {"$gte": cutoff_dt}}
+                {"startedAt": {"$gte": cutoff_str}}
             ]
         })
         player_count = len(db.league_matches.distinct("players.battleTag",
@@ -152,11 +152,11 @@ def get_active_games():
     db = get_db()
     # 每次查询时清理超时对局
     cleanup_stale_games()
-    cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
+    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$gte": cutoff_dt}}
+            {"startedAt": {"$gte": cutoff_str}}
         ]
     }
     games = list(db.league_matches.find(query).sort("startedAt", -1))
@@ -170,16 +170,16 @@ def get_active_games():
 def cleanup_stale_games():
     """将超过超时时间的未结束对局标记为结束"""
     db = get_db()
-    cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
+    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$lt": cutoff_dt}}
+            {"startedAt": {"$lt": cutoff_str}}
         ]
     }
     result = db.league_matches.update_many(
         query,
-        {"$set": {"endedAt": datetime.utcnow()}}
+        {"$set": {"endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}}
     )
     if result.modified_count > 0:
         print(f"清理了 {result.modified_count} 个超时对局")
