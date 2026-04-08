@@ -5,11 +5,14 @@
 
 from flask import Flask, render_template, jsonify, request
 from pymongo import MongoClient
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import datetime as bson_datetime
 import time
 
 app = Flask(__name__)
+
+# 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
+GAME_TIMEOUT_MINUTES = 25
 
 # ── MongoDB 连接 ────────────────────────────────────
 MONGO_URL = "mongodb://YOUR_MONGO_HOST:27017"
@@ -24,11 +27,15 @@ def inject_counts():
     """每个页面自动注入进行中对局数和选手数"""
     try:
         db = get_db()
-        active_count = db.league_matches.count_documents(
-            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]}
-        )
+        cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+        active_count = db.league_matches.count_documents({
+            "$and": [
+                {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+                {"startedAt": {"$gte": cutoff}}
+            ]
+        })
         player_count = len(db.league_matches.distinct("players.battleTag",
-            {"endedAt": {"$ne": None}}))
+            {"endedAt": {"$nin": [None]}}))
     except Exception:
         active_count = 0
         player_count = 0
@@ -141,17 +148,41 @@ def get_completed_matches(limit=10):
 
 
 def get_active_games():
-    """获取进行中的对局（endedAt 为 null 或字段不存在）"""
+    """获取进行中的对局（endedAt 为 null 或字段不存在，且未超时）"""
     db = get_db()
-    games = list(db.league_matches.find(
-        {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]}
-    ).sort("startedAt", -1))
+    # 每次查询时清理超时对局
+    cleanup_stale_games()
+    cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+    query = {
+        "$and": [
+            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"startedAt": {"$gte": cutoff}}
+        ]
+    }
+    games = list(db.league_matches.find(query).sort("startedAt", -1))
     for g in games:
         g["_id"] = str(g["_id"])
         g["startedAtEpoch"] = to_epoch(g.get("startedAt"))
-        # 统一时间格式
         g["startedAt"] = to_iso_str(g.get("startedAt"))
     return games
+
+
+def cleanup_stale_games():
+    """将超过超时时间的未结束对局标记为结束（endedAt 写入超时标记）"""
+    db = get_db()
+    cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+    query = {
+        "$and": [
+            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"startedAt": {"$lt": cutoff}}
+        ]
+    }
+    result = db.league_matches.update_many(
+        query,
+        {"$set": {"endedAt": "TIMEOUT_" + datetime.utcnow().isoformat() + "Z"}}
+    )
+    if result.modified_count > 0:
+        print(f"清理了 {result.modified_count} 个超时对局")
 
 
 def get_player(battle_tag):
