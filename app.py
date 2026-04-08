@@ -394,6 +394,17 @@ def api_queue():
     return jsonify(queue)
 
 
+@app.route("/api/waiting-queue")
+def api_waiting_queue():
+    """获取等待队列（满8人后从报名队列移入）"""
+    db = get_db()
+    queue = list(db.league_waiting_queue.find().sort("joinedAt", 1))
+    for q in queue:
+        q["_id"] = str(q["_id"])
+        q["joinedAt"] = to_iso_str(q.get("joinedAt"))
+    return jsonify(queue)
+
+
 @app.route("/api/queue/join", methods=["POST"])
 def api_queue_join():
     """加入报名队列"""
@@ -403,23 +414,46 @@ def api_queue_join():
         return jsonify({"error": "名字不能为空"}), 400
 
     db = get_db()
+
+    # 不能重复报名
+    if db.league_waiting_queue.find_one({"name": name}):
+        return jsonify({"error": "已在等待队列中"}), 400
+
     db.league_queue.update_one(
         {"name": name},
         {"$setOnInsert": {"name": name, "joinedAt": datetime.utcnow().isoformat() + "Z"}},
         upsert=True,
     )
-    return jsonify({"ok": True, "name": name})
+
+    # 检查是否满8人
+    signup_count = db.league_queue.count_documents({})
+    if signup_count >= 8:
+        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(8))
+        now = datetime.utcnow().isoformat() + "Z"
+        for p in signup:
+            db.league_waiting_queue.update_one(
+                {"name": p["name"]},
+                {"$setOnInsert": {"name": p["name"], "joinedAt": p.get("joinedAt", now)}},
+                upsert=True,
+            )
+        names = [p["name"] for p in signup]
+        db.league_queue.delete_many({"name": {"$in": names}})
+        return jsonify({"ok": True, "name": name, "moved": True})
+
+    return jsonify({"ok": True, "name": name, "moved": False})
 
 
 @app.route("/api/queue/leave", methods=["POST"])
 def api_queue_leave():
-    """退出报名队列"""
+    """退出报名队列或等待队列"""
     data = request.get_json() or {}
     name = data.get("name", "").strip()
     if not name:
         return jsonify({"error": "名字不能为空"}), 400
 
     db = get_db()
+    # 从等待队列或报名队列中移除
+    db.league_waiting_queue.delete_one({"name": name})
     db.league_queue.delete_one({"name": name})
     return jsonify({"ok": True, "name": name})
 

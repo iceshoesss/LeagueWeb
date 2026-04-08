@@ -92,6 +92,22 @@
             </div>
         </div>
 
+        <!-- 等待队列 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">⏳ 等待队列</h2>
+                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0/8 人</span>
+            </div>
+            <div id="waiting-queue-list" class="divide-y divide-hearth-border">
+                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+            <div class="px-5 py-4 border-t border-hearth-border" id="waiting-queue-action" style="display:none">
+                <button id="waiting-leave-btn" onclick="leaveWaitingQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                    ❌ 退出等待
+                </button>
+            </div>
+        </div>
+
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
@@ -187,9 +203,10 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
 updateTimers();
 setInterval(updateTimers, 1000);
 
-// ── 报名队列 ──
+// ── 报名队列 + 等待队列 ──
 const MY_NAME = {% if current_user %}{{ current_user.battleTag | tojson }}{% else %}null{% endif %};
 let queueData = [];
+let waitingData = [];
 
 async function fetchQueue() {
     try {
@@ -198,6 +215,17 @@ async function fetchQueue() {
         renderQueue();
     } catch (e) {
         document.getElementById('queue-list').innerHTML =
+            '<div class="px-5 py-6 text-center text-sm text-hearth-dim">加载失败</div>';
+    }
+}
+
+async function fetchWaitingQueue() {
+    try {
+        const res = await fetch('/api/waiting-queue');
+        waitingData = await res.json();
+        renderWaitingQueue();
+    } catch (e) {
+        document.getElementById('waiting-queue-list').innerHTML =
             '<div class="px-5 py-6 text-center text-sm text-hearth-dim">加载失败</div>';
     }
 }
@@ -226,6 +254,14 @@ function renderQueue() {
         return;
     }
 
+    // 如果在等待队列里，报名按钮变灰
+    const inWaiting = waitingData.some(q => q.name === MY_NAME);
+    if (inWaiting) {
+        btn.textContent = '已在等待队列';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-border text-hearth-dim cursor-not-allowed';
+        return;
+    }
+
     const inQueue = queueData.some(q => q.name === MY_NAME);
     if (inQueue) {
         btn.textContent = '❌ 取消报名';
@@ -236,16 +272,64 @@ function renderQueue() {
     }
 }
 
+function renderWaitingQueue() {
+    const list = document.getElementById('waiting-queue-list');
+    const count = document.getElementById('waiting-queue-count');
+    const action = document.getElementById('waiting-queue-action');
+
+    count.textContent = `${waitingData.length}/8 人`;
+
+    if (waitingData.length === 0) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">等待报名凑齐8人</div>';
+        action.style.display = 'none';
+    } else {
+        list.innerHTML = waitingData.map((q, i) => `
+            <div class="flex items-center gap-3 px-5 py-2.5 text-sm">
+                <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
+                <span>${q.name}</span>
+            </div>
+        `).join('');
+
+        if (MY_NAME && waitingData.some(q => q.name === MY_NAME)) {
+            action.style.display = 'block';
+        } else {
+            action.style.display = 'none';
+        }
+    }
+}
+
 async function toggleQueue() {
     if (!MY_NAME) { window.location.href = '/register'; return; }
+    // 在等待队列里不让操作
+    if (waitingData.some(q => q.name === MY_NAME)) return;
     const inQueue = queueData.some(q => q.name === MY_NAME);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
     try {
-        await fetch(endpoint, {
+        const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: MY_NAME }),
         });
+        const data = await res.json();
+        if (data.moved) {
+            // 满8人被移到等待队列了
+            await fetchWaitingQueue();
+        }
+        await fetchQueue();
+    } catch (e) {
+        alert('操作失败，请重试');
+    }
+}
+
+async function leaveWaitingQueue() {
+    if (!MY_NAME) return;
+    try {
+        await fetch('/api/queue/leave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: MY_NAME }),
+        });
+        await fetchWaitingQueue();
         await fetchQueue();
     } catch (e) {
         alert('操作失败，请重试');
@@ -253,7 +337,9 @@ async function toggleQueue() {
 }
 
 fetchQueue();
+fetchWaitingQueue();
 setInterval(fetchQueue, 1000);
+setInterval(fetchWaitingQueue, 1000);
 
 // ── 对局实时刷新（每 5 秒轮询） ──
 let activeGamesCache = '';
