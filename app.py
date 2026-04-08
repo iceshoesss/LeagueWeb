@@ -405,5 +405,90 @@ def api_queue_leave():
     return jsonify({"ok": True, "name": name})
 
 
+# ── 注册验证 API ──────────────────────────────────────
+
+@app.route("/api/register", methods=["POST"])
+def api_register():
+    """
+    用户在网站注册：
+    1. 输入 battleTag + 验证码（从插件日志获取）
+    2. 后端从 bg_ratings 读取存储的 verificationCode
+    3. 比对一致则注册成功，写入 league_players
+    """
+    data = request.get_json() or {}
+    battle_tag = data.get("battleTag", "").strip()
+    verification_code = data.get("verificationCode", "").strip().upper()
+
+    if not battle_tag:
+        return jsonify({"error": "BattleTag 不能为空"}), 400
+    if not verification_code:
+        return jsonify({"error": "验证码不能为空"}), 400
+
+    db = get_db()
+
+    # 查 bg_ratings 获取 accountIdLo 和 verificationCode
+    rating = db.bg_ratings.find_one({"playerId": battle_tag})
+    if not rating:
+        return jsonify({"error": f"未找到 {battle_tag} 的游戏记录，请先使用插件完成一局游戏"}), 404
+
+    stored_code = rating.get("verificationCode")
+    if not stored_code:
+        return jsonify({"error": "该记录尚未生成验证码，请使用最新版插件完成一局游戏后重试"}), 400
+
+    # 校验验证码
+    if verification_code != stored_code.upper():
+        return jsonify({"error": "验证码不正确，请检查插件日志中的验证码"}), 400
+
+    # accountIdLo
+    raw_lo = rating.get("accountIdLo")
+    account_id_lo = str(raw_lo) if raw_lo else ""
+
+    # 提取 displayName（去掉 #tag）
+    display_name = battle_tag
+    hash_idx = battle_tag.find("#")
+    if hash_idx > 0:
+        display_name = battle_tag[:hash_idx]
+
+    # 写入或更新 league_players
+    db.league_players.update_one(
+        {"battleTag": battle_tag},
+        {"$set": {
+            "battleTag": battle_tag,
+            "accountIdLo": account_id_lo,
+            "displayName": display_name,
+            "verified": True,
+            "verifiedAt": datetime.utcnow().isoformat() + "Z",
+        },
+        "$setOnInsert": {
+            "totalPoints": 0,
+            "totalGames": 0,
+            "wins": 0,
+            "chickens": 0,
+            "avgPlacement": 0,
+            "createdAt": datetime.utcnow().isoformat() + "Z",
+        }},
+        upsert=True,
+    )
+
+    return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
+
+
+@app.route("/api/verify")
+def api_verify():
+    """检查某 BattleTag 是否已验证"""
+    battle_tag = request.args.get("battleTag", "").strip()
+    if not battle_tag:
+        return jsonify({"error": "缺少 battleTag 参数"}), 400
+
+    db = get_db()
+    player = db.league_players.find_one({"battleTag": battle_tag})
+    if player:
+        return jsonify({
+            "verified": player.get("verified", False),
+            "displayName": player.get("displayName", ""),
+        })
+    return jsonify({"verified": False})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
