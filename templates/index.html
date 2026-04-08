@@ -7,9 +7,11 @@
     <div class="flex-1 min-w-0">
         <!-- 排行榜 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
-            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-3">
                 <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
-                <span class="text-xs text-hearth-dim">共 {{ players|length }} 名选手</span>
+                <input type="text" id="player-search" placeholder="搜索玩家..." oninput="renderLeaderboard()"
+                    class="flex-1 max-w-xs bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 transition">
+                <span class="text-xs text-hearth-dim" id="player-count">共 {{ players|length }} 名选手</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm" id="leaderboard">
@@ -142,7 +144,13 @@ let currentSort = 'totalPoints';
 let currentOrder = 'desc';
 
 function renderLeaderboard() {
-    const sorted = [...players].sort((a, b) => {
+    const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
+    const filtered = query
+        ? players.filter(p => p.displayName.toLowerCase().includes(query) || p.battleTag.toLowerCase().includes(query))
+        : players;
+    document.getElementById('player-count').textContent = `共 ${filtered.length} 名选手`;
+
+    const sorted = [...filtered].sort((a, b) => {
         let va = a[currentSort], vb = b[currentSort];
         if (currentSort === 'avgPlacement') {
             return currentOrder === 'desc' ? va - vb : vb - va;
