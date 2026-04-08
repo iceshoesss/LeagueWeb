@@ -253,6 +253,7 @@ async function toggleQueue() {
 }
 
 fetchQueue();
+setInterval(fetchQueue, 5000);
 
 // ── 对局实时刷新（每 5 秒轮询） ──
 let activeGamesCache = '';
