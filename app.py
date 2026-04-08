@@ -12,7 +12,7 @@ import time
 app = Flask(__name__)
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
-GAME_TIMEOUT_MINUTES = 25
+GAME_TIMEOUT_MINUTES = 80
 
 # ── MongoDB 连接 ────────────────────────────────────
 MONGO_URL = "mongodb://YOUR_MONGO_HOST:27017"
