@@ -10,7 +10,7 @@
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
                 <div class="flex items-center gap-3">
-                    <input type="text" id="player-search" placeholder="搜索玩家..." oninput="renderLeaderboard()"
+                    <input type="text" id="player-search" placeholder="搜索玩家..." oninput="currentPage=1;renderLeaderboard()"
                         class="w-48 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 transition">
                     <span class="text-xs text-hearth-dim whitespace-nowrap" id="player-count">共 {{ players|length }} 名选手</span>
                 </div>
@@ -33,6 +33,7 @@
                     </tbody>
                 </table>
             </div>
+            <div id="leaderboard-pager" class="px-5 py-3 flex items-center justify-center gap-1"></div>
         </div>
 
         <!-- 最近对局 -->
@@ -144,6 +145,8 @@ players.forEach(p => { p.winRate = p.totalGames > 0 ? (p.wins / p.totalGames) : 
 
 let currentSort = 'totalPoints';
 let currentOrder = 'desc';
+let currentPage = 1;
+const PAGE_SIZE = 10;
 
 function renderLeaderboard() {
     const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
@@ -163,9 +166,14 @@ function renderLeaderboard() {
         return currentOrder === 'desc' ? vb - va : va - vb;
     });
 
+    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = sorted.slice(start, start + PAGE_SIZE);
+
     const tbody = document.getElementById('leaderboard-body');
-    tbody.innerHTML = sorted.map((p, i) => {
-        const rank = i + 1;
+    tbody.innerHTML = pageItems.map((p, i) => {
+        const rank = start + i + 1;
         const rankClass = rank <= 3 ? `rank-${rank} font-bold` : 'text-hearth-dim';
         const winRate = (p.winRate * 100).toFixed(0) + '%';
         return `<tr class="border-b border-hearth-border/50 hover:bg-white/5 transition">
@@ -183,6 +191,26 @@ function renderLeaderboard() {
             <td class="px-5 py-3 text-right font-mono">${(p.chickenRate * 100).toFixed(0)}%</td>
         </tr>`;
     }).join('');
+
+    // 翻页控件
+    const pager = document.getElementById('leaderboard-pager');
+    if (totalPages <= 1) {
+        pager.innerHTML = '';
+        return;
+    }
+    let btns = '';
+    btns += `<button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        const active = p === currentPage;
+        btns += `<button onclick="goPage(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    btns += `<button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    pager.innerHTML = btns;
+}
+
+function goPage(p) {
+    currentPage = p;
+    renderLeaderboard();
 }
 
 // 实时计时器
@@ -209,6 +237,7 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
             currentSort = sort;
             currentOrder = sort === 'avgPlacement' ? 'asc' : 'desc';
         }
+        currentPage = 1;
         renderLeaderboard();
     });
 });
