@@ -146,7 +146,7 @@ players.forEach(p => { p.winRate = p.totalGames > 0 ? (p.wins / p.totalGames) : 
 let currentSort = 'totalPoints';
 let currentOrder = 'desc';
 let currentPage = 1;
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 function renderLeaderboard() {
     const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
