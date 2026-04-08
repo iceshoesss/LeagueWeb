@@ -396,13 +396,13 @@ def api_queue():
 
 @app.route("/api/waiting-queue")
 def api_waiting_queue():
-    """获取等待队列（满8人后从报名队列移入）"""
+    """获取等待队列（每满N人创建一个独立组）"""
     db = get_db()
-    queue = list(db.league_waiting_queue.find().sort("joinedAt", 1))
-    for q in queue:
-        q["_id"] = str(q["_id"])
-        q["joinedAt"] = to_iso_str(q.get("joinedAt"))
-    return jsonify(queue)
+    groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
+    for g in groups:
+        g["_id"] = str(g["_id"])
+        g["createdAt"] = to_iso_str(g.get("createdAt"))
+    return jsonify(groups)
 
 
 @app.route("/api/queue/join", methods=["POST"])
@@ -415,8 +415,8 @@ def api_queue_join():
 
     db = get_db()
 
-    # 不能重复报名
-    if db.league_waiting_queue.find_one({"name": name}):
+    # 不能重复报名或已在等待组中
+    if db.league_waiting_queue.find_one({"players.name": name}):
         return jsonify({"error": "已在等待队列中"}), 400
 
     db.league_queue.update_one(
@@ -425,18 +425,16 @@ def api_queue_join():
         upsert=True,
     )
 
-    # 检查是否满N人（测试阶段暂设为2）
+    # 检查是否满N人
     signup_count = db.league_queue.count_documents({})
     if signup_count >= 2:
         signup = list(db.league_queue.find().sort("joinedAt", 1).limit(2))
-        now = datetime.utcnow().isoformat() + "Z"
-        for p in signup:
-            db.league_waiting_queue.update_one(
-                {"name": p["name"]},
-                {"$setOnInsert": {"name": p["name"], "joinedAt": p.get("joinedAt", now)}},
-                upsert=True,
-            )
+        players = [{"name": p["name"]} for p in signup]
         names = [p["name"] for p in signup]
+        db.league_waiting_queue.insert_one({
+            "players": players,
+            "createdAt": datetime.utcnow().isoformat() + "Z",
+        })
         db.league_queue.delete_many({"name": {"$in": names}})
         return jsonify({"ok": True, "name": name, "moved": True})
 
@@ -452,9 +450,19 @@ def api_queue_leave():
         return jsonify({"error": "名字不能为空"}), 400
 
     db = get_db()
-    # 从等待队列或报名队列中移除
-    db.league_waiting_queue.delete_one({"name": name})
+    # 从报名队列移除
     db.league_queue.delete_one({"name": name})
+    # 从等待组中移除（如果组内没人了则删除整个组）
+    group = db.league_waiting_queue.find_one({"players.name": name})
+    if group:
+        remaining = [p for p in group["players"] if p["name"] != name]
+        if remaining:
+            db.league_waiting_queue.update_one(
+                {"_id": group["_id"]},
+                {"$set": {"players": remaining}}
+            )
+        else:
+            db.league_waiting_queue.delete_one({"_id": group["_id"]})
     return jsonify({"ok": True, "name": name})
 
 
