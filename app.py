@@ -6,6 +6,7 @@
 from flask import Flask, render_template, jsonify, request
 from pymongo import MongoClient
 from datetime import datetime
+from bson import datetime as bson_datetime
 import time
 
 app = Flask(__name__)
@@ -28,51 +29,139 @@ def get_db():
 
 # ── 数据查询 ────────────────────────────────────────
 
+def to_epoch(dt_val):
+    """安全地把各种格式的时间值转为 epoch 秒数"""
+    if dt_val is None:
+        return int(time.time())
+    if isinstance(dt_val, datetime):
+        return int(dt_val.timestamp())
+    if isinstance(dt_val, bson_datetime.datetime):
+        return int(dt_val.timestamp())
+    # 字符串格式
+    try:
+        s = str(dt_val).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(s)
+        return int(dt.timestamp())
+    except Exception:
+        return int(time.time())
+
+
+def to_iso_str(dt_val):
+    """安全地把各种格式的时间值转为 ISO 字符串"""
+    if dt_val is None:
+        return ""
+    if isinstance(dt_val, (datetime, bson_datetime.datetime)):
+        return dt_val.strftime("%Y-%m-%dT%H:%M:%S")
+    return str(dt_val)
+
+
 def get_players():
-    """从 league_players 获取排行榜数据"""
+    """从 league_matches 聚合生成排行榜"""
     db = get_db()
-    players = list(db.league_players.find().sort("totalPoints", -1))
-    for p in players:
-        p["_id"] = str(p["_id"])
-        if p.get("totalGames", 0) > 0:
-            p["winRate"] = p.get("wins", 0) / p["totalGames"]
-        else:
-            p["winRate"] = 0
+    pipeline = [
+        {"$match": {"endedAt": {"$ne": None}}},
+        {"$unwind": "$players"},
+        {"$match": {"players.points": {"$ne": None}}},
+        {"$group": {
+            "_id": "$players.battleTag",
+            "displayName": {"$first": "$players.displayName"},
+            "accountIdLo": {"$first": "$players.accountIdLo"},
+            "totalPoints": {"$sum": "$players.points"},
+            "totalGames": {"$sum": 1},
+            "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "totalPlacement": {"$sum": "$players.placement"},
+            "lastGameAt": {"$max": "$endedAt"},
+        }},
+        {"$addFields": {
+            "avgPlacement": {"$divide": ["$totalPlacement", "$totalGames"]},
+            "winRate": {"$divide": ["$wins", "$totalGames"]},
+        }},
+        {"$sort": {"totalPoints": -1}},
+    ]
+
+    players = []
+    for p in db.league_matches.aggregate(pipeline):
+        players.append({
+            "_id": str(p["_id"]),
+            "battleTag": p["_id"],
+            "displayName": p.get("displayName", ""),
+            "accountIdLo": p.get("accountIdLo", ""),
+            "verified": True,
+            "totalPoints": p.get("totalPoints", 0),
+            "totalGames": p.get("totalGames", 0),
+            "wins": p.get("wins", 0),
+            "avgPlacement": round(p.get("avgPlacement", 0), 1),
+            "winRate": p.get("winRate", 0),
+            "lastGameAt": to_iso_str(p.get("lastGameAt")),
+        })
     return players
 
 
 def get_completed_matches(limit=10):
     """获取已完成的对局（endedAt 非 null）"""
     db = get_db()
+    # endedAt 为 null 或字段不存在 = 进行中；非 null = 已完成
     matches = list(db.league_matches.find(
-        {"endedAt": {"$ne": None}}
+        {"endedAt": {"$nin": [None]}}
     ).sort("endedAt", -1).limit(limit))
     for m in matches:
         m["_id"] = str(m["_id"])
+        # 统一时间格式为字符串
+        m["endedAt"] = to_iso_str(m.get("endedAt"))
+        m["startedAt"] = to_iso_str(m.get("startedAt"))
     return matches
 
 
 def get_active_games():
-    """获取进行中的对局（endedAt 为 null）"""
+    """获取进行中的对局（endedAt 为 null 或字段不存在）"""
     db = get_db()
     games = list(db.league_matches.find(
-        {"endedAt": None}
+        {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]}
     ).sort("startedAt", -1))
     for g in games:
         g["_id"] = str(g["_id"])
-        # 转换 startedAt 为 epoch 秒数，供前端 JS 计时器使用
-        try:
-            dt = datetime.fromisoformat(g["startedAt"].replace("Z", "+00:00"))
-            g["startedAtEpoch"] = int(dt.timestamp())
-        except Exception:
-            g["startedAtEpoch"] = int(time.time())
+        g["startedAtEpoch"] = to_epoch(g.get("startedAt"))
+        # 统一时间格式
+        g["startedAt"] = to_iso_str(g.get("startedAt"))
     return games
 
 
 def get_player(battle_tag):
-    """获取单个选手信息"""
+    """从 league_matches 聚合获取单个选手信息"""
     db = get_db()
-    return db.league_players.find_one({"battleTag": battle_tag})
+    pipeline = [
+        {"$match": {"endedAt": {"$ne": None}, "players.battleTag": battle_tag}},
+        {"$unwind": "$players"},
+        {"$match": {"players.battleTag": battle_tag, "players.points": {"$ne": None}}},
+        {"$group": {
+            "_id": "$players.battleTag",
+            "displayName": {"$first": "$players.displayName"},
+            "accountIdLo": {"$first": "$players.accountIdLo"},
+            "totalPoints": {"$sum": "$players.points"},
+            "totalGames": {"$sum": 1},
+            "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "totalPlacement": {"$sum": "$players.placement"},
+            "lastGameAt": {"$max": "$endedAt"},
+        }},
+    ]
+    result = list(db.league_matches.aggregate(pipeline))
+    if result:
+        p = result[0]
+        total_games = max(p.get("totalGames", 1), 1)
+        return {
+            "_id": str(p["_id"]),
+            "battleTag": p["_id"],
+            "displayName": p.get("displayName", ""),
+            "accountIdLo": p.get("accountIdLo", ""),
+            "verified": True,
+            "totalPoints": p.get("totalPoints", 0),
+            "totalGames": p.get("totalGames", 0),
+            "wins": p.get("wins", 0),
+            "avgPlacement": round(p.get("totalPlacement", 0) / total_games, 1),
+            "winRate": p.get("wins", 0) / total_games,
+            "lastGameAt": to_iso_str(p.get("lastGameAt")),
+        }
+    return None
 
 
 def get_player_matches(battle_tag):
@@ -82,7 +171,7 @@ def get_player_matches(battle_tag):
     matches = list(db.league_matches.find(
         {
             "players.battleTag": battle_tag,
-            "endedAt": {"$ne": None}
+            "endedAt": {"$nin": [None]}
         }
     ).sort("endedAt", -1))
 
@@ -92,7 +181,7 @@ def get_player_matches(battle_tag):
             if p.get("battleTag") == battle_tag:
                 result.append({
                     "gameUuid": m["gameUuid"],
-                    "endedAt": m.get("endedAt", ""),
+                    "endedAt": to_iso_str(m.get("endedAt")),
                     "heroName": p.get("heroName", ""),
                     "placement": p.get("placement"),
                     "points": p.get("points"),
@@ -106,6 +195,8 @@ def get_match(game_uuid):
     match = db.league_matches.find_one({"gameUuid": game_uuid})
     if match:
         match["_id"] = str(match["_id"])
+        match["endedAt"] = to_iso_str(match.get("endedAt"))
+        match["startedAt"] = to_iso_str(match.get("startedAt"))
     return match
 
 
