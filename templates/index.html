@@ -68,9 +68,17 @@
             <div id="active-games-list" class="divide-y divide-hearth-border">
                 {% for game in active_games %}
                 <div class="px-5 py-3">
-                    <div class="space-y-1 mb-2">
+                    <div class="space-y-1.5 mb-2">
                         {% for p in game.players %}
-                        <div class="text-sm">{{ p.displayName }}</div>
+                        <div class="flex items-center gap-2 text-sm">
+                            {% if p.heroCardId %}
+                            <img src="https://art.hearthstonejson.com/v1/tiles/{{ p.heroCardId }}.jpg"
+                                 alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                                 class="w-7 h-7 rounded object-cover flex-shrink-0"
+                                 onerror="this.style.display='none'">
+                            {% endif %}
+                            <span>{{ p.displayName }}</span>
+                        </div>
                         {% endfor %}
                     </div>
                     <div class="flex items-center justify-between text-xs text-hearth-dim">
@@ -264,9 +272,12 @@ function renderActiveGames(games) {
         return;
     }
     list.innerHTML = games.map(g => {
-        const players = g.players.map(p =>
-            `<div class="text-sm">${p.displayName}</div>`
-        ).join('');
+        const players = g.players.map(p => {
+            const img = p.heroCardId
+                ? `<img src="https://art.hearthstonejson.com/v1/tiles/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-7 h-7 rounded object-cover flex-shrink-0" onerror="this.style.display='none'">`
+                : '';
+            return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
+        }).join('');
         const started = g.startedAtEpoch;
         return `<div class="px-5 py-3">
             <div class="space-y-1 mb-2">${players}</div>

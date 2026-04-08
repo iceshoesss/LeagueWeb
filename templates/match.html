@@ -22,11 +22,19 @@
                     {{ p.placement }}
                 </div>
                 <!-- 玩家信息 -->
-                <div class="flex-1 min-w-0">
-                    <a href="/player/{{ p.battleTag | urlencode }}" class="font-medium hover:text-hearth-gold transition truncate block">
-                        {{ p.displayName }}
-                    </a>
-                    <div class="text-xs text-hearth-dim">{{ p.heroName }}</div>
+                <div class="flex-1 min-w-0 flex items-center gap-3">
+                    {% if p.heroCardId %}
+                    <img src="https://art.hearthstonejson.com/v1/tiles/{{ p.heroCardId }}.jpg"
+                         alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                         class="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                         onerror="this.style.display='none'">
+                    {% endif %}
+                    <div class="min-w-0">
+                        <a href="/player/{{ p.battleTag | urlencode }}" class="font-medium hover:text-hearth-gold transition truncate block">
+                            {{ p.displayName }}
+                        </a>
+                        <div class="text-xs text-hearth-dim">{{ p.heroName }}</div>
+                    </div>
                 </div>
                 <!-- 积分 -->
                 <div class="text-right flex-shrink-0">

@@ -256,6 +256,7 @@ def get_player_matches(battle_tag):
                 result.append({
                     "gameUuid": m["gameUuid"],
                     "endedAt": to_iso_str(m.get("endedAt")),
+                    "heroCardId": p.get("heroCardId", ""),
                     "heroName": p.get("heroName", ""),
                     "placement": p.get("placement"),
                     "points": p.get("points"),
