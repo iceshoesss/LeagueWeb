@@ -7,11 +7,13 @@
     <div class="flex-1 min-w-0">
         <!-- 排行榜 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
-            <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-3">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
-                <input type="text" id="player-search" placeholder="搜索玩家..." oninput="renderLeaderboard()"
-                    class="flex-1 max-w-xs bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 transition">
-                <span class="text-xs text-hearth-dim" id="player-count">共 {{ players|length }} 名选手</span>
+                <div class="flex items-center gap-3">
+                    <input type="text" id="player-search" placeholder="搜索玩家..." oninput="renderLeaderboard()"
+                        class="w-48 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 transition">
+                    <span class="text-xs text-hearth-dim whitespace-nowrap" id="player-count">共 {{ players|length }} 名选手</span>
+                </div>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm" id="leaderboard">
