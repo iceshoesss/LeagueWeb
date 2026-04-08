@@ -119,7 +119,7 @@
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-lg font-bold text-hearth-gold">⏳ 等待队列</h2>
-                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0/8 人</span>
+                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0/2 人</span>
             </div>
             <div id="waiting-queue-list" class="divide-y divide-hearth-border">
                 <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
@@ -319,7 +319,7 @@ function renderWaitingQueue() {
     const count = document.getElementById('waiting-queue-count');
     const action = document.getElementById('waiting-queue-action');
 
-    count.textContent = `${waitingData.length}/8 人`;
+    count.textContent = `${waitingData.length}/2 人`;
 
     if (waitingData.length === 0) {
         list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">等待报名凑齐8人</div>';

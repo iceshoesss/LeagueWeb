@@ -425,10 +425,10 @@ def api_queue_join():
         upsert=True,
     )
 
-    # 检查是否满8人
+    # 检查是否满N人（测试阶段暂设为2）
     signup_count = db.league_queue.count_documents({})
-    if signup_count >= 8:
-        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(8))
+    if signup_count >= 2:
+        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(2))
         now = datetime.utcnow().isoformat() + "Z"
         for p in signup:
             db.league_waiting_queue.update_one(
