@@ -21,7 +21,8 @@
                             <th class="px-5 py-3 text-right sort-btn" data-sort="totalGames">场次 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="avgPlacement">场均排名 ↕</th>
-                            <th class="px-5 py-3 text-right sort-btn" data-sort="wins">吃鸡 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickenRate">吃鸡率 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickens">吃鸡 ↕</th>
                         </tr>
                     </thead>
                     <tbody id="leaderboard-body">
@@ -100,7 +101,7 @@ function renderLeaderboard() {
         if (currentSort === 'avgPlacement') {
             return currentOrder === 'desc' ? va - vb : vb - va;
         }
-        if (currentSort === 'winRate') {
+        if (currentSort === 'winRate' || currentSort === 'chickenRate') {
             return currentOrder === 'desc' ? vb - va : va - vb;
         }
         return currentOrder === 'desc' ? vb - va : va - vb;
@@ -123,7 +124,8 @@ function renderLeaderboard() {
             <td class="px-5 py-3 text-right font-mono">${p.totalGames}</td>
             <td class="px-5 py-3 text-right font-mono">${winRate}</td>
             <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
-            <td class="px-5 py-3 text-right font-mono">${p.wins}</td>
+            <td class="px-5 py-3 text-right font-mono">${(p.chickenRate * 100).toFixed(0)}%</td>
+            <td class="px-5 py-3 text-right font-mono">${p.chickens}</td>
         </tr>`;
     }).join('');
 }

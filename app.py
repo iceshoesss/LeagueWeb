@@ -68,11 +68,11 @@ def get_players():
             "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
             "leagueGames": {"$sum": 1},
-            "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "wins": {"$sum": {"$cond": [{"$lte": ["$players.placement", 4]}, 1, 0]}},
+            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
         }},
-        # 从 bg_ratings 查 gameCount
         {"$lookup": {
             "from": "bg_ratings",
             "localField": "_id",
@@ -83,6 +83,7 @@ def get_players():
             "totalGames": {"$ifNull": [{"$first": "$rating.gameCount"}, "$leagueGames"]},
             "avgPlacement": {"$divide": ["$totalPlacement", "$leagueGames"]},
             "winRate": {"$divide": ["$wins", "$leagueGames"]},
+            "chickenRate": {"$divide": ["$chickens", "$leagueGames"]},
         }},
         {"$sort": {"totalPoints": -1}},
     ]
@@ -99,8 +100,10 @@ def get_players():
             "totalGames": p.get("totalGames", 0),
             "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
+            "chickens": p.get("chickens", 0),
             "avgPlacement": round(p.get("avgPlacement", 0), 1),
             "winRate": p.get("winRate", 0),
+            "chickenRate": p.get("chickenRate", 0),
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         })
     return players
@@ -148,7 +151,8 @@ def get_player(battle_tag):
             "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
             "leagueGames": {"$sum": 1},
-            "wins": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "wins": {"$sum": {"$cond": [{"$lte": ["$players.placement", 4]}, 1, 0]}},
+            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
         }},
@@ -166,6 +170,8 @@ def get_player(battle_tag):
     if result:
         p = result[0]
         league_games = max(p.get("leagueGames", 1), 1)
+        wins = p.get("wins", 0)
+        chickens = p.get("chickens", 0)
         return {
             "_id": str(p["_id"]),
             "battleTag": p["_id"],
@@ -175,9 +181,11 @@ def get_player(battle_tag):
             "totalPoints": p.get("totalPoints", 0),
             "totalGames": p.get("totalGames", 0),
             "leagueGames": p.get("leagueGames", 0),
-            "wins": p.get("wins", 0),
+            "wins": wins,
+            "chickens": chickens,
             "avgPlacement": round(p.get("totalPlacement", 0) / league_games, 1),
-            "winRate": p.get("wins", 0) / league_games,
+            "winRate": wins / league_games,
+            "chickenRate": chickens / league_games,
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         }
     return None

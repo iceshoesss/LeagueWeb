@@ -26,7 +26,11 @@
                 <div class="text-xs text-hearth-dim mt-1">总场次</div>
             </div>
             <div class="px-5 py-4 text-center">
-                <div class="text-2xl font-bold">{{ "%.0f"|format((player.wins / player.totalGames * 100) if player.totalGames > 0 else 0) }}%</div>
+                <div class="text-2xl font-bold">{{ "%.0f"|format((player.winRate * 100) if player.leagueGames > 0 else 0) }}%</div>
+                <div class="text-xs text-hearth-dim mt-1">胜率</div>
+            </div>
+            <div class="px-5 py-4 text-center">
+                <div class="text-2xl font-bold">{{ "%.0f"|format((player.chickenRate * 100) if player.leagueGames > 0 else 0) }}%</div>
                 <div class="text-xs text-hearth-dim mt-1">吃鸡率</div>
             </div>
             <div class="px-5 py-4 text-center">
