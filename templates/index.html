@@ -98,7 +98,10 @@
             <div id="queue-list" class="divide-y divide-hearth-border">
                 <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
             </div>
-            <div class="px-5 py-4 border-t border-hearth-border">
+            <div class="px-5 py-4 border-t border-hearth-border space-y-2">
+                <input id="queue-name" type="text" placeholder="输入你的名字" maxlength="20"
+                    class="w-full px-3 py-2 rounded-lg bg-white/5 border border-hearth-border text-sm text-white placeholder:text-hearth-dim focus:outline-none focus:border-hearth-gold/50"
+                />
                 <button id="queue-btn" onclick="toggleQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30">
                     ✋ 报名参加
                 </button>
@@ -193,8 +196,19 @@ updateTimers();
 setInterval(updateTimers, 1000);
 
 // ── 报名队列 ──
-const MY_NAME = '衣锦夜行';
+const STORAGE_KEY = 'bgtracker_myname';
+const nameInput = document.getElementById('queue-name');
 let queueData = [];
+
+// 从 localStorage 恢复名字
+nameInput.value = localStorage.getItem(STORAGE_KEY) || '';
+nameInput.addEventListener('input', () => {
+    localStorage.setItem(STORAGE_KEY, nameInput.value.trim());
+});
+
+function getMyName() {
+    return (nameInput.value || '').trim();
+}
 
 async function fetchQueue() {
     try {
@@ -211,6 +225,7 @@ function renderQueue() {
     const list = document.getElementById('queue-list');
     const count = document.getElementById('queue-count');
     const btn = document.getElementById('queue-btn');
+    const myName = getMyName();
 
     count.textContent = `${queueData.length} 人`;
 
@@ -220,12 +235,12 @@ function renderQueue() {
         list.innerHTML = queueData.map((q, i) => `
             <div class="flex items-center gap-3 px-5 py-2.5 text-sm">
                 <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
-                <span class="${q.name === MY_NAME ? 'text-hearth-gold font-bold' : ''}">${q.name}</span>
+                <span class="${q.name === myName ? 'text-hearth-gold font-bold' : ''}">${q.name}</span>
             </div>
         `).join('');
     }
 
-    const inQueue = queueData.some(q => q.name === MY_NAME);
+    const inQueue = myName && queueData.some(q => q.name === myName);
     if (inQueue) {
         btn.textContent = '❌ 取消报名';
         btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30';
@@ -236,13 +251,20 @@ function renderQueue() {
 }
 
 async function toggleQueue() {
-    const inQueue = queueData.some(q => q.name === MY_NAME);
+    const myName = getMyName();
+    if (!myName) {
+        alert('请先输入你的名字');
+        nameInput.focus();
+        return;
+    }
+
+    const inQueue = queueData.some(q => q.name === myName);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
     try {
         await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: MY_NAME }),
+            body: JSON.stringify({ name: myName }),
         });
         await fetchQueue();
     } catch (e) {
