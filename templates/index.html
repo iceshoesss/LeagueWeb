@@ -138,13 +138,12 @@ function renderLeaderboard() {
     tbody.innerHTML = sorted.map((p, i) => {
         const rank = i + 1;
         const rankClass = rank <= 3 ? `rank-${rank} font-bold` : 'text-hearth-dim';
-        const verified = p.verified ? '✅' : '🔸';
         const winRate = (p.winRate * 100).toFixed(0) + '%';
         return `<tr class="border-b border-hearth-border/50 hover:bg-white/5 transition">
             <td class="px-5 py-3 ${rankClass}">${rank}</td>
             <td class="px-5 py-3">
                 <a href="/player/${encodeURIComponent(p.battleTag)}" class="hover:text-hearth-gold transition">
-                    ${verified} ${p.displayName}
+                    ${p.displayName}
                 </a>
             </td>
             <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.totalPoints}</td>

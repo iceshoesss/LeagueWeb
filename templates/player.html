@@ -11,9 +11,7 @@
             </div>
             <div class="flex-1">
                 <h1 class="text-2xl font-bold text-hearth-gold">{{ player.displayName }}</h1>
-                <p class="text-hearth-dim text-sm">{{ player.battleTag }}
-                    {% if player.verified %}<span class="text-green-400 ml-1">✅ 已认证</span>{% else %}<span class="text-yellow-400 ml-1">🔸 未认证</span>{% endif %}
-                </p>
+                <p class="text-hearth-dim text-sm">{{ player.battleTag }}</p>
             </div>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-4 divide-x divide-hearth-border">
