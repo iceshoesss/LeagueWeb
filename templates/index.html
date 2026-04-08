@@ -328,7 +328,7 @@ function renderWaitingQueue() {
         return `<div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-sm font-bold text-hearth-gold">⏳ 等待组 #${gi + 1}</h2>
-                <span class="text-xs text-hearth-dim">${(g.players || []).length}/2 人</span>
+                <span class="text-xs text-hearth-dim">${(g.players || []).length}/8 人</span>
             </div>
             <div class="divide-y divide-hearth-border">${players}</div>
             ${leaveBtn}
