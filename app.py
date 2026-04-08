@@ -27,11 +27,11 @@ def inject_counts():
     """每个页面自动注入进行中对局数和选手数"""
     try:
         db = get_db()
-        cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+        cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
         active_count = db.league_matches.count_documents({
             "$and": [
                 {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-                {"startedAt": {"$gte": cutoff}}
+                {"startedAt": {"$gte": cutoff_dt}}
             ]
         })
         player_count = len(db.league_matches.distinct("players.battleTag",
@@ -152,11 +152,11 @@ def get_active_games():
     db = get_db()
     # 每次查询时清理超时对局
     cleanup_stale_games()
-    cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+    cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$gte": cutoff}}
+            {"startedAt": {"$gte": cutoff_dt}}
         ]
     }
     games = list(db.league_matches.find(query).sort("startedAt", -1))
@@ -168,18 +168,18 @@ def get_active_games():
 
 
 def cleanup_stale_games():
-    """将超过超时时间的未结束对局标记为结束（endedAt 写入超时标记）"""
+    """将超过超时时间的未结束对局标记为结束"""
     db = get_db()
-    cutoff = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).isoformat() + "Z"
+    cutoff_dt = datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$lt": cutoff}}
+            {"startedAt": {"$lt": cutoff_dt}}
         ]
     }
     result = db.league_matches.update_many(
         query,
-        {"$set": {"endedAt": "TIMEOUT_" + datetime.utcnow().isoformat() + "Z"}}
+        {"$set": {"endedAt": datetime.utcnow()}}
     )
     if result.modified_count > 0:
         print(f"清理了 {result.modified_count} 个超时对局")
