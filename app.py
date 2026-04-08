@@ -236,6 +236,50 @@ def get_player(battle_tag):
     return None
 
 
+def get_rival_stats(battle_tag):
+    """统计最软的虾和最硬的鸭"""
+    db = get_db()
+    matches = list(db.league_matches.find(
+        {
+            "players.battleTag": battle_tag,
+            "endedAt": {"$nin": [None]}
+        }
+    ))
+
+    below_counts = {}  # 排名比我低的人（名次数字比我大）
+    above_counts = {}  # 排名比我高的人（名次数字比我小）
+
+    for m in matches:
+        my_placement = None
+        others = []
+        for p in m.get("players", []):
+            if p.get("battleTag") == battle_tag:
+                my_placement = p.get("placement")
+            else:
+                others.append(p)
+
+        if my_placement is None:
+            continue
+
+        for p in others:
+            opp_placement = p.get("placement")
+            if opp_placement is None:
+                continue
+            opp_name = p.get("displayName", p.get("battleTag", "未知"))
+            if opp_placement > my_placement:
+                below_counts[opp_name] = below_counts.get(opp_name, 0) + 1
+            elif opp_placement < my_placement:
+                above_counts[opp_name] = above_counts.get(opp_name, 0) + 1
+
+    softest_shrimp = max(below_counts, key=below_counts.get) if below_counts else None
+    hardest_duck = max(above_counts, key=above_counts.get) if above_counts else None
+
+    return {
+        "softestShrimp": {"name": softest_shrimp, "count": below_counts.get(softest_shrimp, 0)} if softest_shrimp else None,
+        "hardestDuck": {"name": hardest_duck, "count": above_counts.get(hardest_duck, 0)} if hardest_duck else None,
+    }
+
+
 def get_player_matches(battle_tag):
     """获取某选手的所有对局记录"""
     db = get_db()
@@ -289,7 +333,8 @@ def player_page(battle_tag):
     if not player:
         return "选手不存在", 404
     player_matches = get_player_matches(battle_tag)
-    return render_template("player.html", player=player, matches=player_matches)
+    rival_stats = get_rival_stats(battle_tag)
+    return render_template("player.html", player=player, matches=player_matches, rival=rival_stats)
 
 
 @app.route("/match/<game_uuid>")
