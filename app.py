@@ -407,7 +407,7 @@ def api_waiting_queue():
 
 @app.route("/api/queue/join", methods=["POST"])
 def api_queue_join():
-    """加入报名队列"""
+    """加入报名队列，优先补入未满的等待组"""
     data = request.get_json() or {}
     name = data.get("name", "").strip()
     if not name:
@@ -416,9 +416,26 @@ def api_queue_join():
     db = get_db()
 
     # 不能重复报名或已在等待组中
+    if db.league_queue.find_one({"name": name}):
+        return jsonify({"error": "已在报名队列中"}), 400
     if db.league_waiting_queue.find_one({"players.name": name}):
         return jsonify({"error": "已在等待队列中"}), 400
 
+    # 优先补入未满的等待组
+    incomplete_group = None
+    for g in db.league_waiting_queue.find().sort("createdAt", 1):
+        if len(g.get("players", [])) < 2:
+            incomplete_group = g
+            break
+
+    if incomplete_group:
+        db.league_waiting_queue.update_one(
+            {"_id": incomplete_group["_id"]},
+            {"$push": {"players": {"name": name}}}
+        )
+        return jsonify({"ok": True, "name": name, "moved": True})
+
+    # 没有未满的组，加入报名队列
     db.league_queue.update_one(
         {"name": name},
         {"$setOnInsert": {"name": name, "joinedAt": datetime.utcnow().isoformat() + "Z"}},

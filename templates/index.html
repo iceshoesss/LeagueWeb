@@ -98,7 +98,7 @@
         </div>
 
         <!-- 报名 + 等待队列 -->
-        <div class="w-72 space-y-3">
+        <div class="w-72 space-y-3" id="queue-column">
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
@@ -115,21 +115,8 @@
             </div>
         </div>
 
-        <!-- 等待队列 -->
-        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
-            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
-                <h2 class="text-lg font-bold text-hearth-gold">⏳ 等待队列</h2>
-                <span class="text-xs text-hearth-dim" id="waiting-queue-count">0 组</span>
-            </div>
-            <div id="waiting-queue-list" class="divide-y divide-hearth-border">
-                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
-            </div>
-            <div class="px-5 py-4 border-t border-hearth-border" id="waiting-queue-action" style="display:none">
-                <button id="waiting-leave-btn" onclick="leaveWaitingQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
-                    ❌ 退出等待
-                </button>
-            </div>
-        </div>
+        <!-- 等待队列（动态渲染，每组一个框） -->
+        <div id="waiting-queue-container"></div>
         </div>
     </div>
 </div>
@@ -315,33 +302,38 @@ function renderQueue() {
 }
 
 function renderWaitingQueue() {
-    const list = document.getElementById('waiting-queue-list');
-    const count = document.getElementById('waiting-queue-count');
-    const action = document.getElementById('waiting-queue-action');
-
-    const totalPlayers = waitingData.reduce((sum, g) => sum + (g.players ? g.players.length : 0), 0);
-    count.textContent = `${waitingData.length} 组`;
+    const container = document.getElementById('waiting-queue-container');
 
     if (waitingData.length === 0) {
-        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无等待中的对局</div>';
-        action.style.display = 'none';
-    } else {
-        list.innerHTML = waitingData.map((g, gi) => {
-            const players = (g.players || []).map(p => `
-                <div class="flex items-center gap-2 text-sm">
-                    <span>${p.name}</span>
-                </div>
-            `).join('');
-            return `<div class="px-5 py-3 ${gi > 0 ? 'border-t border-hearth-border' : ''}">
-                <div class="text-xs text-hearth-dim mb-1.5">第 ${gi + 1} 组</div>
-                <div class="space-y-1">${players}</div>
-            </div>`;
-        }).join('');
-
-        // 检查当前用户是否在某个等待组里
-        const inWaiting = waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME));
-        action.style.display = inWaiting ? 'block' : 'none';
+        container.innerHTML = '';
+        return;
     }
+
+    container.innerHTML = waitingData.map((g, gi) => {
+        const players = (g.players || []).map(p => `
+            <div class="flex items-center gap-2 px-5 py-2.5 text-sm">
+                <span>${p.name}</span>
+            </div>
+        `).join('');
+
+        // 当前用户是否在这个组里
+        const inThisGroup = MY_NAME && (g.players || []).some(p => p.name === MY_NAME);
+        const leaveBtn = inThisGroup ? `
+            <div class="px-5 py-3 border-t border-hearth-border">
+                <button onclick="leaveWaitingQueue()" class="w-full py-2 rounded-lg font-bold text-xs transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                    ❌ 退出等待
+                </button>
+            </div>` : '';
+
+        return `<div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-sm font-bold text-hearth-gold">⏳ 等待组 #${gi + 1}</h2>
+                <span class="text-xs text-hearth-dim">${(g.players || []).length}/2 人</span>
+            </div>
+            <div class="divide-y divide-hearth-border">${players}</div>
+            ${leaveBtn}
+        </div>`;
+    }).join('');
 }
 
 async function toggleQueue() {
