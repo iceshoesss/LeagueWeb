@@ -12,12 +12,10 @@
         {% if matches %}
         <div class="divide-y divide-hearth-border">
             {% for match in matches %}
-            <div class="px-6 py-4 hover:bg-white/5 transition">
+            <a href="/match/{{ match.gameUuid }}" class="block px-6 py-4 hover:bg-white/5 transition">
                 <!-- 头部：时间 + 状态 -->
                 <div class="flex items-center justify-between mb-3">
-                    <a href="/match/{{ match.gameUuid }}" class="text-sm font-medium hover:text-hearth-gold transition">
-                        {{ match.endedAt[:16].replace('T', ' ') }}
-                    </a>
+                    <span class="text-sm font-medium">{{ match.endedAt[:16].replace('T', ' ') }}</span>
                     <div class="flex items-center gap-2">
                         <span class="text-xs px-2 py-0.5 rounded bg-hearth-gold/10 text-hearth-gold">{{ match.mode }}</span>
                         {% if match.status == 'timeout' %}
@@ -58,7 +56,7 @@
                     </div>
                     {% endfor %}
                 </div>
-            </div>
+            </a>
             {% endfor %}
         </div>
         {% else %}
