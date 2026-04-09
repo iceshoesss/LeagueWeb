@@ -25,6 +25,10 @@ _client = None
 _db = None
 _last_cleanup_ts = 0
 
+# ── 排行榜缓存 ───────────────────────────────────────
+_leaderboard_cache = {"data": None, "ts": 0}
+LEADERBOARD_TTL = 30  # 秒
+
 
 @app.context_processor
 def inject_counts():
@@ -60,7 +64,13 @@ def inject_counts():
 def get_db():
     global _client, _db
     if _db is None:
-        _client = MongoClient(MONGO_URL)
+        _client = MongoClient(
+            MONGO_URL,
+            maxPoolSize=50,
+            minPoolSize=5,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+        )
         _db = _client[DB_NAME]
     return _db
 
@@ -127,7 +137,11 @@ app.jinja_env.filters['cst'] = to_cst_str
 
 
 def get_players():
-    """从 league_matches 聚合 + bg_ratings 获取排行榜"""
+    """从 league_matches 聚合 + bg_ratings 获取排行榜（带缓存）"""
+    now = time.time()
+    if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < LEADERBOARD_TTL:
+        return _leaderboard_cache["data"]
+
     db = get_db()
     pipeline = [
         {"$match": {"endedAt": {"$ne": None}}},
@@ -168,6 +182,9 @@ def get_players():
             "chickenRate": p.get("chickenRate", 0),
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         })
+
+    _leaderboard_cache["data"] = players
+    _leaderboard_cache["ts"] = now
     return players
 
 

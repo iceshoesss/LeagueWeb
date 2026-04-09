@@ -1,0 +1,4 @@
+flask>=2.3
+pymongo>=4.0
+gunicorn>=21.2
+gevent>=23.0
