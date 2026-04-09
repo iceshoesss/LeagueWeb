@@ -7,7 +7,7 @@
         <div class="px-6 py-4 border-b border-hearth-border flex items-center justify-between">
             <h2 class="text-lg font-bold text-hearth-gold">✏️ 补录排名</h2>
             <div class="text-xs text-hearth-dim">
-                {{ match.endedAt[:16].replace('T', ' ') }} &middot; {{ match.region }}
+                {{ match.endedAt | cst }} &middot; {{ match.region }}
             </div>
         </div>
 

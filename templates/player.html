@@ -92,7 +92,7 @@
                     <div>
                         <div class="text-sm">{{ m.heroName if m.heroName else '—' }}</div>
                         <div class="text-xs text-hearth-dim">
-                            {{ m.endedAt[:16].replace('T', ' ') }}
+                            {{ m.endedAt | cst }}
                             {% if m.status == 'timeout' %}· <span class="text-yellow-400/70">超时</span>
                             {% elif m.status == 'abandoned' %}· <span class="text-yellow-400/70">中断</span>
                             {% endif %}

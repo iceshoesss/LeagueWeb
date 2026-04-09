@@ -16,7 +16,7 @@
                 <!-- 头部：时间 + 状态 -->
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ match.endedAt[:16].replace('T', ' ') }}</span>
+                        <span class="text-sm font-medium">{{ match.endedAt | cst }}</span>
                         <span class="text-xs font-mono text-hearth-dim bg-white/5 px-1.5 py-0.5 rounded">#{{ match.matchId }}</span>
                     </div>
                     <div class="flex items-center gap-2">
