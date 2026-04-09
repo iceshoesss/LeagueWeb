@@ -163,6 +163,8 @@ def get_completed_matches(limit=10):
         m["_id"] = str(m["_id"])
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["startedAt"] = to_iso_str(m.get("startedAt"))
+        # 按排名排序（1-8）
+        m["players"] = sorted(m.get("players", []), key=lambda p: p.get("placement") or 999)
     return matches
 
 
@@ -382,6 +384,8 @@ def get_match(game_uuid):
         match["_id"] = str(match["_id"])
         match["endedAt"] = to_iso_str(match.get("endedAt"))
         match["startedAt"] = to_iso_str(match.get("startedAt"))
+        # 按排名排序（null 排最后）
+        match["players"] = sorted(match.get("players", []), key=lambda p: p.get("placement") or 999)
     return match
 
 
@@ -408,6 +412,8 @@ def get_problem_matches():
         m["startedAt"] = to_iso_str(m.get("startedAt"))
         # 比赛编号：gameUuid 前 8 位
         m["matchId"] = (m.get("gameUuid") or "")[:8].upper()
+        # 按排名排序（null 排最后）
+        m["players"] = sorted(m.get("players", []), key=lambda p: p.get("placement") or 999)
         # 标记每个玩家是否有 placement
         for p in m.get("players", []):
             p["hasPlacement"] = p.get("placement") is not None
