@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}问题对局 — 酒馆战棋联赛{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-hearth-border">
+            <h2 class="text-lg font-bold text-hearth-gold">⚠️ 问题对局</h2>
+            <p class="text-xs text-hearth-dim mt-1">因超时、掉线或其他原因未正确记录排名的对局</p>
+        </div>
+
+        {% if matches %}
+        <div class="divide-y divide-hearth-border">
+            {% for match in matches %}
+            <div class="px-6 py-4 hover:bg-white/5 transition">
+                <!-- 头部：时间 + 状态 -->
+                <div class="flex items-center justify-between mb-3">
+                    <a href="/match/{{ match.gameUuid }}" class="text-sm font-medium hover:text-hearth-gold transition">
+                        {{ match.endedAt[:16].replace('T', ' ') }}
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs px-2 py-0.5 rounded bg-hearth-gold/10 text-hearth-gold">{{ match.mode }}</span>
+                        {% if match.status == 'timeout' %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>
+                        {% elif match.status == 'abandoned' %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300">中断</span>
+                        {% else %}
+                        <span class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300">数据缺失</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- 玩家列表：2行 x 4列 -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {% for p in match.players %}
+                    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg {% if p.hasPlacement %}bg-white/5{% else %}bg-red-500/5 border border-red-500/20{% endif %}">
+                        {% if p.heroCardId %}
+                        <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
+                            <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
+                                 alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                                 class="w-[150%] h-[150%] object-cover"
+                                 onerror="this.closest('div').style.display='none'">
+                        </div>
+                        {% else %}
+                        <div class="w-8 h-8 rounded-full bg-hearth-border flex-shrink-0 flex items-center justify-center text-xs text-hearth-dim">?</div>
+                        {% endif %}
+                        <div class="min-w-0 flex-1">
+                            <div class="text-xs truncate">{{ p.displayName }}</div>
+                            {% if p.hasPlacement %}
+                            <div class="text-xs text-hearth-dim">
+                                第{{ p.placement }}名
+                                <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
+                            </div>
+                            {% else %}
+                            <div class="text-xs text-red-400/70">未记录</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-6 py-12 text-center">
+            <div class="text-3xl mb-2">🎉</div>
+            <div class="text-hearth-dim">没有问题对局，一切正常！</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="mt-4 text-center">
+        <a href="/" class="text-sm text-hearth-gold hover:underline">← 返回排行榜</a>
+    </div>
+</div>
+{% endblock %}

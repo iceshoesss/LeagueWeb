@@ -386,6 +386,33 @@ def get_match(game_uuid):
     return match
 
 
+def get_problem_matches():
+    """获取所有有问题的对局（timeout / abandoned / 旧数据中 placement 为 null 的已结束对局）"""
+    db = get_db()
+    pipeline = [
+        {"$match": {
+            "endedAt": {"$nin": [None]},
+            "$or": [
+                {"status": {"$in": ["timeout", "abandoned"]}},
+                {"$and": [
+                    {"status": {"$exists": False}},
+                    {"players": {"$elemMatch": {"placement": None}}}
+                ]}
+            ]
+        }},
+        {"$sort": {"endedAt": -1}}
+    ]
+    matches = list(db.league_matches.aggregate(pipeline))
+    for m in matches:
+        m["_id"] = str(m["_id"])
+        m["endedAt"] = to_iso_str(m.get("endedAt"))
+        m["startedAt"] = to_iso_str(m.get("startedAt"))
+        # 标记每个玩家是否有 placement
+        for p in m.get("players", []):
+            p["hasPlacement"] = p.get("placement") is not None
+    return matches
+
+
 # ── 页面路由 ──────────────────────────────────────────
 
 @app.route("/")
@@ -417,6 +444,12 @@ def match_page(game_uuid):
 @app.route("/register")
 def register_page():
     return render_template("register.html")
+
+
+@app.route("/problems")
+def problems_page():
+    matches = get_problem_matches()
+    return render_template("problems.html", matches=matches)
 
 
 # ── API 路由 ──────────────────────────────────────────
