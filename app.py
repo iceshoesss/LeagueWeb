@@ -37,8 +37,7 @@ def inject_counts():
                 {"startedAt": {"$gte": cutoff_str}}
             ]
         })
-        player_count = len(db.league_matches.distinct("players.battleTag",
-            {"endedAt": {"$nin": [None]}}))
+        player_count = db.league_players.count_documents({"verified": True})
     except Exception:
         active_count = 0
         player_count = 0
