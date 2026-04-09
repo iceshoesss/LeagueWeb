@@ -108,7 +108,7 @@
                                      onerror="this.closest('div').style.display='none'">
                             </div>
                             {% endif %}
-                            <span class="text-red-400">{{ p.displayName }} <span class="text-red-400/70 text-xs">#{{ p.placement }}</span></span>
+                            <span class="text-red-400">{{ p.displayName }}</span>
                         </div>
                         {% endfor %}
                     </div>
@@ -436,7 +436,7 @@ function renderActiveGames(games) {
                 ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
                 : '';
             if (p.placement != null) {
-                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName} <span class="text-red-400/70 text-xs">#${p.placement}</span></span></div>`;
+                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName}</span></div>`;
             }
             return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
         }).join('');
