@@ -861,12 +861,14 @@ def api_logout():
 
 # ── SSE 端点（Server-Sent Events）──────────────────────
 
-def _sse_generate(fetch_fn, poll_interval=0.5):
+def _sse_generate(fetch_fn, poll_interval=1):
     """
     通用 SSE 生成器：内部轮询数据，有变化时推送，无变化时保持连接空闲。
+    每 30 秒发一次心跳注释行，确保连接活跃 + 让客户端/代理检测断连。
     客户端断开时自动退出。
     """
     last_fingerprint = None
+    last_heartbeat = time.time()
     while True:
         try:
             data = fetch_fn()
@@ -874,6 +876,10 @@ def _sse_generate(fetch_fn, poll_interval=0.5):
             if fingerprint != last_fingerprint:
                 last_fingerprint = fingerprint
                 yield f"data: {fingerprint}\n\n"
+            # 心跳：每 30s 发一个注释行，保持连接活跃
+            if time.time() - last_heartbeat > 30:
+                yield ": heartbeat\n\n"
+                last_heartbeat = time.time()
             gsleep(poll_interval)
         except GeneratorExit:
             break

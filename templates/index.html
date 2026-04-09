@@ -259,21 +259,76 @@ let queueData = [];
 let waitingData = [];
 
 // --- 进行中对局 SSE ---
-const activeEs = new EventSource('/api/events/active-games');
-activeEs.onmessage = function(e) {
-    try {
-        const games = JSON.parse(e.data);
-        renderActiveGames(games);
-        updateNavCount(games.length);
-    } catch (err) {
-        console.error('SSE active-games parse error:', err);
-    }
-};
-activeEs.onerror = function() {
-    console.warn('SSE active-games disconnected, will auto-reconnect');
-};
+let activeEs = null;
+function connectActiveGames() {
+    if (activeEs) activeEs.close();
+    activeEs = new EventSource('/api/events/active-games');
+    activeEs.onmessage = function(e) {
+        try {
+            const games = JSON.parse(e.data);
+            renderActiveGames(games);
+            updateNavCount(games.length);
+        } catch (err) {
+            console.error('SSE active-games parse error:', err);
+        }
+    };
+    activeEs.onerror = function() {
+        console.warn('SSE active-games disconnected, will auto-reconnect');
+    };
+}
+connectActiveGames();
 
-function renderActiveGames(games) {
+// --- 报名队列 SSE ---
+let queueEs = null;
+function connectQueue() {
+    if (queueEs) queueEs.close();
+    queueEs = new EventSource('/api/events/queue');
+    queueEs.onmessage = function(e) {
+        try {
+            queueData = JSON.parse(e.data);
+            renderQueue();
+        } catch (err) {
+            console.error('SSE queue parse error:', err);
+        }
+    };
+    queueEs.onerror = function() {
+        console.warn('SSE queue disconnected, will auto-reconnect');
+    };
+}
+connectQueue();
+
+// --- 等待队列 SSE ---
+let waitingEs = null;
+function connectWaitingQueue() {
+    if (waitingEs) waitingEs.close();
+    waitingEs = new EventSource('/api/events/waiting-queue');
+    waitingEs.onmessage = function(e) {
+        try {
+            waitingData = JSON.parse(e.data);
+            renderWaitingQueue();
+            renderQueue();
+        } catch (err) {
+            console.error('SSE waiting-queue parse error:', err);
+        }
+    };
+    waitingEs.onerror = function() {
+        console.warn('SSE waiting-queue disconnected, will auto-reconnect');
+    };
+}
+connectWaitingQueue();
+
+// 页面不可见时关闭 SSE，可见时重连（避免切 tab 后连接堆积）
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        activeEs?.close();
+        queueEs?.close();
+        waitingEs?.close();
+    } else {
+        connectActiveGames();
+        connectQueue();
+        connectWaitingQueue();
+    }
+});function renderActiveGames(games) {
     const list = document.getElementById('active-games-list');
     if (!games.length) {
         list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
@@ -311,34 +366,9 @@ function updateNavCount(count) {
     });
 }
 
-// --- 报名队列 SSE ---
-const queueEs = new EventSource('/api/events/queue');
-queueEs.onmessage = function(e) {
-    try {
-        queueData = JSON.parse(e.data);
-        renderQueue();
-    } catch (err) {
-        console.error('SSE queue parse error:', err);
-    }
-};
-queueEs.onerror = function() {
-    console.warn('SSE queue disconnected, will auto-reconnect');
-};
+// --- 报名队列 SSE (已在上面 connectQueue 中定义) ---
 
-// --- 等待队列 SSE ---
-const waitingEs = new EventSource('/api/events/waiting-queue');
-waitingEs.onmessage = function(e) {
-    try {
-        waitingData = JSON.parse(e.data);
-        renderWaitingQueue();
-        renderQueue(); // 等待队列变化可能影响报名按钮状态
-    } catch (err) {
-        console.error('SSE waiting-queue parse error:', err);
-    }
-};
-waitingEs.onerror = function() {
-    console.warn('SSE waiting-queue disconnected, will auto-reconnect');
-};
+// --- 等待队列 SSE (已在上面 connectWaitingQueue 中定义) ---
 
 function renderQueue() {
     const list = document.getElementById('queue-list');
