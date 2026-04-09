@@ -1,19 +1,19 @@
 {% extends "base.html" %}
-{% block title %}注册/登录 — 酒馆战棋联赛{% endblock %}
+{% block title %}登录 — 酒馆战棋联赛{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto">
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
         <div class="px-6 py-5 border-b border-hearth-border text-center">
-            <h2 id="formTitle" class="text-2xl font-bold text-hearth-gold mb-1">🍺 选手注册</h2>
-            <p id="formDesc" class="text-sm text-hearth-dim">使用插件验证码绑定你的战网账号</p>
+            <h2 class="text-2xl font-bold text-hearth-gold mb-1">🔑 选手登录</h2>
+            <p class="text-sm text-hearth-dim">输入 BattleTag 和验证码登录</p>
         </div>
 
         <div class="px-6 py-6 space-y-5">
             <!-- BattleTag -->
             <div>
                 <label class="block text-sm font-medium text-hearth-dim mb-1.5">BattleTag</label>
-                <input id="battleTag" type="text" placeholder="南怀北瑾丨少头脑#5267"
+                <input id="battleTag" type="text" placeholder="能干的猛兽#1234"
                     class="w-full px-4 py-2.5 rounded-lg bg-black/30 border border-hearth-border text-gray-200 placeholder-hearth-dim/50 focus:outline-none focus:border-hearth-gold/60 transition">
             </div>
 
@@ -31,15 +31,8 @@
             <!-- 提交按钮 -->
             <button id="submitBtn" onclick="doSubmit()"
                 class="w-full py-3 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 active:scale-[0.98]">
-                注册
+                登录
             </button>
-
-            <!-- 切换模式 -->
-            <div class="text-center">
-                <button onclick="toggleMode()" class="text-xs text-hearth-dim hover:text-hearth-gold transition" id="toggleBtn">
-                    已有账号？点击登录
-                </button>
-            </div>
 
             <!-- 结果提示 -->
             <div id="result" class="hidden rounded-lg px-4 py-3 text-sm"></div>
@@ -50,21 +43,6 @@
 
 {% block scripts %}
 <script>
-let isRegister = true;
-
-function toggleMode() {
-    isRegister = !isRegister;
-    document.getElementById('formTitle').textContent = isRegister ? '🍺 选手注册' : '🔑 选手登录';
-    document.getElementById('formDesc').textContent = isRegister
-        ? '使用插件验证码绑定你的战网账号'
-        : '输入 BattleTag 和验证码登录';
-    document.getElementById('submitBtn').textContent = isRegister ? '注册' : '登录';
-    document.getElementById('toggleBtn').textContent = isRegister
-        ? '已有账号？点击登录'
-        : '没有账号？点击注册';
-    document.getElementById('result').classList.add('hidden');
-}
-
 function showResult(msg, isError) {
     const el = document.getElementById('result');
     el.className = 'rounded-lg px-4 py-3 text-sm ' +
@@ -84,33 +62,49 @@ async function doSubmit() {
     if (!battleTag) { showResult('请输入 BattleTag', true); return; }
     if (!code) { showResult('请输入验证码', true); return; }
 
-    const endpoint = isRegister ? '/api/register' : '/api/login';
     btn.disabled = true;
-    btn.textContent = isRegister ? '注册中...' : '登录中...';
+    btn.textContent = '登录中...';
 
     try {
-        const res = await fetch(endpoint, {
+        // 先尝试登录，失败则自动注册
+        let res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ battleTag, verificationCode: code }),
         });
-        const data = await res.json();
 
+        if (!res.ok) {
+            const err = await res.json();
+            // 如果是"未找到记录"，说明还没注册过，自动帮注册
+            if (res.status === 404) {
+                res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ battleTag, verificationCode: code }),
+                });
+            } else {
+                showResult(err.error || '登录失败', true);
+                btn.disabled = false;
+                btn.textContent = '登录';
+                return;
+            }
+        }
+
+        const data = await res.json();
         if (res.ok) {
-            const action = isRegister ? '注册' : '登录';
-            showResult(`✅ ${action}成功！欢迎 ${data.displayName}，即将跳转...`, false);
+            showResult(`✅ 登录成功！欢迎 ${data.displayName}，即将跳转...`, false);
             btn.textContent = '✓';
             btn.className = 'w-full py-3 rounded-lg font-bold text-sm bg-green-500/20 text-green-400 cursor-default';
             setTimeout(() => window.location.href = '/', 1200);
         } else {
             showResult(data.error || '操作失败', true);
             btn.disabled = false;
-            btn.textContent = isRegister ? '注册' : '登录';
+            btn.textContent = '登录';
         }
     } catch (e) {
         showResult('网络错误，请重试', true);
         btn.disabled = false;
-        btn.textContent = isRegister ? '注册' : '登录';
+        btn.textContent = '登录';
     }
 }
 
