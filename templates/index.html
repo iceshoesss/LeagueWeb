@@ -85,7 +85,7 @@
                 {% for game in active_games %}
                 <div class="px-5 py-3">
                     <div class="space-y-1.5 mb-2">
-                        {% for p in game.players %}
+                        {% for p in game.players|selectattr('placement', 'none') %}
                         <div class="flex items-center gap-2 text-sm">
                             {% if p.heroCardId %}
                             <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
@@ -96,6 +96,19 @@
                             </div>
                             {% endif %}
                             <span>{{ p.displayName }}</span>
+                        </div>
+                        {% endfor %}
+                        {% for p in game.players|rejectattr('placement', 'none')|sort(attribute='placement', reverse=true) %}
+                        <div class="flex items-center gap-2 text-sm">
+                            {% if p.heroCardId %}
+                            <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
+                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
+                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                                     class="w-[150%] h-[150%] object-cover"
+                                     onerror="this.closest('div').style.display='none'">
+                            </div>
+                            {% endif %}
+                            <span class="text-red-400">{{ p.displayName }} <span class="text-red-400/70 text-xs">#{{ p.placement }}</span></span>
                         </div>
                         {% endfor %}
                     </div>
@@ -413,10 +426,18 @@ function renderActiveGames(games) {
         return;
     }
     list.innerHTML = games.map(g => {
-        const players = g.players.map(p => {
+        // 排序：未提交的在前，已提交的按排名降序（8在最下）
+        const placed = g.players.filter(p => p.placement != null).sort((a, b) => b.placement - a.placement);
+        const unplaced = g.players.filter(p => p.placement == null);
+        const sorted = [...unplaced, ...placed];
+
+        const players = sorted.map(p => {
             const img = p.heroCardId
                 ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
                 : '';
+            if (p.placement != null) {
+                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName} <span class="text-red-400/70 text-xs">#${p.placement}</span></span></div>`;
+            }
             return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
         }).join('');
         const started = g.startedAtEpoch;
