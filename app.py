@@ -65,17 +65,24 @@ def get_db():
 # ── 数据查询 ────────────────────────────────────────
 
 def to_epoch(dt_val):
-    """安全地把各种格式的时间值转为 epoch 秒数"""
+    """安全地把各种格式的时间值转为 epoch 秒数（统一按 UTC 处理）"""
     if dt_val is None:
         return int(time.time())
-    if isinstance(dt_val, datetime):
-        return int(dt_val.timestamp())
-    if isinstance(dt_val, bson_datetime.datetime):
+    if isinstance(dt_val, (datetime, bson_datetime.datetime)):
+        # 如果是 naive datetime，明确视为 UTC
+        if dt_val.tzinfo is None:
+            from datetime import timezone
+            dt_val = dt_val.replace(tzinfo=timezone.utc)
         return int(dt_val.timestamp())
     # 字符串格式
     try:
-        s = str(dt_val).replace("Z", "+00:00")
+        s = str(dt_val)
+        if s.endswith("Z"):
+            s = s[:-1]  # 去掉 Z
+        from datetime import timezone
         dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
         return int(dt.timestamp())
     except Exception:
         return int(time.time())
