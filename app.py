@@ -861,7 +861,7 @@ def api_logout():
 
 # ── SSE 端点（Server-Sent Events）──────────────────────
 
-def _sse_generate(fetch_fn, poll_interval=2):
+def _sse_generate(fetch_fn, poll_interval=0.5):
     """
     通用 SSE 生成器：内部轮询数据，有变化时推送，无变化时保持连接空闲。
     客户端断开时自动退出。
