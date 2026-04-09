@@ -446,27 +446,34 @@ function renderWaitingQueue() {
     }).join('');
 }
 
+let queueBusy = false;
+
 async function toggleQueue() {
     if (!MY_NAME) { window.location.href = '/register'; return; }
+    if (queueBusy) return;
     if (waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME))) return;
     const inQueue = queueData.some(q => q.name === MY_NAME);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
+    queueBusy = true;
     try {
         await fetch(endpoint, { method: 'POST' });
-        // SSE 会自动推送变化，无需手动刷新
     } catch (e) {
         alert('操作失败，请重试');
     }
+    // 防连点：500ms 后才允许再次操作（等 SSE 推回来更新状态）
+    setTimeout(() => { queueBusy = false; }, 500);
 }
 
 async function leaveWaitingQueue() {
     if (!MY_NAME) return;
+    if (queueBusy) return;
+    queueBusy = true;
     try {
         await fetch('/api/queue/leave', { method: 'POST' });
-        // SSE 会自动推送变化，无需手动刷新
     } catch (e) {
         alert('操作失败，请重试');
     }
+    setTimeout(() => { queueBusy = false; }, 500);
 }
 </script>
 {% endblock %}
