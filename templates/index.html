@@ -364,14 +364,9 @@ async function toggleQueue() {
     const inQueue = queueData.some(q => q.name === MY_NAME);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
     try {
-        const res = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: MY_NAME }),
-        });
+        const res = await fetch(endpoint, { method: 'POST' });
         const data = await res.json();
         if (data.moved) {
-            // 满8人被移到等待队列了
             await fetchWaitingQueue();
         }
         await fetchQueue();
@@ -383,11 +378,7 @@ async function toggleQueue() {
 async function leaveWaitingQueue() {
     if (!MY_NAME) return;
     try {
-        await fetch('/api/queue/leave', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: MY_NAME }),
-        });
+        await fetch('/api/queue/leave', { method: 'POST' });
         await fetchWaitingQueue();
         await fetchQueue();
     } catch (e) {

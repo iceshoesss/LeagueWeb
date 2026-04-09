@@ -606,10 +606,9 @@ def api_waiting_queue():
 @app.route("/api/queue/join", methods=["POST"])
 def api_queue_join():
     """加入报名队列，优先补入未满的等待组"""
-    data = request.get_json() or {}
-    name = data.get("name", "").strip()
+    name = session.get("battleTag") or session.get("displayName", "")
     if not name:
-        return jsonify({"error": "名字不能为空"}), 400
+        return jsonify({"error": "请先登录"}), 401
 
     db = get_db()
 
@@ -659,10 +658,9 @@ def api_queue_join():
 @app.route("/api/queue/leave", methods=["POST"])
 def api_queue_leave():
     """退出报名队列或等待队列"""
-    data = request.get_json() or {}
-    name = data.get("name", "").strip()
+    name = session.get("battleTag") or session.get("displayName", "")
     if not name:
-        return jsonify({"error": "名字不能为空"}), 400
+        return jsonify({"error": "请先登录"}), 401
 
     db = get_db()
     # 从报名队列移除
