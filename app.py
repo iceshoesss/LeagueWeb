@@ -148,13 +148,20 @@ def get_players():
 def get_completed_matches(limit=10):
     """获取已完成的对局（endedAt 非 null，且所有玩家都有 placement）"""
     db = get_db()
-    # 排除超时/掉线等不完整的对局
-    matches = list(db.league_matches.find(
-        {"endedAt": {"$nin": [None]}, "status": {"$exists": False}}
-    ).sort("endedAt", -1).limit(limit))
+    # 用聚合管道精确过滤：排除超时/掉线等不完整的对局
+    # $not + $elemMatch: 确保没有 placement 为 null 的玩家
+    pipeline = [
+        {"$match": {
+            "endedAt": {"$nin": [None]},
+            "status": {"$exists": False},
+            "players": {"$not": {"$elemMatch": {"placement": None}}}
+        }},
+        {"$sort": {"endedAt": -1}},
+        {"$limit": limit}
+    ]
+    matches = list(db.league_matches.aggregate(pipeline))
     for m in matches:
         m["_id"] = str(m["_id"])
-        # 统一时间格式为字符串
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["startedAt"] = to_iso_str(m.get("startedAt"))
     return matches
