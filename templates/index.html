@@ -388,8 +388,8 @@ async function leaveWaitingQueue() {
 
 fetchQueue();
 fetchWaitingQueue();
-setInterval(fetchQueue, 1000);
-setInterval(fetchWaitingQueue, 1000);
+setInterval(fetchQueue, 5000);
+setInterval(fetchWaitingQueue, 5000);
 
 // ── 对局实时刷新（每 5 秒轮询） ──
 let activeGamesCache = '';
