@@ -22,6 +22,7 @@ DB_NAME = "hearthstone"
 
 _client = None
 _db = None
+_last_cleanup_ts = 0
 
 
 @app.context_processor
@@ -168,10 +169,14 @@ def get_completed_matches(limit=10):
 
 def get_active_games():
     """获取进行中的对局（endedAt 为 null 或字段不存在，且未超时）"""
+    global _last_cleanup_ts
     db = get_db()
-    # 每次查询时清理超时对局
-    cleanup_stale_games()
-    cleanup_partial_matches()
+    # 每 60 秒清理一次，避免每 5 秒轮询都跑 cleanup
+    now = time.time()
+    if now - _last_cleanup_ts > 60:
+        _last_cleanup_ts = now
+        cleanup_stale_games()
+        cleanup_partial_matches()
     cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
