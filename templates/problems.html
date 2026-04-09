@@ -15,7 +15,10 @@
             <a href="/match/{{ match.gameUuid }}" class="block px-6 py-4 hover:bg-white/5 transition">
                 <!-- 头部：时间 + 状态 -->
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-sm font-medium">{{ match.endedAt[:16].replace('T', ' ') }}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium">{{ match.endedAt[:16].replace('T', ' ') }}</span>
+                        <span class="text-xs font-mono text-hearth-dim bg-white/5 px-1.5 py-0.5 rounded">#{{ match.matchId }}</span>
+                    </div>
                     <div class="flex items-center gap-2">
                         {% if match.status == 'timeout' %}
                         <span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>

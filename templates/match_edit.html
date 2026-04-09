@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}补录排名 — 酒馆战棋联赛{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+        <div class="px-6 py-4 border-b border-hearth-border flex items-center justify-between">
+            <h2 class="text-lg font-bold text-hearth-gold">✏️ 补录排名</h2>
+            <div class="text-xs text-hearth-dim">
+                {{ match.endedAt[:16].replace('T', ' ') }} &middot; {{ match.region }}
+            </div>
+        </div>
+
+        <div class="px-6 py-3 bg-yellow-500/10 border-b border-hearth-border text-sm text-yellow-300 text-center">
+            请为每位玩家选择正确的排名（1-8 不重复）
+        </div>
+
+        <div class="divide-y divide-hearth-border" id="players-list">
+            {% for p in match.players %}
+            <div class="flex items-center gap-4 px-6 py-4">
+                <!-- 英雄头像 -->
+                <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
+                    {% if p.heroCardId %}
+                    <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
+                         alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                         class="w-[150%] h-[150%] object-cover"
+                         onerror="this.closest('div').style.display='none'">
+                    {% endif %}
+                </div>
+                <!-- 玩家名 -->
+                <div class="flex-1 min-w-0">
+                    <div class="font-medium truncate">{{ p.displayName }}</div>
+                    <div class="text-xs text-hearth-dim">{{ p.heroName }}</div>
+                </div>
+                <!-- 排名下拉 -->
+                <div class="flex-shrink-0">
+                    <select data-account-id="{{ p.accountIdLo }}"
+                        class="placement-select bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/60 transition w-24 text-center">
+                        <option value="">排名</option>
+                        {% for i in range(1, 9) %}
+                        <option value="{{ i }}" {% if p.placement == i %}selected{% endif %}>第 {{ i }} 名</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="px-6 py-4 border-t border-hearth-border flex items-center justify-between">
+            <div id="error-msg" class="text-sm text-red-400 hidden"></div>
+            <button id="submitBtn" onclick="submitPlacements()"
+                class="ml-auto px-6 py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 active:scale-[0.98]">
+                提交排名
+            </button>
+        </div>
+    </div>
+
+    <div class="mt-4 text-center">
+        <a href="/problems" class="text-sm text-hearth-gold hover:underline">← 返回问题对局</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const GAME_UUID = {{ match.gameUuid | tojson }};
+
+function showError(msg) {
+    const el = document.getElementById('error-msg');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+}
+
+async function submitPlacements() {
+    const selects = document.querySelectorAll('.placement-select');
+    const placements = {};
+    const used = new Set();
+    let hasError = false;
+
+    document.getElementById('error-msg').classList.add('hidden');
+
+    selects.forEach(sel => {
+        const lo = sel.dataset.accountId;
+        const val = sel.value;
+        if (!val) {
+            showError('所有玩家都需要选择排名');
+            hasError = true;
+            return;
+        }
+        const num = parseInt(val);
+        if (used.has(num)) {
+            showError(`第 ${num} 名重复了`);
+            hasError = true;
+            return;
+        }
+        used.add(num);
+        placements[lo] = num;
+    });
+
+    if (hasError) return;
+
+    if (Object.keys(placements).length !== 8) {
+        showError('需要 8 个玩家的排名');
+        return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '提交中...';
+
+    try {
+        const res = await fetch(`/api/match/${encodeURIComponent(GAME_UUID)}/update-placement`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ placements }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            btn.textContent = '✓ 提交成功';
+            btn.className = 'ml-auto px-6 py-2.5 rounded-lg font-bold text-sm bg-green-500/20 text-green-400 cursor-default';
+            setTimeout(() => window.location.href = `/match/${encodeURIComponent(GAME_UUID)}`, 1000);
+        } else {
+            showError(data.error || '提交失败');
+            btn.disabled = false;
+            btn.textContent = '提交排名';
+        }
+    } catch (e) {
+        showError('网络错误，请重试');
+        btn.disabled = false;
+        btn.textContent = '提交排名';
+    }
+}
+</script>
+{% endblock %}

@@ -406,6 +406,8 @@ def get_problem_matches():
         m["_id"] = str(m["_id"])
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["startedAt"] = to_iso_str(m.get("startedAt"))
+        # 比赛编号：gameUuid 前 8 位
+        m["matchId"] = (m.get("gameUuid") or "")[:8].upper()
         # 标记每个玩家是否有 placement
         for p in m.get("players", []):
             p["hasPlacement"] = p.get("placement") is not None
@@ -440,6 +442,18 @@ def match_page(game_uuid):
     return render_template("match.html", match=match)
 
 
+@app.route("/match/<game_uuid>/edit")
+def match_edit_page(game_uuid):
+    match = get_match(game_uuid)
+    if not match:
+        return "对局不存在", 404
+    # 判断是否问题对局：有玩家 placement 为 null
+    is_problem = any(p.get("placement") is None for p in match.get("players", []))
+    if not is_problem:
+        return redirect(url_for("match_page", game_uuid=game_uuid))
+    return render_template("match_edit.html", match=match)
+
+
 @app.route("/register")
 def register_page():
     return render_template("register.html")
@@ -466,6 +480,58 @@ def api_matches():
 @app.route("/api/active-games")
 def api_active_games():
     return jsonify(get_active_games())
+
+
+@app.route("/api/match/<game_uuid>/update-placement", methods=["POST"])
+def api_update_placement(game_uuid):
+    """手动补录对局排名"""
+    data = request.get_json() or {}
+    placements = data.get("placements", {})  # {accountIdLo: placement}
+
+    if not placements:
+        return jsonify({"error": "未提供排名数据"}), 400
+
+    db = get_db()
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+
+    # 验证：8 个玩家排名 1-8 不重复
+    values = list(placements.values())
+    if len(values) != 8:
+        return jsonify({"error": "需要 8 个玩家的排名"}), 400
+    if sorted(values) != list(range(1, 9)):
+        return jsonify({"error": "排名必须是 1-8 各出现一次"}), 400
+
+    # 逐个更新 players 数组中对应玩家的 placement 和 points
+    players = match.get("players", [])
+    updated = 0
+    for p in players:
+        lo = str(p.get("accountIdLo", ""))
+        if lo in placements:
+            placement = placements[lo]
+            points = 9 if placement == 1 else max(1, 9 - placement)
+
+            db.league_matches.update_one(
+                {"gameUuid": game_uuid, "players.accountIdLo": lo},
+                {"$set": {
+                    "players.$.placement": placement,
+                    "players.$.points": points
+                }}
+            )
+            updated += 1
+
+    if updated == 0:
+        return jsonify({"error": "未匹配到任何玩家"}), 400
+
+    # 写入 endedAt（如果还没有）并去掉 status 标记
+    db.league_matches.update_one(
+        {"gameUuid": game_uuid},
+        {"$set": {"endedAt": match.get("endedAt") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")},
+         "$unset": {"status": ""}}
+    )
+
+    return jsonify({"ok": True, "updated": updated})
 
 
 # ── 报名队列 API ──────────────────────────────────────

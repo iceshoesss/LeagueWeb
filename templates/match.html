@@ -10,8 +10,12 @@
                 {% elif match.status == 'abandoned' %}⚠️ 对局中断
                 {% else %}🎮 对局详情{% endif %}
             </h2>
-            <div class="text-xs text-hearth-dim">
-                {{ match.endedAt[:16].replace('T', ' ') }} &middot; {{ match.region }}
+            <div class="flex items-center gap-3 text-xs text-hearth-dim">
+                <span class="font-mono bg-white/5 px-1.5 py-0.5 rounded">#{{ match.gameUuid[:8].upper() }}</span>
+                <span>{{ match.endedAt[:16].replace('T', ' ') }} &middot; {{ match.region }}</span>
+                {% if match.status in ('timeout', 'abandoned') or match.players|selectattr('placement', 'none')|list|length > 0 %}
+                <a href="/match/{{ match.gameUuid }}/edit" class="px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition font-medium">✏️ 补录</a>
+                {% endif %}
             </div>
         </div>
 
