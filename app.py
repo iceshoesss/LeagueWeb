@@ -38,7 +38,8 @@ def inject_counts():
             ]
         })
         player_count = db.league_players.count_documents({"verified": True})
-    except Exception:
+    except Exception as e:
+        print(f"[inject_counts] 数据库查询失败: {e}")
         active_count = 0
         player_count = 0
 
