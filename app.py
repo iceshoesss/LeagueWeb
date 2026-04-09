@@ -327,49 +327,70 @@ def get_player(battle_tag):
 
 
 def get_rival_stats(battle_tag):
-    """统计最软的虾和最硬的鸭"""
+    """用聚合管道计算最软的虾和最硬的鸭"""
     db = get_db()
-    matches = list(db.league_matches.find(
-        {
+    pipeline = [
+        {"$match": {
             "players.battleTag": battle_tag,
-            "endedAt": {"$nin": [None]}
-        }
-    ))
+            "endedAt": {"$ne": None},
+            "status": {"$exists": False}
+        }},
+        {"$project": {
+            "players.battleTag": 1,
+            "players.placement": 1,
+            "players.displayName": 1
+        }},
+        {"$unwind": "$players"},
+        {"$group": {
+            "_id": "$_id",
+            "myPlacement": {"$max": {"$cond": [
+                {"$eq": ["$players.battleTag", battle_tag]},
+                "$players.placement",
+                None
+            ]}},
+            "opponents": {"$push": {
+                "name": "$players.displayName",
+                "placement": "$players.placement",
+                "isMe": {"$eq": ["$players.battleTag", battle_tag]}
+            }}
+        }},
+        {"$project": {
+            "myPlacement": 1,
+            "opponents": {"$filter": {
+                "input": "$opponents",
+                "as": "p",
+                "cond": {"$eq": ["$$p.isMe", False]}
+            }}
+        }},
+        {"$unwind": "$opponents"},
+        {"$match": {
+            "myPlacement": {"$ne": None},
+            "opponents.placement": {"$ne": None}
+        }},
+        {"$addFields": {
+            "belowMe": {"$gt": ["$opponents.placement", "$myPlacement"]},
+            "aboveMe": {"$lt": ["$opponents.placement", "$myPlacement"]}
+        }},
+        {"$group": {
+            "_id": "$opponents.name",
+            "belowCount": {"$sum": {"$cond": ["$belowMe", 1, 0]}},
+            "aboveCount": {"$sum": {"$cond": ["$aboveMe", 1, 0]}}
+        }}
+    ]
 
-    below_counts = {}  # 排名比我低的人（名次数字比我大）
-    above_counts = {}  # 排名比我高的人（名次数字比我小）
+    results = list(db.league_matches.aggregate(pipeline))
 
-    for m in matches:
-        my_placement = None
-        others = []
-        # 跳过超时/中断对局（placement 可能为 null）
-        if m.get("status") in ("timeout", "abandoned"):
-            continue
-        for p in m.get("players", []):
-            if p.get("battleTag") == battle_tag:
-                my_placement = p.get("placement")
-            else:
-                others.append(p)
-
-        if my_placement is None:
-            continue
-
-        for p in others:
-            opp_placement = p.get("placement")
-            if opp_placement is None:
-                continue
-            opp_name = p.get("displayName", p.get("battleTag", "未知"))
-            if opp_placement > my_placement:
-                below_counts[opp_name] = below_counts.get(opp_name, 0) + 1
-            elif opp_placement < my_placement:
-                above_counts[opp_name] = above_counts.get(opp_name, 0) + 1
-
-    softest_shrimp = max(below_counts, key=below_counts.get) if below_counts else None
-    hardest_duck = max(above_counts, key=above_counts.get) if above_counts else None
+    softest = None
+    hardest = None
+    for r in results:
+        if r["belowCount"] > 0 and (not softest or r["belowCount"] > softest["count"]):
+            softest = {"name": r["_id"], "count": r["belowCount"]}
+        if r["aboveCount"] > 0 and (not hardest or r["aboveCount"] > hardest["count"]):
+            hardest = {"name": r["_id"], "count": r["aboveCount"]}
 
     return {
-        "softestShrimp": {"name": softest_shrimp, "count": below_counts.get(softest_shrimp, 0)} if softest_shrimp else None,
-        "hardestDuck": {"name": hardest_duck, "count": above_counts.get(hardest_duck, 0)} if hardest_duck else None,
+        "softestShrimp": softest,
+        "hardestDuck": hardest,
     }
 
 
