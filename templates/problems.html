@@ -49,7 +49,9 @@
                             {% if p.hasPlacement %}
                             <div class="text-xs text-hearth-dim">
                                 第{{ p.placement }}名
+                                {% if p.points is not none %}
                                 <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
+                                {% endif %}
                             </div>
                             {% else %}
                             <div class="text-xs text-red-400/70">未记录</div>
