@@ -3,12 +3,18 @@
 从 MongoDB 读取真实数据
 """
 
-from flask import Flask, render_template, jsonify, request, session, redirect, url_for
+from flask import Flask, render_template, jsonify, request, session, redirect, url_for, Response
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from bson import datetime as bson_datetime
 import hashlib
 import time
+import json
+
+try:
+    from gevent import sleep as gsleep
+except ImportError:
+    from time import sleep as gsleep
 
 app = Flask(__name__)
 app.secret_key = "bgtracker-flask-secret-2026-hearthstone"
@@ -853,7 +859,64 @@ def api_logout():
     return jsonify({"ok": True})
 
 
+# ── SSE 端点（Server-Sent Events）──────────────────────
+
+def _sse_generate(fetch_fn, poll_interval=2):
+    """
+    通用 SSE 生成器：内部轮询数据，有变化时推送，无变化时保持连接空闲。
+    客户端断开时自动退出。
+    """
+    last_fingerprint = None
+    while True:
+        try:
+            data = fetch_fn()
+            fingerprint = json.dumps(data, sort_keys=True, default=str)
+            if fingerprint != last_fingerprint:
+                last_fingerprint = fingerprint
+                yield f"data: {fingerprint}\n\n"
+            gsleep(poll_interval)
+        except GeneratorExit:
+            break
+        except Exception as e:
+            print(f"[SSE] error: {e}")
+            gsleep(poll_interval)
+
+
+@app.route("/api/events/active-games")
+def sse_active_games():
+    """SSE: 进行中对局变化推送"""
+    def fetch():
+        games = get_active_games()
+        return [{"gameUuid": g.get("gameUuid", ""), "startedAtEpoch": g.get("startedAtEpoch"),
+                 "players": [{"displayName": p.get("displayName", ""), "heroCardId": p.get("heroCardId", ""),
+                              "heroName": p.get("heroName", ""), "placement": p.get("placement")}
+                             for p in g.get("players", [])]}
+                for g in games]
+    return Response(_sse_generate(fetch), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/api/events/queue")
+def sse_queue():
+    """SSE: 报名队列变化推送"""
+    def fetch():
+        db = get_db()
+        queue = list(db.league_queue.find().sort("joinedAt", 1))
+        return [{"name": q["name"]} for q in queue]
+    return Response(_sse_generate(fetch), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@app.route("/api/events/waiting-queue")
+def sse_waiting_queue():
+    """SSE: 等待队列变化推送"""
+    def fetch():
+        db = get_db()
+        groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
+        return [{"players": g.get("players", [])} for g in groups]
+    return Response(_sse_generate(fetch), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-# test sync workflow

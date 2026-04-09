@@ -253,32 +253,92 @@ document.querySelectorAll('.sort-btn').forEach(btn => {
 updateTimers();
 setInterval(updateTimers, 1000);
 
-// ── 报名队列 + 等待队列 ──
+// ── SSE 实时推送 ────────────────────────────────────
 const MY_NAME = {% if current_user %}{{ current_user.battleTag | tojson }}{% else %}null{% endif %};
 let queueData = [];
 let waitingData = [];
 
-async function fetchQueue() {
+// --- 进行中对局 SSE ---
+const activeEs = new EventSource('/api/events/active-games');
+activeEs.onmessage = function(e) {
     try {
-        const res = await fetch('/api/queue');
-        queueData = await res.json();
-        renderQueue();
-    } catch (e) {
-        document.getElementById('queue-list').innerHTML =
-            '<div class="px-5 py-6 text-center text-sm text-hearth-dim">加载失败</div>';
+        const games = JSON.parse(e.data);
+        renderActiveGames(games);
+        updateNavCount(games.length);
+    } catch (err) {
+        console.error('SSE active-games parse error:', err);
     }
+};
+activeEs.onerror = function() {
+    console.warn('SSE active-games disconnected, will auto-reconnect');
+};
+
+function renderActiveGames(games) {
+    const list = document.getElementById('active-games-list');
+    if (!games.length) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
+        return;
+    }
+    list.innerHTML = games.map(g => {
+        const placed = g.players.filter(p => p.placement != null).sort((a, b) => b.placement - a.placement);
+        const unplaced = g.players.filter(p => p.placement == null);
+        const sorted = [...unplaced, ...placed];
+
+        const players = sorted.map(p => {
+            const img = p.heroCardId
+                ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+                : '';
+            if (p.placement != null) {
+                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName}</span></div>`;
+            }
+            return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
+        }).join('');
+        const started = g.startedAtEpoch;
+        return `<div class="px-5 py-3">
+            <div class="space-y-1 mb-2">${players}</div>
+            <div class="flex items-center justify-between text-xs text-hearth-dim">
+                <span>8 人对局</span>
+                <span class="text-hearth-gold font-mono" data-started-epoch="${started}">⏱️ --:--</span>
+            </div>
+        </div>`;
+    }).join('');
+    updateTimers();
 }
 
-async function fetchWaitingQueue() {
-    try {
-        const res = await fetch('/api/waiting-queue');
-        waitingData = await res.json();
-        renderWaitingQueue();
-    } catch (e) {
-        document.getElementById('waiting-queue-list').innerHTML =
-            '<div class="px-5 py-6 text-center text-sm text-hearth-dim">加载失败</div>';
-    }
+function updateNavCount(count) {
+    document.querySelectorAll('[data-nav-active-count]').forEach(el => {
+        el.textContent = `● ${count} 场对局进行中`;
+    });
 }
+
+// --- 报名队列 SSE ---
+const queueEs = new EventSource('/api/events/queue');
+queueEs.onmessage = function(e) {
+    try {
+        queueData = JSON.parse(e.data);
+        renderQueue();
+    } catch (err) {
+        console.error('SSE queue parse error:', err);
+    }
+};
+queueEs.onerror = function() {
+    console.warn('SSE queue disconnected, will auto-reconnect');
+};
+
+// --- 等待队列 SSE ---
+const waitingEs = new EventSource('/api/events/waiting-queue');
+waitingEs.onmessage = function(e) {
+    try {
+        waitingData = JSON.parse(e.data);
+        renderWaitingQueue();
+        renderQueue(); // 等待队列变化可能影响报名按钮状态
+    } catch (err) {
+        console.error('SSE waiting-queue parse error:', err);
+    }
+};
+waitingEs.onerror = function() {
+    console.warn('SSE waiting-queue disconnected, will auto-reconnect');
+};
 
 function renderQueue() {
     const list = document.getElementById('queue-list');
@@ -337,7 +397,6 @@ function renderWaitingQueue() {
             </div>
         `).join('');
 
-        // 当前用户是否在这个组里
         const inThisGroup = MY_NAME && (g.players || []).some(p => p.name === MY_NAME);
         const leaveBtn = inThisGroup ? `
             <div class="px-5 py-3 border-t border-hearth-border">
@@ -359,17 +418,12 @@ function renderWaitingQueue() {
 
 async function toggleQueue() {
     if (!MY_NAME) { window.location.href = '/register'; return; }
-    // 在等待队列里不让操作
-    if (waitingData.some(q => q.name === MY_NAME)) return;
+    if (waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME))) return;
     const inQueue = queueData.some(q => q.name === MY_NAME);
     const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
     try {
-        const res = await fetch(endpoint, { method: 'POST' });
-        const data = await res.json();
-        if (data.moved) {
-            await fetchWaitingQueue();
-        }
-        await fetchQueue();
+        await fetch(endpoint, { method: 'POST' });
+        // SSE 会自动推送变化，无需手动刷新
     } catch (e) {
         alert('操作失败，请重试');
     }
@@ -379,89 +433,10 @@ async function leaveWaitingQueue() {
     if (!MY_NAME) return;
     try {
         await fetch('/api/queue/leave', { method: 'POST' });
-        await fetchWaitingQueue();
-        await fetchQueue();
+        // SSE 会自动推送变化，无需手动刷新
     } catch (e) {
         alert('操作失败，请重试');
     }
 }
-
-fetchQueue();
-fetchWaitingQueue();
-setInterval(fetchQueue, 5000);
-setInterval(fetchWaitingQueue, 5000);
-
-// ── 对局实时刷新（每 5 秒轮询） ──
-let activeGamesCache = '';
-
-async function pollActiveGames() {
-    try {
-        const res = await fetch('/api/active-games');
-        const games = await res.json();
-        // 用 gameUuid + 各玩家 placement 拼接做指纹，检测排名提交变化
-        const fingerprint = games.map(g =>
-            (g.gameUuid || g._id) + ':' + (g.players || []).map(p => p.placement ?? '-').join(',')
-        ).sort().join('|');
-        if (fingerprint !== activeGamesCache) {
-            activeGamesCache = fingerprint;
-            renderActiveGames(games);
-            updateNavCount(games.length);
-        }
-    } catch (e) {
-        console.error('pollActiveGames failed:', e);
-    }
-}
-
-function renderActiveGames(games) {
-    const list = document.getElementById('active-games-list');
-    if (!games.length) {
-        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
-        return;
-    }
-    list.innerHTML = games.map(g => {
-        // 排序：未提交的在前，已提交的按排名降序（8在最下）
-        const placed = g.players.filter(p => p.placement != null).sort((a, b) => b.placement - a.placement);
-        const unplaced = g.players.filter(p => p.placement == null);
-        const sorted = [...unplaced, ...placed];
-
-        const players = sorted.map(p => {
-            const img = p.heroCardId
-                ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
-                : '';
-            if (p.placement != null) {
-                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName}</span></div>`;
-            }
-            return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
-        }).join('');
-        const started = g.startedAtEpoch;
-        return `<div class="px-5 py-3">
-            <div class="space-y-1 mb-2">${players}</div>
-            <div class="flex items-center justify-between text-xs text-hearth-dim">
-                <span>8 人对局</span>
-                <span class="text-hearth-gold font-mono" data-started-epoch="${started}">⏱️ --:--</span>
-            </div>
-        </div>`;
-    }).join('');
-    updateTimers();
-}
-
-function updateNavCount(count) {
-    document.querySelectorAll('[data-nav-active-count]').forEach(el => {
-        el.textContent = `● ${count} 场对局进行中`;
-    });
-}
-
-// 初始化：记录当前已渲染的对局指纹
-(function initCache() {
-    const list = document.getElementById('active-games-list');
-    if (!list) return;
-    const items = list.querySelectorAll('[data-started-epoch]');
-    // 页面初始渲染的对局没有 gameUuid，用 epoch 做临时指纹
-    const epochs = Array.from(items).map(el => el.dataset.startedEpoch).sort().join(',');
-    activeGamesCache = epochs || 'empty';
-})();
-
-pollActiveGames();
-setInterval(pollActiveGames, 5000);
 </script>
 {% endblock %}
