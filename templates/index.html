@@ -22,7 +22,7 @@
                             <th class="px-5 py-3 text-left w-12">#</th>
                             <th class="px-5 py-3 text-left">玩家</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="totalPoints">积分 ↕</th>
-                            <th class="px-5 py-3 text-right sort-btn" data-sort="totalGames">场次 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="leagueGames">场次 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="avgPlacement">场均排名 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="chickens">吃鸡 ↕</th>
@@ -138,9 +138,6 @@
 // 排行榜数据
 const players = {{ players | tojson }};
 
-// 计算胜率
-players.forEach(p => { p.winRate = p.totalGames > 0 ? (p.wins / p.totalGames) : 0; });
-
 let currentSort = 'totalPoints';
 let currentOrder = 'desc';
 let currentPage = 1;
@@ -182,7 +179,7 @@ function renderLeaderboard() {
                 </a>
             </td>
             <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.totalPoints}</td>
-            <td class="px-5 py-3 text-right font-mono">${p.totalGames}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.leagueGames}</td>
             <td class="px-5 py-3 text-right font-mono">${winRate}</td>
             <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
             <td class="px-5 py-3 text-right font-mono">${p.chickens}</td>

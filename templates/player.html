@@ -20,8 +20,8 @@
                 <div class="text-xs text-hearth-dim mt-1">总积分</div>
             </div>
             <div class="px-5 py-4 text-center">
-                <div class="text-2xl font-bold">{{ player.totalGames }}</div>
-                <div class="text-xs text-hearth-dim mt-1">总场次</div>
+                <div class="text-2xl font-bold">{{ player.leagueGames }}</div>
+                <div class="text-xs text-hearth-dim mt-1">联赛场次</div>
             </div>
             <div class="px-5 py-4 text-center">
                 <div class="text-2xl font-bold">{{ "%.0f"|format((player.winRate * 100) if player.leagueGames > 0 else 0) }}%</div>
