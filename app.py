@@ -474,6 +474,22 @@ def api_players():
     return jsonify(get_players())
 
 
+@app.route("/api/players/<path:battle_tag>")
+def api_player(battle_tag):
+    player = get_player(battle_tag)
+    if not player:
+        return jsonify({"error": "选手不存在"}), 404
+    return jsonify(player)
+
+
+@app.route("/api/match/<game_uuid>")
+def api_match(game_uuid):
+    match = get_match(game_uuid)
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+    return jsonify(match)
+
+
 @app.route("/api/matches")
 def api_matches():
     return jsonify(get_completed_matches(limit=10))
