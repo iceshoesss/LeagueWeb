@@ -12,7 +12,7 @@ import time
 
 app = Flask(__name__)
 app.secret_key = "bgtracker-flask-secret-2026-hearthstone"
-app.jinja_env.filters['cst'] = to_cst_str
+
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
@@ -122,6 +122,8 @@ def to_cst_str(dt_val):
         return cst.strftime("%Y-%m-%d %H:%M")
     except Exception:
         return str(dt_val)
+
+app.jinja_env.filters['cst'] = to_cst_str
 
 
 def get_players():
