@@ -76,8 +76,10 @@
                         {% if m.placement == 1 %}bg-yellow-500/20 text-yellow-400
                         {% elif m.placement == 2 %}bg-gray-400/20 text-gray-300
                         {% elif m.placement == 3 %}bg-orange-500/20 text-orange-400
+                        {% elif m.placement %}bg-white/5 text-hearth-dim
+                        {% elif m.status in ('timeout', 'abandoned') %}bg-yellow-500/10 text-yellow-400/70
                         {% else %}bg-white/5 text-hearth-dim{% endif %}">
-                        {{ m.placement }}
+                        {% if m.placement %}{{ m.placement }}{% elif m.status in ('timeout', 'abandoned') %}⚠️{% else %}-{% endif %}
                     </span>
                     {% if m.heroCardId %}
                     <div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
@@ -88,15 +90,25 @@
                     </div>
                     {% endif %}
                     <div>
-                        <div class="text-sm">{{ m.heroName }}</div>
-                        <div class="text-xs text-hearth-dim">{{ m.endedAt[:16].replace('T', ' ') }}</div>
+                        <div class="text-sm">{{ m.heroName if m.heroName else '—' }}</div>
+                        <div class="text-xs text-hearth-dim">
+                            {{ m.endedAt[:16].replace('T', ' ') }}
+                            {% if m.status == 'timeout' %}· <span class="text-yellow-400/70">超时</span>
+                            {% elif m.status == 'abandoned' %}· <span class="text-yellow-400/70">中断</span>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 <div class="text-right">
+                    {% if m.points is not none %}
                     <div class="text-sm font-bold {% if m.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">
                         +{{ m.points }}
                     </div>
                     <div class="text-xs text-hearth-dim">积分</div>
+                    {% else %}
+                    <div class="text-sm font-bold text-hearth-dim/50">-</div>
+                    <div class="text-xs text-hearth-dim/50">无数据</div>
+                    {% endif %}
                 </div>
             </a>
             {% endfor %}

@@ -5,11 +5,26 @@
 <div class="max-w-2xl mx-auto">
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
         <div class="px-6 py-4 border-b border-hearth-border flex items-center justify-between">
-            <h2 class="text-lg font-bold text-hearth-gold">🎮 对局详情</h2>
+            <h2 class="text-lg font-bold text-hearth-gold">
+                {% if match.status == 'timeout' %}⚠️ 对局超时
+                {% elif match.status == 'abandoned' %}⚠️ 对局中断
+                {% else %}🎮 对局详情{% endif %}
+            </h2>
             <div class="text-xs text-hearth-dim">
                 {{ match.endedAt[:16].replace('T', ' ') }} &middot; {{ match.region }} &middot; {{ match.mode }}
             </div>
         </div>
+
+        {% if match.status in ('timeout', 'abandoned') %}
+        <div class="px-6 py-3 bg-yellow-500/10 border-b border-hearth-border text-sm text-yellow-300 text-center">
+            {% if match.status == 'timeout' %}
+            此对局因超时自动结束，排名数据未被记录
+            {% else %}
+            此对局因玩家掉线中断，部分排名数据未被记录
+            {% endif %}
+        </div>
+        {% endif %}
+
         <div class="divide-y divide-hearth-border">
             {% for p in match.players %}
             <div class="flex items-center gap-4 px-6 py-3 hover:bg-white/5 transition">
@@ -18,8 +33,9 @@
                     {% if p.placement == 1 %}bg-yellow-500/20 text-yellow-400
                     {% elif p.placement == 2 %}bg-gray-400/20 text-gray-300
                     {% elif p.placement == 3 %}bg-orange-500/20 text-orange-400
-                    {% else %}bg-white/5 text-hearth-dim{% endif %}">
-                    {{ p.placement }}
+                    {% elif p.placement %}bg-white/5 text-hearth-dim
+                    {% else %}bg-white/5 text-hearth-dim/50{% endif %}">
+                    {{ p.placement if p.placement else '-' }}
                 </div>
                 <!-- 玩家信息 -->
                 <div class="flex-1 min-w-0 flex items-center gap-3">
@@ -40,10 +56,15 @@
                 </div>
                 <!-- 积分 -->
                 <div class="text-right flex-shrink-0">
+                    {% if p.points is not none %}
                     <div class="text-lg font-bold {% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">
                         +{{ p.points }}
                     </div>
                     <div class="text-xs text-hearth-dim">积分</div>
+                    {% else %}
+                    <div class="text-lg font-bold text-hearth-dim/50">-</div>
+                    <div class="text-xs text-hearth-dim/50">无数据</div>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}

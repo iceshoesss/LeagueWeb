@@ -146,11 +146,11 @@ def get_players():
 
 
 def get_completed_matches(limit=10):
-    """获取已完成的对局（endedAt 非 null）"""
+    """获取已完成的对局（endedAt 非 null，且所有玩家都有 placement）"""
     db = get_db()
-    # endedAt 为 null 或字段不存在 = 进行中；非 null = 已完成
+    # 排除超时/掉线等不完整的对局
     matches = list(db.league_matches.find(
-        {"endedAt": {"$nin": [None]}}
+        {"endedAt": {"$nin": [None]}, "status": {"$exists": False}}
     ).sort("endedAt", -1).limit(limit))
     for m in matches:
         m["_id"] = str(m["_id"])
@@ -165,6 +165,7 @@ def get_active_games():
     db = get_db()
     # 每次查询时清理超时对局
     cleanup_stale_games()
+    cleanup_partial_matches()
     cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
@@ -181,7 +182,7 @@ def get_active_games():
 
 
 def cleanup_stale_games():
-    """将超过超时时间的未结束对局标记为结束"""
+    """将超过超时时间的未结束对局标记为超时结束"""
     db = get_db()
     cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
@@ -192,10 +193,54 @@ def cleanup_stale_games():
     }
     result = db.league_matches.update_many(
         query,
-        {"$set": {"endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}}
+        {"$set": {
+            "endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "status": "timeout"
+        }}
     )
     if result.modified_count > 0:
         print(f"清理了 {result.modified_count} 个超时对局")
+
+
+def cleanup_partial_matches():
+    """
+    处理部分掉线导致永不结束的对局：
+    有人填了 placement 但超过超时时间仍未全部填完的对局，
+    将未填的玩家标记为 placement=null, status="abandoned"，
+    并写入 endedAt 让对局结束。
+    """
+    db = get_db()
+    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    query = {
+        "$and": [
+            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"startedAt": {"$lt": cutoff_str}},
+            {"status": {"$exists": False}},  # 不重复处理已标记的
+        ]
+    }
+    matches = list(db.league_matches.find(query))
+    if not matches:
+        return
+
+    count = 0
+    for m in matches:
+        players = m.get("players", [])
+        has_any_placement = any(p.get("placement") is not None for p in players)
+        if not has_any_placement:
+            continue  # 纯超时局，由 cleanup_stale_games 处理
+
+        # 有人填了但没全填 → 部分掉线
+        db.league_matches.update_one(
+            {"_id": m["_id"]},
+            {"$set": {
+                "endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "status": "abandoned"
+            }}
+        )
+        count += 1
+
+    if count > 0:
+        print(f"标记了 {count} 个部分掉线对局")
 
 
 def get_player(battle_tag):
@@ -266,6 +311,9 @@ def get_rival_stats(battle_tag):
     for m in matches:
         my_placement = None
         others = []
+        # 跳过超时/中断对局（placement 可能为 null）
+        if m.get("status") in ("timeout", "abandoned"):
+            continue
         for p in m.get("players", []):
             if p.get("battleTag") == battle_tag:
                 my_placement = p.get("placement")
@@ -295,9 +343,8 @@ def get_rival_stats(battle_tag):
 
 
 def get_player_matches(battle_tag):
-    """获取某选手的所有对局记录"""
+    """获取某选手的所有对局记录（含超时/中断对局，标记 status）"""
     db = get_db()
-    # 查找 players 数组中包含该 battleTag 的已完成对局
     matches = list(db.league_matches.find(
         {
             "players.battleTag": battle_tag,
@@ -316,6 +363,7 @@ def get_player_matches(battle_tag):
                     "heroName": p.get("heroName", ""),
                     "placement": p.get("placement"),
                     "points": p.get("points"),
+                    "status": m.get("status", "completed"),
                 })
     return result
 
