@@ -861,16 +861,20 @@ def api_logout():
 
 # ── SSE 端点（Server-Sent Events）──────────────────────
 
-def _sse_generate(fetch_fn, poll_interval=1):
+def _sse_generate(fetch_fn, poll_interval=2, max_lifetime=120):
     """
     通用 SSE 生成器：内部轮询数据，有变化时推送，无变化时保持连接空闲。
     每 30 秒发一次心跳注释行，确保连接活跃 + 让客户端/代理检测断连。
-    客户端断开时自动退出。
+    max_lifetime 秒后主动断开，由客户端 EventSource 自动重连（防连接堆积）。
     """
     last_fingerprint = None
     last_heartbeat = time.time()
+    start_time = time.time()
     while True:
         try:
+            # 主动断开超时连接，让客户端重连（清理可能的僵尸连接）
+            if time.time() - start_time > max_lifetime:
+                break
             data = fetch_fn()
             fingerprint = json.dumps(data, sort_keys=True, default=str)
             if fingerprint != last_fingerprint:
