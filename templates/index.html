@@ -407,8 +407,10 @@ async function pollActiveGames() {
     try {
         const res = await fetch('/api/active-games');
         const games = await res.json();
-        // 用 gameUuid 拼接做指纹，避免完整 JSON 比较的时序/精度问题
-        const fingerprint = games.map(g => g.gameUuid || g._id).sort().join(',');
+        // 用 gameUuid + 各玩家 placement 拼接做指纹，检测排名提交变化
+        const fingerprint = games.map(g =>
+            (g.gameUuid || g._id) + ':' + (g.players || []).map(p => p.placement ?? '-').join(',')
+        ).sort().join('|');
         if (fingerprint !== activeGamesCache) {
             activeGamesCache = fingerprint;
             renderActiveGames(games);
