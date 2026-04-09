@@ -12,6 +12,7 @@ import time
 
 app = Flask(__name__)
 app.secret_key = "bgtracker-flask-secret-2026-hearthstone"
+app.jinja_env.filters['cst'] = to_cst_str
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
@@ -91,12 +92,36 @@ def to_epoch(dt_val):
 
 
 def to_iso_str(dt_val):
-    """安全地把各种格式的时间值转为 ISO 字符串"""
+    """安全地把各种格式的时间值转为 ISO 字符串（UTC）"""
     if dt_val is None:
         return ""
     if isinstance(dt_val, (datetime, bson_datetime.datetime)):
         return dt_val.strftime("%Y-%m-%dT%H:%M:%S")
     return str(dt_val)
+
+
+def to_cst_str(dt_val):
+    """安全地把各种格式的时间值转为中国时间 (UTC+8) 字符串"""
+    from datetime import timezone as tz
+    if dt_val is None:
+        return ""
+    if isinstance(dt_val, (datetime, bson_datetime.datetime)):
+        if dt_val.tzinfo is None:
+            dt_val = dt_val.replace(tzinfo=tz.utc)
+        cst = dt_val + timedelta(hours=8)
+        return cst.strftime("%Y-%m-%d %H:%M")
+    # 字符串格式
+    try:
+        s = str(dt_val)
+        if s.endswith("Z"):
+            s = s[:-1]
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=tz.utc)
+        cst = dt + timedelta(hours=8)
+        return cst.strftime("%Y-%m-%d %H:%M")
+    except Exception:
+        return str(dt_val)
 
 
 def get_players():
