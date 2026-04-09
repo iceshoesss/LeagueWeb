@@ -109,14 +109,7 @@ def get_players():
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
         }},
-        {"$lookup": {
-            "from": "bg_ratings",
-            "localField": "_id",
-            "foreignField": "playerId",
-            "as": "rating",
-        }},
         {"$addFields": {
-            "totalGames": {"$ifNull": [{"$first": "$rating.leagueCount"}, "$leagueGames"]},
             "avgPlacement": {"$divide": ["$totalPlacement", "$leagueGames"]},
             "winRate": {"$divide": ["$wins", "$leagueGames"]},
             "chickenRate": {"$divide": ["$chickens", "$leagueGames"]},
@@ -132,7 +125,6 @@ def get_players():
             "displayName": p.get("displayName", ""),
             "accountIdLo": p.get("accountIdLo", ""),
             "totalPoints": p.get("totalPoints", 0),
-            "totalGames": p.get("totalGames", 0),
             "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
             "chickens": p.get("chickens", 0),
@@ -269,35 +261,27 @@ def get_player(battle_tag):
             "totalPlacement": {"$sum": "$players.placement"},
             "lastGameAt": {"$max": "$endedAt"},
         }},
-        {"$lookup": {
-            "from": "bg_ratings",
-            "localField": "_id",
-            "foreignField": "playerId",
-            "as": "rating",
-        }},
         {"$addFields": {
-            "totalGames": {"$ifNull": [{"$first": "$rating.leagueCount"}, "$leagueGames"]},
+            "avgPlacement": {"$divide": ["$totalPlacement", "$leagueGames"]},
+            "winRate": {"$divide": ["$wins", "$leagueGames"]},
+            "chickenRate": {"$divide": ["$chickens", "$leagueGames"]},
         }},
     ]
     result = list(db.league_matches.aggregate(pipeline))
     if result:
         p = result[0]
-        league_games = max(p.get("leagueGames", 1), 1)
-        wins = p.get("wins", 0)
-        chickens = p.get("chickens", 0)
         return {
             "_id": str(p["_id"]),
             "battleTag": p["_id"],
             "displayName": p.get("displayName", ""),
             "accountIdLo": p.get("accountIdLo", ""),
             "totalPoints": p.get("totalPoints", 0),
-            "totalGames": p.get("totalGames", 0),
             "leagueGames": p.get("leagueGames", 0),
-            "wins": wins,
-            "chickens": chickens,
-            "avgPlacement": round(p.get("totalPlacement", 0) / league_games, 1),
-            "winRate": wins / league_games,
-            "chickenRate": chickens / league_games,
+            "wins": p.get("wins", 0),
+            "chickens": p.get("chickens", 0),
+            "avgPlacement": round(p.get("avgPlacement", 0), 1),
+            "winRate": p.get("winRate", 0),
+            "chickenRate": p.get("chickenRate", 0),
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         }
     return None
