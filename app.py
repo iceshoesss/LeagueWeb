@@ -501,7 +501,8 @@ def index():
 def player_page(battle_tag):
     player = get_player(battle_tag)
     if not player:
-        return "选手不存在", 404
+        return render_template("404.html", title="选手不存在", emoji="🔍",
+            message=f"没有找到「{battle_tag}」的记录，可能还没有注册或打过联赛"), 404
     player_matches = get_player_matches(battle_tag)
     rival_stats = get_rival_stats(battle_tag)
     return render_template("player.html", player=player, matches=player_matches, rival=rival_stats)
@@ -511,7 +512,8 @@ def player_page(battle_tag):
 def match_page(game_uuid):
     match = get_match(game_uuid)
     if not match:
-        return "对局不存在", 404
+        return render_template("404.html", title="对局不存在", emoji="⚔️",
+            message="这局对局可能从未发生过，或者数据已被清理"), 404
     return render_template("match.html", match=match)
 
 
@@ -519,7 +521,8 @@ def match_page(game_uuid):
 def match_edit_page(game_uuid):
     match = get_match(game_uuid)
     if not match:
-        return "对局不存在", 404
+        return render_template("404.html", title="对局不存在", emoji="⚔️",
+            message="这局对局可能从未发生过，或者数据已被清理"), 404
     # 判断是否问题对局：有玩家 placement 为 null
     is_problem = any(p.get("placement") is None for p in match.get("players", []))
     if not is_problem:
@@ -926,6 +929,13 @@ def sse_waiting_queue():
         return [{"players": g.get("players", [])} for g in groups]
     return Response(_sse_generate(fetch), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── 全局错误处理 ─────────────────────────────────────
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
 
 
 if __name__ == "__main__":
