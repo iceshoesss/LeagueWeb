@@ -8,6 +8,7 @@ from pymongo import MongoClient
 from datetime import datetime, timedelta
 from bson import datetime as bson_datetime
 import hashlib
+import os
 import time
 import json
 
@@ -17,15 +18,15 @@ except ImportError:
     from time import sleep as gsleep
 
 app = Flask(__name__)
-app.secret_key = "bgtracker-flask-secret-2026-hearthstone"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bgtracker-flask-secret-2026-hearthstone")
 
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
 
 # ── MongoDB 连接 ────────────────────────────────────
-MONGO_URL = "mongodb://YOUR_MONGO_HOST:27017"
-DB_NAME = "hearthstone"
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
+DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 
 _client = None
 _db = None
