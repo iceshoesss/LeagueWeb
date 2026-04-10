@@ -98,17 +98,17 @@
                             <span>{{ p.displayName }}</span>
                         </div>
                         {% endfor %}
-                        {% for p in game.players|rejectattr('placement', 'none')|sort(attribute='placement', reverse=true) %}
+                        {% for p in game.players|rejectattr('placement', 'none')|sort(attribute='placement') %}
                         <div class="flex items-center gap-2 text-sm">
                             {% if p.heroCardId %}
                             <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
                                 <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
                                      alt="{{ p.heroName }}" title="{{ p.heroName }}"
-                                     class="w-[150%] h-[150%] object-cover"
+                                     class="w-[150%] h-[150%] object-cover grayscale opacity-50"
                                      onerror="this.closest('div').style.display='none'">
                             </div>
                             {% endif %}
-                            <span class="text-red-400">{{ p.displayName }}</span>
+                            <span class="text-gray-500">{{ p.displayName }}</span>
                         </div>
                         {% endfor %}
                     </div>
@@ -335,16 +335,16 @@ document.addEventListener('visibilitychange', () => {
         return;
     }
     list.innerHTML = games.map(g => {
-        const placed = g.players.filter(p => p.placement != null).sort((a, b) => b.placement - a.placement);
+        const placed = g.players.filter(p => p.placement != null).sort((a, b) => a.placement - b.placement);
         const unplaced = g.players.filter(p => p.placement == null);
         const sorted = [...unplaced, ...placed];
 
         const players = sorted.map(p => {
             const img = p.heroCardId
-                ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+                ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover${p.placement != null ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
                 : '';
             if (p.placement != null) {
-                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-red-400">${p.displayName}</span></div>`;
+                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-gray-500">${p.displayName}</span></div>`;
             }
             return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
         }).join('');
