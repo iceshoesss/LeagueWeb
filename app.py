@@ -11,6 +11,7 @@ import hashlib
 import os
 import time
 import json
+import secrets
 
 try:
     from gevent import sleep as gsleep
@@ -18,7 +19,7 @@ except ImportError:
     from time import sleep as gsleep
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "bgtracker-flask-secret-2026-hearthstone")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
