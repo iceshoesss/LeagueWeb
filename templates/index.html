@@ -42,6 +42,34 @@
                 <h2 class="text-lg font-bold text-hearth-gold">📋 最近对局</h2>
             </div>
             <div id="matches-list" class="divide-y divide-hearth-border">
+                {% for match in matches[:5] %}
+                <a href="/match/{{ match.gameUuid }}" class="block px-5 py-4 hover:bg-white/5 transition">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {% for p in match.players[:8] %}
+                        {% if p.placement is not none %}
+                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">
+                            {% if p.heroCardId %}
+                            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
+                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
+                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                                     class="w-[150%] h-[150%] object-cover"
+                                     onerror="this.closest('div').style.display='none'">
+                            </div>
+                            {% endif %}
+                            <div class="min-w-0 flex-1">
+                                <div class="text-xs truncate">{{ p.displayName }}</div>
+                                <div class="text-xs text-hearth-dim">
+                                    第{{ p.placement }}名
+                                    <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
@@ -307,9 +335,6 @@ function connectMatches() {
     };
 }
 connectMatches();
-
-// 初始渲染（用服务端数据，SSE 接管后会被覆盖）
-renderMatches({{ matches[:5] | tojson }});
 
 // 页面不可见时关闭 SSE，可见时重连（避免切 tab 后连接堆积）
 document.addEventListener('visibilitychange', () => {
