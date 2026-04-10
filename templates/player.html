@@ -67,58 +67,100 @@
         <div class="px-5 py-4 border-b border-hearth-border">
             <h2 class="text-lg font-bold text-hearth-gold">📋 历史对局</h2>
         </div>
-        {% if matches %}
-        <div class="divide-y divide-hearth-border">
-            {% for m in matches %}
-            <a href="/match/{{ m.gameUuid }}" class="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition">
-                <div class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                        {% if m.placement == 1 %}bg-yellow-500/20 text-yellow-400
-                        {% elif m.placement == 2 %}bg-gray-400/20 text-gray-300
-                        {% elif m.placement == 3 %}bg-orange-500/20 text-orange-400
-                        {% elif m.placement %}bg-white/5 text-hearth-dim
-                        {% elif m.status in ('timeout', 'abandoned') %}bg-yellow-500/10 text-yellow-400/70
-                        {% else %}bg-white/5 text-hearth-dim{% endif %}">
-                        {% if m.placement %}{{ m.placement }}{% elif m.status in ('timeout', 'abandoned') %}⚠️{% else %}-{% endif %}
-                    </span>
-                    {% if m.heroCardId %}
-                    <div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
-                        <img src="https://art.hearthstonejson.com/v1/256x/{{ m.heroCardId }}.jpg"
-                             alt="{{ m.heroName }}" title="{{ m.heroName }}"
-                             class="w-[150%] h-[150%] object-cover"
-                             onerror="this.closest('div').style.display='none'">
-                    </div>
-                    {% endif %}
-                    <div>
-                        <div class="text-sm">{{ m.heroName if m.heroName else '—' }}</div>
-                        <div class="text-xs text-hearth-dim">
-                            {{ m.endedAt | cst }}
-                            {% if m.status == 'timeout' %}· <span class="text-yellow-400/70">超时</span>
-                            {% elif m.status == 'abandoned' %}· <span class="text-yellow-400/70">中断</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                <div class="text-right">
-                    {% if m.points is not none %}
-                    <div class="text-sm font-bold {% if m.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">
-                        +{{ m.points }}
-                    </div>
-                    <div class="text-xs text-hearth-dim">积分</div>
-                    {% else %}
-                    <div class="text-sm font-bold text-hearth-dim/50">-</div>
-                    <div class="text-xs text-hearth-dim/50">无数据</div>
-                    {% endif %}
-                </div>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="px-5 py-8 text-center text-hearth-dim">暂无对局记录</div>
-        {% endif %}
+        <div id="matches-list" class="divide-y divide-hearth-border"></div>
+        <div id="matches-empty" class="px-5 py-8 text-center text-hearth-dim" style="display:none">暂无对局记录</div>
+        <div id="matches-pager" class="px-5 py-3 flex items-center justify-center gap-1"></div>
     </div>
-        <div class="mt-4 text-center">
+    <div class="mt-4 text-center">
         <a href="/" class="text-sm text-hearth-gold hover:underline">← 返回排行榜</a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const allMatches = {{ matches_json | tojson }};
+const PAGE_SIZE = 10;
+let currentPage = 1;
+
+function toCst(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
+    d.setHours(d.getHours() + 8);
+    const pad = n => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderMatches() {
+    const list = document.getElementById('matches-list');
+    const empty = document.getElementById('matches-empty');
+    const pager = document.getElementById('matches-pager');
+
+    if (!allMatches || !allMatches.length) {
+        list.innerHTML = '';
+        empty.style.display = '';
+        pager.innerHTML = '';
+        return;
+    }
+    empty.style.display = 'none';
+
+    const totalPages = Math.max(1, Math.ceil(allMatches.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = allMatches.slice(start, start + PAGE_SIZE);
+
+    list.innerHTML = pageItems.map(m => {
+        // 排名样式
+        let rankCls = 'bg-white/5 text-hearth-dim';
+        let rankText = '-';
+        if (m.placement === 1) { rankCls = 'bg-yellow-500/20 text-yellow-400'; rankText = '1'; }
+        else if (m.placement === 2) { rankCls = 'bg-gray-400/20 text-gray-300'; rankText = '2'; }
+        else if (m.placement === 3) { rankCls = 'bg-orange-500/20 text-orange-400'; rankText = '3'; }
+        else if (m.placement) { rankCls = 'bg-white/5 text-hearth-dim'; rankText = m.placement.toString(); }
+        else if (m.status === 'timeout' || m.status === 'abandoned') { rankCls = 'bg-yellow-500/10 text-yellow-400/70'; rankText = '⚠️'; }
+
+        const heroImg = m.heroCardId
+            ? `<div class="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${m.heroCardId}.jpg" alt="${m.heroName||''}" title="${m.heroName||''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+            : '';
+
+        const statusTag = m.status === 'timeout' ? ' · <span class="text-yellow-400/70">超时</span>'
+            : m.status === 'abandoned' ? ' · <span class="text-yellow-400/70">中断</span>' : '';
+
+        const pointsHtml = m.points != null
+            ? `<div class="text-sm font-bold ${m.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${m.points}</div><div class="text-xs text-hearth-dim">积分</div>`
+            : `<div class="text-sm font-bold text-hearth-dim/50">-</div><div class="text-xs text-hearth-dim/50">无数据</div>`;
+
+        return `<a href="/match/${m.gameUuid}" class="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition">
+            <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${rankCls}">${rankText}</span>
+                ${heroImg}
+                <div>
+                    <div class="text-sm">${m.heroName || '—'}</div>
+                    <div class="text-xs text-hearth-dim">${toCst(m.endedAt)}${statusTag}</div>
+                </div>
+            </div>
+            <div class="text-right">${pointsHtml}</div>
+        </a>`;
+    }).join('');
+
+    // 翻页控件（与排行榜一致的样式）
+    if (totalPages <= 1) { pager.innerHTML = ''; return; }
+    let btns = '';
+    btns += `<button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        const active = p === currentPage;
+        btns += `<button onclick="goPage(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    btns += `<button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    pager.innerHTML = btns;
+}
+
+function goPage(p) {
+    currentPage = p;
+    renderMatches();
+    document.getElementById('matches-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+renderMatches();
+</script>
 {% endblock %}

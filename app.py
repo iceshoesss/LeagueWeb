@@ -506,7 +506,7 @@ def player_page(battle_tag):
             message=f"没有找到「{battle_tag}」的记录，可能还没有注册或打过联赛"), 404
     player_matches = get_player_matches(battle_tag)
     rival_stats = get_rival_stats(battle_tag)
-    return render_template("player.html", player=player, matches=player_matches, rival=rival_stats)
+    return render_template("player.html", player=player, matches=player_matches, matches_json=player_matches, rival=rival_stats)
 
 
 @app.route("/match/<game_uuid>")
