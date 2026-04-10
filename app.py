@@ -422,26 +422,35 @@ def get_rival_stats(battle_tag):
 def get_player_matches(battle_tag):
     """获取某选手的所有对局记录（含超时/中断对局，标记 status）"""
     db = get_db()
-    matches = list(db.league_matches.find(
-        {
+    pipeline = [
+        {"$match": {
             "players.battleTag": battle_tag,
             "endedAt": {"$nin": [None]}
-        }
-    ).sort("endedAt", -1))
-
+        }},
+        {"$sort": {"endedAt": -1}},
+        {"$unwind": "$players"},
+        {"$match": {"players.battleTag": battle_tag}},
+        {"$project": {
+            "gameUuid": 1,
+            "endedAt": 1,
+            "heroCardId": "$players.heroCardId",
+            "heroName": "$players.heroName",
+            "placement": "$players.placement",
+            "points": "$players.points",
+            "status": {"$ifNull": ["$status", "completed"]},
+        }}
+    ]
     result = []
-    for m in matches:
-        for p in m.get("players", []):
-            if p.get("battleTag") == battle_tag:
-                result.append({
-                    "gameUuid": m["gameUuid"],
-                    "endedAt": to_iso_str(m.get("endedAt")),
-                    "heroCardId": p.get("heroCardId", ""),
-                    "heroName": p.get("heroName", ""),
-                    "placement": p.get("placement"),
-                    "points": p.get("points"),
-                    "status": m.get("status", "completed"),
-                })
+    for m in db.league_matches.aggregate(pipeline):
+        result.append({
+            "gameUuid": m["gameUuid"],
+            "endedAt": to_iso_str(m.get("endedAt")),
+            "heroCardId": m.get("heroCardId", ""),
+            "heroName": m.get("heroName", ""),
+            "placement": m.get("placement"),
+            "points": m.get("points"),
+            "status": m.get("status", "completed"),
+        })
     return result
 
 
