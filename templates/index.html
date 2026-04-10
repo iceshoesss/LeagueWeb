@@ -41,35 +41,7 @@
             <div class="px-5 py-4 border-b border-hearth-border">
                 <h2 class="text-lg font-bold text-hearth-gold">📋 最近对局</h2>
             </div>
-            <div class="divide-y divide-hearth-border">
-                {% for match in matches[:5] %}
-                <a href="/match/{{ match.gameUuid }}" class="block px-5 py-4 hover:bg-white/5 transition">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                        {% for p in match.players[:8] %}
-                        {% if p.placement is not none %}
-                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">
-                            {% if p.heroCardId %}
-                            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
-                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
-                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
-                                     class="w-[150%] h-[150%] object-cover"
-                                     onerror="this.closest('div').style.display='none'">
-                            </div>
-                            {% endif %}
-                            <div class="min-w-0 flex-1">
-                                <div class="text-xs truncate">{{ p.displayName }}</div>
-                                <div class="text-xs text-hearth-dim">
-                                    第{{ p.placement }}名
-                                    <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                </a>
-                {% endfor %}
-            </div>
+            <div id="matches-list" class="divide-y divide-hearth-border">
         </div>
     </div>
 
@@ -317,16 +289,40 @@ function connectWaitingQueue() {
 }
 connectWaitingQueue();
 
+// --- 最近对局 SSE ---
+let matchesEs = null;
+function connectMatches() {
+    if (matchesEs) matchesEs.close();
+    matchesEs = new EventSource('/api/events/matches');
+    matchesEs.onmessage = function(e) {
+        try {
+            const matches = JSON.parse(e.data);
+            renderMatches(matches);
+        } catch (err) {
+            console.error('SSE matches parse error:', err);
+        }
+    };
+    matchesEs.onerror = function() {
+        console.warn('SSE matches disconnected, will auto-reconnect');
+    };
+}
+connectMatches();
+
+// 初始渲染（用服务端数据，SSE 接管后会被覆盖）
+renderMatches({{ matches[:5] | tojson }});
+
 // 页面不可见时关闭 SSE，可见时重连（避免切 tab 后连接堆积）
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         activeEs?.close();
         queueEs?.close();
         waitingEs?.close();
+        matchesEs?.close();
     } else {
         connectActiveGames();
         connectQueue();
         connectWaitingQueue();
+        connectMatches();
     }
 });function renderActiveGames(games) {
     const list = document.getElementById('active-games-list');
@@ -364,6 +360,23 @@ function updateNavCount(count) {
     document.querySelectorAll('[data-nav-active-count]').forEach(el => {
         el.textContent = `● ${count} 场对局进行中`;
     });
+}
+
+function renderMatches(matches) {
+    const list = document.getElementById('matches-list');
+    if (!matches || !matches.length) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无对局记录</div>';
+        return;
+    }
+    list.innerHTML = matches.map(m => {
+        const players = m.players.filter(p => p.placement != null).map(p => {
+            const img = p.heroCardId
+                ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+                : '';
+            return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">${img}<div class="min-w-0 flex-1"><div class="text-xs truncate">${p.displayName}</div><div class="text-xs text-hearth-dim">第${p.placement}名 <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span></div></div></div>`;
+        }).join('');
+        return `<a href="/match/${m.gameUuid}" class="block px-5 py-4 hover:bg-white/5 transition"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${players}</div></a>`;
+    }).join('');
 }
 
 // --- 报名队列 SSE (已在上面 connectQueue 中定义) ---

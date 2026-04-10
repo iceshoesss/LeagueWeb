@@ -932,6 +932,26 @@ def sse_waiting_queue():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.route("/api/events/matches")
+def sse_matches():
+    """SSE: 最近对局变化推送（有新对局结束时触发）"""
+    def fetch():
+        matches = get_completed_matches(limit=5)
+        return [{
+            "gameUuid": m.get("gameUuid", ""),
+            "endedAt": to_cst_str(m.get("endedAt")),
+            "players": [{
+                "displayName": p.get("displayName", ""),
+                "heroCardId": p.get("heroCardId", ""),
+                "heroName": p.get("heroName", ""),
+                "placement": p.get("placement"),
+                "points": p.get("points"),
+            } for p in m.get("players", [])]
+        } for m in matches]
+    return Response(_sse_generate(fetch), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 # ── 全局错误处理 ─────────────────────────────────────
 
 @app.errorhandler(404)
