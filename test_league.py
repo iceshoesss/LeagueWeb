@@ -13,6 +13,7 @@ import sys
 import uuid
 import hashlib
 import time
+import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 
@@ -32,7 +33,7 @@ FAKE_PLAYERS = [
     {"battleTag": "烈焰术士#6789",           "displayName": "烈焰术士",           "accountIdLo": "2000000007"},
 ]
 
-# 英雄数据（仅用于 league_matches 构造）
+# 英雄数据（每个玩家选的英雄）
 HEROES = [
     ("TB_BaconShop_HERO_56", "阿莱克丝塔萨"),
     ("BG20_HERO_202",        "阮大师"),
@@ -126,7 +127,6 @@ def main():
     db.league_waiting_queue.delete_many({})
 
     for i, p in enumerate(FAKE_PLAYERS):
-        # 模拟 POST /api/queue/join
         name = p["displayName"]
 
         # 查是否有未满的等待组
@@ -146,7 +146,6 @@ def main():
             if current_count == 8:
                 print(f"\n  🎉 等待组已满 8 人！自动进入正在进行")
         else:
-            # 加入报名队列
             db.league_queue.update_one(
                 {"name": name},
                 {"$setOnInsert": {
@@ -156,8 +155,6 @@ def main():
                 }},
                 upsert=True,
             )
-
-            # 检查是否满 8 人
             count = db.league_queue.count_documents({})
             print(f"  📝 {name} 排队 ({count}/8)")
 
@@ -172,7 +169,6 @@ def main():
                 db.league_queue.delete_many({"name": {"$in": names}})
                 print(f"\n  🎉 8人满员，自动移入等待组 → 进行中")
 
-    # 验证
     waiting = list(db.league_waiting_queue.find())
     queue_count = db.league_queue.count_documents({})
     print(f"\n  等待组: {len(waiting)} 组, 报名队列剩余: {queue_count} 人")
@@ -181,39 +177,45 @@ def main():
     print("  ⏳ 等待组已就绪，8人进入游戏大厅...")
     print()
 
-    # ── 步骤 3: 游戏开始，插件检测到 STEP 13 ──
-    # （这一步是真实游戏中的行为，脚本跳过，直接进入步骤 4）
+    # ── 步骤 3: 游戏开始 ──
     print("  🎮 游戏开始...")
     print("  ⏳ STEP 13 (MAIN_CLEANUP) 检测到，开始联赛匹配...")
     print()
 
-    # ── 步骤 4: 8 个插件几乎同时上传 match（有微小时间差模拟竞争）──
-    print("📋 步骤 4: 8 个插件上传 league_matches（竞争写入测试）")
+    # ── 步骤 4: 8 个插件上传 match（随机微小延迟模拟竞争）──
+    print("📋 步骤 4: 8 个插件上传 league_matches（随机延迟竞争）")
     print("-" * 40)
 
-    game_uuid = str(uuid.uuid4())
-    # 从等待组获取 accountIdLo 集合用于匹配
-    group = waiting[0]
-    group_account_ids = {p.get("accountIdLo", "") for p in group["players"] if p.get("accountIdLo")}
-    print(f"  等待组 accountIdLo: {group_account_ids}")
-
-    # 删除等待组（模拟匹配成功）
-    db.league_waiting_queue.delete_one({"_id": group["_id"]})
-    print("  🗑️  等待组已删除（匹配成功）")
-
-    started_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-
-    # 模拟 8 个插件的 CreateLeagueMatchDirect（upsert + $setOnInsert）
-    # 用线程模拟几乎同时到达
     import threading
 
+    game_uuid = str(uuid.uuid4())
+    started_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+
+    # 先删除等待组（模拟匹配成功，真实流程是 CheckLeagueQueue 里做的）
+    group = waiting[0]
+    group_account_ids = {p.get("accountIdLo", "") for p in group["players"] if p.get("accountIdLo")}
+    print(f"  等待组 accountIdLo: {sorted(group_account_ids)}")
+    db.league_waiting_queue.delete_one({"_id": group["_id"]})
+    print("  🗑️  等待组已删除（匹配成功）")
+    print()
+
     upload_results = []
+    upload_times = []
+    lock = threading.Lock()
 
     def plugin_upload_match(player_idx):
-        """模拟单个插件上传 match 文档"""
-        p = FAKE_PLAYERS[player_idx]
-        hero_card_id, hero_name = HEROES[player_idx]
+        """
+        模拟单个插件的 CreateLeagueMatchDirect:
+        - 延迟随机 0~50ms 模拟网络微小差异
+        - 从 LobbyInfo 获取全部 8 人信息
+        - upsert + $setOnInsert（竞争）
+        """
+        delay = random.uniform(0, 0.05)
+        time.sleep(delay)
 
+        p = FAKE_PLAYERS[player_idx]
+
+        # 每个插件都从 LobbyInfo 看到全部 8 个玩家
         players_array = []
         for j, fp in enumerate(FAKE_PLAYERS):
             h_id, h_name = HEROES[j]
@@ -227,7 +229,7 @@ def main():
                 "points": None,
             })
 
-        # upsert: 第一个创建文档，后续全部 $setOnInsert 被忽略
+        t_before = time.time()
         result = db.league_matches.update_one(
             {"gameUuid": game_uuid},
             {"$setOnInsert": {
@@ -239,31 +241,35 @@ def main():
             }},
             upsert=True,
         )
-        created = result.upserted_id is not None
-        upload_results.append((p["displayName"], created))
+        t_after = time.time()
 
-    # 同时启动 8 个线程模拟竞争
+        created = result.upserted_id is not None
+        with lock:
+            upload_results.append((p["displayName"], created, delay))
+            upload_times.append((p["displayName"], t_before, t_after))
+
     threads = []
     for i in range(8):
         t = threading.Thread(target=plugin_upload_match, args=(i,))
         threads.append(t)
 
+    t_start = time.time()
     for t in threads:
         t.start()
     for t in threads:
         t.join()
 
-    for name, created in upload_results:
+    # 按实际到达时间排序显示
+    upload_results.sort(key=lambda x: x[2])
+    for name, created, delay in upload_results:
         status = "创建文档 ✅" if created else "文档已存在，跳过 ⏭️"
-        print(f"  {'🔌':>2} {name} → {status}")
+        print(f"  {'🔌':>2} {name} → {status}  (延迟 {delay*1000:.0f}ms)")
 
-    # 验证：文档是否正确
     match_doc = db.league_matches.find_one({"gameUuid": game_uuid})
     if match_doc:
+        has_created = sum(1 for _, c, _ in upload_results if c)
         print(f"\n  ✅ match 文档存在，玩家数: {len(match_doc['players'])}")
-        print(f"  ✅ endedAt: {match_doc['endedAt']} (应为 null)")
-        has_created = sum(1 for _, c in upload_results if c)
-        print(f"  ✅ 竞争写入: {has_created} 个创建，{8 - has_created} 个跳过（upsert 正确）")
+        print(f"  ✅ 竞争写入: {has_created} 个创建，{8 - has_created} 个跳过")
     else:
         print(f"\n  ❌ match 文档不存在！")
         return
@@ -277,12 +283,15 @@ def main():
     print("-" * 40)
 
     for i, placement in enumerate(PLACEMENT_UPLOAD_ORDER):
-        # placement 是排名，对应 FAKE_PLAYERS[placement-1]
         player_idx = placement - 1
         p = FAKE_PLAYERS[player_idx]
         points = calc_points(placement)
+        rating_before = 6000 + player_idx * 200
+        # 模拟分数变化: 前四加分，后四扣分
+        rating_change = random.randint(10, 50) if placement <= 4 else -random.randint(10, 50)
+        rating_after = rating_before + rating_change
 
-        # 模拟 UpdateLeaguePlacement
+        # ── 模拟插件 UpdateLeaguePlacement ──
         db.league_matches.update_one(
             {"gameUuid": game_uuid, "players.accountIdLo": p["accountIdLo"]},
             {"$set": {
@@ -291,7 +300,26 @@ def main():
             }}
         )
 
-        # 模拟 CheckAndFinalizeMatch
+        # ── 模拟插件 IncrementLeagueCount + TryUploadRating（写 bg_ratings）──
+        db.bg_ratings.update_one(
+            {"playerId": p["battleTag"]},
+            {"$set": {
+                "rating": rating_after,
+                "lastRating": rating_before,
+                "ratingChange": rating_change,
+                "mode": "solo",
+                "region": "TEST",
+                "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+            },
+            "$inc": {"gameCount": 1},
+            "$push": {
+                "ratingChanges": rating_change,
+                "placements": placement,
+            }},
+            upsert=True,
+        )
+
+        # ── 模拟 CheckAndFinalizeMatch ──
         doc = db.league_matches.find_one({"gameUuid": game_uuid})
         all_done = all(pl.get("placement") is not None for pl in doc["players"])
         finalized = False
@@ -304,8 +332,10 @@ def main():
 
         rank_label = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"][placement - 1]
         done_count = sum(1 for pl in doc["players"] if pl.get("placement") is not None)
-        print(f"  {rank_label} 第{placement}名 {p['displayName']} → {points}分  ({done_count}/8)"
-              + ("  🎉 对局结束！" if finalized else ""))
+        sign = "+" if rating_change > 0 else ""
+        print(f"  {rank_label} 第{placement}名 {p['displayName']:>20} → {points}分  "
+              f"分数 {rating_before} → {rating_after} ({sign}{rating_change})  "
+              f"({done_count}/8)" + ("  🎉 对局结束！" if finalized else ""))
 
         if i < len(PLACEMENT_UPLOAD_ORDER) - 1:
             time.sleep(UPLOAD_INTERVAL)
@@ -335,6 +365,7 @@ def main():
         print(f"\n  ✅ endedAt 已写入: {match_doc['endedAt']}")
     else:
         print(f"\n  ❌ endedAt 为 null！")
+        all_correct = False
 
     # 验证积分总和
     total = sum(calc_points(i) for i in range(1, 9))
@@ -343,6 +374,19 @@ def main():
         print(f"  ✅ 积分总和: {actual_total}")
     else:
         print(f"  ❌ 积分总和: {actual_total} (预期 {total})")
+        all_correct = False
+
+    # 验证 bg_ratings 更新
+    print(f"\n  bg_ratings 验证:")
+    for p in FAKE_PLAYERS:
+        rating_doc = db.bg_ratings.find_one({"playerId": p["battleTag"]})
+        if rating_doc and rating_doc.get("ratingChange") is not None:
+            placements = rating_doc.get("placements", [])
+            print(f"    ✅ {p['displayName']:>20}  分数={rating_doc['rating']}  "
+                  f"变化={rating_doc['ratingChange']}  排名记录={placements}")
+        else:
+            print(f"    ❌ {p['displayName']:>20}  未找到更新")
+            all_correct = False
 
     if all_correct:
         print("\n  🎉 所有测试通过！")
