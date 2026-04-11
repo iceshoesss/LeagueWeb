@@ -311,11 +311,7 @@ def main():
                 "region": "TEST",
                 "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
             },
-            "$inc": {"gameCount": 1},
-            "$push": {
-                "ratingChanges": rating_change,
-                "placements": placement,
-            }},
+            "$inc": {"gameCount": 1}},
             upsert=True,
         )
 
@@ -381,9 +377,8 @@ def main():
     for p in FAKE_PLAYERS:
         rating_doc = db.bg_ratings.find_one({"playerId": p["battleTag"]})
         if rating_doc and rating_doc.get("ratingChange") is not None:
-            placements = rating_doc.get("placements", [])
             print(f"    ✅ {p['displayName']:>20}  分数={rating_doc['rating']}  "
-                  f"变化={rating_doc['ratingChange']}  排名记录={placements}")
+                  f"变化={rating_doc['ratingChange']}  局数={rating_doc.get('gameCount', '?')}")
         else:
             print(f"    ❌ {p['displayName']:>20}  未找到更新")
             all_correct = False
