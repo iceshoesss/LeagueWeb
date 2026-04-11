@@ -1108,16 +1108,10 @@ def api_plugin_upload_rating():
     existing = db.bg_ratings.find_one({"playerId": player_id})
 
     if existing:
-        # ── 数据合理性：单次上传 rating 变化 ≤ ±500（允许玩家中间打了多局没开插件）──
-        old_rating = existing.get("rating", rating)
-        delta = abs(rating - old_rating)
-        if delta > 500:
-            return jsonify({"error": f"rating 变化幅度 {delta} 超过 ±500 限制"}), 400
-
         set_doc = {
-            "lastRating": old_rating,
+            "lastRating": existing.get("rating", rating),
             "rating": rating,
-            "ratingChange": rating - old_rating,
+            "ratingChange": rating - existing.get("rating", rating),
             "mode": mode,
             "region": region,
             "timestamp": now_str,
@@ -1259,6 +1253,11 @@ def api_plugin_update_placement():
         return jsonify({"error": "gameUuid 格式无效"}), 400
     if not isinstance(placement, int) or placement < 1 or placement > 8:
         return jsonify({"error": "placement 必须是 1-8 的整数"}), 400
+
+    # 积分校验：第1名=9分，其余=max(1, 9-placement)，最大不超过9
+    points = 9 if placement == 1 else max(1, 9 - placement)
+    if points < 1 or points > 9:
+        return jsonify({"error": f"积分计算异常: placement={placement} → points={points}"}), 400
 
     # 速率限制
     if player_id and not check_rate_limit(player_id):
