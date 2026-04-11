@@ -317,27 +317,45 @@ def main():
     order = list(range(NUM_PLAYERS))
     random.shuffle(order)
 
-    games_launched = []
-    current_game_players = []
+    # ── 异步开赛：等待组满人就立即开打 ──
+    game_threads = []       # [(thread, dict_ref)]  dict_ref 里放 match_doc
+    game_counter = [0]      # 用 list 包装，闭包可修改
+
+    def start_game_async(game_players, game_label):
+        """在新线程中运行一局比赛，结果写入 match_ref["doc"]"""
+        def _run():
+            md = run_game(db, game_players, game_label)
+            match_ref["doc"] = md
+        match_ref = {"doc": None}
+        t = threading.Thread(target=_run, daemon=True)
+        t.start()
+        game_threads.append((t, match_ref))
+        return match_ref
+
+    def try_launch_game(db):
+        """检查是否有满员的等待组，有的话立即开赛"""
+        group = db.league_waiting_queue.find_one(
+            {"$expr": {"$gte": [{"$size": "$players"}, PLAYERS_PER_GAME]}}
+        )
+        if not group:
+            return False
+        group_names = [gp["name"] for gp in group.get("players", [])]
+        game_players = [fp for fp in FAKE_PLAYERS if fp["displayName"] in group_names]
+        game_players.sort(key=lambda x: group_names.index(x["displayName"]))
+        db.league_waiting_queue.delete_one({"_id": group["_id"]})
+        game_counter[0] += 1
+        start_game_async(game_players, game_counter[0])
+        return True
 
     for idx in order:
         p = FAKE_PLAYERS[idx]
         joined, group_count = try_join_queue(db, p)
 
-        if group_count == PLAYERS_PER_GAME:
-            # 等待组满 8 人，获取该组玩家并开赛
-            waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", -1).limit(1))
-            if waiting_groups:
-                group = waiting_groups[0]
-                group_names = [gp["name"] for gp in group.get("players", [])]
-                game_players = [fp for fp in FAKE_PLAYERS if fp["displayName"] in group_names]
-                # 补齐顺序
-                game_players.sort(key=lambda x: group_names.index(x["displayName"]))
-                games_launched.append(game_players)
-                print(f"  🎉 {p['displayName']:>12} 排队 → 等待组满 {PLAYERS_PER_GAME} 人！开赛！")
-                # 开赛在报名完成后统一处理
-            else:
-                print(f"  📝 {p['displayName']:>12} 排队 → 等待组满 {PLAYERS_PER_GAME} 人")
+        # 每次有人入队后都检查是否可以开赛
+        launched = try_launch_game(db)
+
+        if launched:
+            print(f"  🎉 {p['displayName']:>12} 排队 → 等待组满 {PLAYERS_PER_GAME} 人！开赛！")
         elif joined:
             if group_count > 0:
                 print(f"  📝 {p['displayName']:>12} 排队 → 补入等待组 ({group_count}/{PLAYERS_PER_GAME})")
@@ -347,26 +365,26 @@ def main():
         else:
             print(f"  ⚠️  {p['displayName']:>12} 已在队列中，跳过")
 
+    # 报名结束后再检查一次（可能报名队列凑够了人）
+    while try_launch_game(db):
+        pass
+
     # 检查是否还有剩余的人在等待组（不足8人的）
     remaining_waiting = list(db.league_waiting_queue.find())
     remaining_queue = db.league_queue.count_documents({})
 
     print(f"\n  📊 报名结束:")
-    print(f"     开赛场次: {len(games_launched)}")
+    print(f"     进行中/已完成场次: {len(game_threads)}")
     print(f"     等待组中: {sum(len(g.get('players', [])) for g in remaining_waiting)} 人")
     print(f"     报名队列: {remaining_queue} 人")
 
-    print()
+    # ── 等待所有比赛线程结束 ──
+    print(f"\n⏳ 等待 {len(game_threads)} 场比赛全部结束...")
+    for t, _ in game_threads:
+        t.join()
 
-    # ── 依次开赛 ──
-    print(f"🎮 {len(games_launched)} 场比赛依次进行")
-    print("=" * 50)
-
-    match_docs = []
-    for i, gp in enumerate(games_launched, 1):
-        md = run_game(db, gp, i)
-        match_docs.append(md)
-        print()
+    match_docs = [ref["doc"] for _, ref in game_threads if ref["doc"]]
+    print(f"  ✅ 全部比赛结束，共 {len(match_docs)} 场")
 
     # ── 全部验证 ──
     print("=" * 60)
