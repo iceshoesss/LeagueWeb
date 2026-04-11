@@ -1122,11 +1122,11 @@ def api_plugin_upload_rating():
     existing = db.bg_ratings.find_one({"playerId": player_id})
 
     if existing:
-        # ── 数据合理性：rating 变化幅度 ≤ ±200 ──
+        # ── 数据合理性：单次上传 rating 变化 ≤ ±500（允许玩家中间打了多局没开插件）──
         old_rating = existing.get("rating", rating)
         delta = abs(rating - old_rating)
-        if delta > 200:
-            return jsonify({"error": f"rating 变化幅度 {delta} 超过 ±200 限制"}), 400
+        if delta > 500:
+            return jsonify({"error": f"rating 变化幅度 {delta} 超过 ±500 限制"}), 400
 
         set_doc = {
             "lastRating": old_rating,
@@ -1174,7 +1174,6 @@ def api_plugin_upload_rating():
 
 
 @app.route("/api/plugin/check-league", methods=["POST"])
-@require_plugin_auth
 def api_plugin_check_league():
     """
     检查是否为联赛对局（替代 C# CheckLeagueQueue）
