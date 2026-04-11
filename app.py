@@ -1077,9 +1077,9 @@ def api_plugin_upload_rating():
     """
     插件上报分数（替代 C# UploadToMongo + IncrementLeagueCount）
 
-    首次上传无需 token，服务端签发返回；后续请求需 Header: Authorization: Bearer <token>
+    无需认证。首次上传时签发 token 供 update-placement 使用。
 
-    请求体: { playerId, accountIdLo, rating, mode, gameUuid, region, includeToken? }
+    请求体: { playerId, accountIdLo, rating, mode, gameUuid, region }
     返回:   { ok, verificationCode?, token? }
     """
     data = request.get_json() or {}
@@ -1088,7 +1088,6 @@ def api_plugin_upload_rating():
     rating = data.get("rating")
     mode = data.get("mode", "solo")
     region = data.get("region", "CN")
-    include_token = data.get("includeToken", False)
 
     # ── 基础校验 ──
     if not player_id or player_id == "unknown":
@@ -1097,19 +1096,6 @@ def api_plugin_upload_rating():
         return jsonify({"error": "rating 必须是数字"}), 400
     if mode not in ("solo", "duo"):
         return jsonify({"error": "mode 必须是 solo 或 duo"}), 400
-
-    # ── 认证：首次上传无 token → 签发；有 token → 验证 ──
-    auth_header = request.headers.get("Authorization", "")
-    token = None
-    if auth_header.startswith("Bearer "):
-        token_str = auth_header[7:]
-        verified_pid = verify_plugin_token(token_str)
-        if verified_pid is None:
-            return jsonify({"error": "token 无效或已过期，请重新上传"}), 401
-        if verified_pid != player_id:
-            return jsonify({"error": "playerId 与 token 不匹配"}), 403
-        token = token_str
-    # 首次无 token：允许通过，稍后签发
 
     # ── 速率限制 ──
     if not check_rate_limit(player_id):
@@ -1161,9 +1147,8 @@ def api_plugin_upload_rating():
             {"$set": {"verificationCode": verification_code}}
         )
 
-    # 签发/续期 token
-    if token is None or include_token:
-        token = generate_plugin_token(player_id)
+    # 签发 token（供 update-placement 使用）
+    token = generate_plugin_token(player_id)
 
     resp = {"ok": True}
     if verification_code:
