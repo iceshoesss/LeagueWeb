@@ -1075,12 +1075,12 @@ def _generate_verification_code(oid):
 @app.route("/api/plugin/upload-rating", methods=["POST"])
 def api_plugin_upload_rating():
     """
-    插件上报分数（替代 C# UploadToMongo + IncrementLeagueCount）
+    插件上报分数
 
-    无需认证。首次上传时签发 token 供 update-placement 使用。
+    无需认证。
 
     请求体: { playerId, accountIdLo, rating, mode, gameUuid, region }
-    返回:   { ok, verificationCode?, token? }
+    返回:   { ok, verificationCode? }
     """
     data = request.get_json() or {}
     player_id = data.get("playerId", "").strip()
@@ -1147,14 +1147,9 @@ def api_plugin_upload_rating():
             {"$set": {"verificationCode": verification_code}}
         )
 
-    # 签发 token（供 update-placement 使用）
-    token = generate_plugin_token(player_id)
-
     resp = {"ok": True}
     if verification_code:
         resp["verificationCode"] = verification_code
-    if token:
-        resp["token"] = token
     return jsonify(resp)
 
 
@@ -1244,11 +1239,10 @@ def api_plugin_check_league():
 
 
 @app.route("/api/plugin/update-placement", methods=["POST"])
-@require_plugin_auth
 def api_plugin_update_placement():
     """
-    更新联赛对局排名（替代 C# UpdateLeaguePlacement + CheckAndFinalizeMatch）
-    需要 Header: Authorization: Bearer <token>
+    更新联赛对局排名
+    无需认证。
 
     请求体: { playerId, gameUuid, accountIdLo, placement }
     返回:   { ok, finalized }
@@ -1256,6 +1250,7 @@ def api_plugin_update_placement():
     data = request.get_json() or {}
     game_uuid = data.get("gameUuid", "").strip()
     account_id_lo = str(data.get("accountIdLo", ""))
+    player_id = data.get("playerId", "")
     placement = data.get("placement")
 
     if not game_uuid or not account_id_lo:
@@ -1264,6 +1259,10 @@ def api_plugin_update_placement():
         return jsonify({"error": "gameUuid 格式无效"}), 400
     if not isinstance(placement, int) or placement < 1 or placement > 8:
         return jsonify({"error": "placement 必须是 1-8 的整数"}), 400
+
+    # 速率限制
+    if player_id and not check_rate_limit(player_id):
+        return jsonify({"error": "请求过于频繁，请稍后重试"}), 429
 
     db = get_db()
 
