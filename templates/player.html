@@ -136,8 +136,8 @@ function initAnalysis() {
             formatter: function(params) {
                 const p = params[0];
                 const val = p.value;
-                const labels = { 1:'吃鸡 🏆', 2:'前四 ✓', 3:'前四 ✓', 4:'前四 ✓', 5:'后四 ✗', 6:'后四 ✗', 7:'后四 ✗', 8:'垫底 💀' };
-                return `第 ${val} 名 · ${labels[val] || ''}`;
+                const suffixes = { 1:'st', 2:'nd', 3:'rd', 4:'th', 5:'th', 6:'th', 7:'th', 8:'th' };
+                return val + (suffixes[val] || 'th');
             },
             backgroundColor: 'rgba(22,33,62,0.95)',
             borderColor: 'rgba(226,183,20,0.3)',
