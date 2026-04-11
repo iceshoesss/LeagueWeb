@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}酒馆战棋联赛{% endblock %}</title>
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍺</text></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -44,7 +44,7 @@
     <nav class="border-b border-hearth-border bg-black/30 backdrop-blur">
         <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <a href="/" class="text-xl font-bold text-hearth-gold flex items-center gap-2">
-                🍺 酒馆战棋联赛
+                {{ site_logo }} {{ site_name }}
             </a>
             <div class="flex items-center gap-4 text-sm">
                 <span data-nav-active-count class="active-pulse text-green-400">● {{ active_game_count }} 场对局进行中</span>

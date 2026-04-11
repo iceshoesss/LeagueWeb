@@ -32,6 +32,10 @@ GAME_TIMEOUT_MINUTES = 80
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
 DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 
+# ── 网站外观 ──────────────────────────────────────
+SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
+SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
+
 _client = None
 _db = None
 _last_cleanup_ts = 0
@@ -156,6 +160,8 @@ def inject_counts():
         "active_game_count": active_count,
         "total_player_count": player_count,
         "current_user": current_user,
+        "site_name": SITE_NAME,
+        "site_logo": SITE_LOGO,
     }
 
 
