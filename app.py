@@ -7,8 +7,11 @@ from flask import Flask, render_template, jsonify, request, session, redirect, u
 from pymongo import MongoClient
 from datetime import datetime, timedelta, UTC
 from bson import datetime as bson_datetime
+from functools import wraps
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import hashlib
 import os
+import re
 import time
 import json
 import secrets
@@ -36,6 +39,93 @@ _last_cleanup_ts = 0
 # ── 排行榜缓存 ───────────────────────────────────────
 _leaderboard_cache = {"data": None, "ts": 0}
 LEADERBOARD_TTL = 30  # 秒
+
+# ── 插件认证 ───────────────────────────────────────
+_token_serializer = None
+
+# 速率限制: {playerId: [(timestamp, ...), ...]}
+_rate_limit_store = {}
+RATE_LIMIT_WINDOW = 60   # 秒
+RATE_LIMIT_MAX = 10       # 每窗口最大请求数（每个 playerId）
+
+# token 有效期（秒）
+PLUGIN_TOKEN_MAX_AGE = 7 * 24 * 3600  # 7 天
+
+
+def get_token_serializer():
+    global _token_serializer
+    if _token_serializer is None:
+        _token_serializer = URLSafeTimedSerializer(
+            app.secret_key,
+            salt="hdt-bgtracker-plugin"
+        )
+    return _token_serializer
+
+
+def generate_plugin_token(player_id):
+    """为 playerId 签发 token"""
+    return get_token_serializer().dumps({"pid": player_id})
+
+
+def verify_plugin_token(token):
+    """验证 token，返回 playerId 或 None"""
+    try:
+        data = get_token_serializer().loads(token, max_age=PLUGIN_TOKEN_MAX_AGE)
+        return data.get("pid")
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def check_rate_limit(player_id):
+    """检查速率限制，返回 True=允许, False=拒绝"""
+    now = time.time()
+    window_start = now - RATE_LIMIT_WINDOW
+    # 清理过期记录
+    timestamps = _rate_limit_store.get(player_id, [])
+    timestamps = [t for t in timestamps if t > window_start]
+    if len(timestamps) >= RATE_LIMIT_MAX:
+        _rate_limit_store[player_id] = timestamps
+        return False
+    timestamps.append(now)
+    _rate_limit_store[player_id] = timestamps
+    return True
+
+
+def require_plugin_auth(f):
+    """
+    插件端点认证装饰器:
+    1. 从 Header 提取 Bearer token → 验证 → 获取 playerId
+    2. 确保 token 中的 playerId 与请求体中的一致
+    3. 速率限制
+    """
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "缺少认证 token"}), 401
+
+        token = auth_header[7:]
+        player_id = verify_plugin_token(token)
+        if player_id is None:
+            return jsonify({"error": "token 无效或已过期"}), 401
+
+        # 校验 token 中的 playerId 与请求体一致（防篡改他人数据）
+        data = request.get_json(silent=True) or {}
+        req_player_id = data.get("playerId", "")
+        if req_player_id and req_player_id != player_id:
+            return jsonify({"error": "playerId 与 token 不匹配"}), 403
+
+        # 速率限制
+        if not check_rate_limit(player_id):
+            return jsonify({"error": "请求过于频繁，请稍后重试"}), 429
+
+        # 注入已验证的 playerId 到 request 上，方便端点使用
+        request._plugin_player_id = player_id
+        return f(*args, **kwargs)
+    return decorated
+
+
+GAME_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
 
 
 @app.context_processor
@@ -986,19 +1076,44 @@ def _generate_verification_code(oid):
 def api_plugin_upload_rating():
     """
     插件上报分数（替代 C# UploadToMongo + IncrementLeagueCount）
-    请求体: { playerId, accountIdLo, rating, mode, gameUuid }
+
+    首次上传无需 token，服务端签发返回；后续请求需 Header: Authorization: Bearer <token>
+
+    请求体: { playerId, accountIdLo, rating, mode, gameUuid, region, includeToken? }
+    返回:   { ok, verificationCode?, token? }
     """
     data = request.get_json() or {}
     player_id = data.get("playerId", "").strip()
     account_id_lo = data.get("accountIdLo", "").strip()
     rating = data.get("rating")
     mode = data.get("mode", "solo")
-    game_uuid = data.get("gameUuid", "").strip()
+    region = data.get("region", "CN")
+    include_token = data.get("includeToken", False)
 
+    # ── 基础校验 ──
     if not player_id or player_id == "unknown":
         return jsonify({"error": "playerId 无效"}), 400
-    if rating is None:
-        return jsonify({"error": "rating 不能为空"}), 400
+    if not isinstance(rating, (int, float)):
+        return jsonify({"error": "rating 必须是数字"}), 400
+    if mode not in ("solo", "duo"):
+        return jsonify({"error": "mode 必须是 solo 或 duo"}), 400
+
+    # ── 认证：首次上传无 token → 签发；有 token → 验证 ──
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token_str = auth_header[7:]
+        verified_pid = verify_plugin_token(token_str)
+        if verified_pid is None:
+            return jsonify({"error": "token 无效或已过期，请重新上传"}), 401
+        if verified_pid != player_id:
+            return jsonify({"error": "playerId 与 token 不匹配"}), 403
+        token = token_str
+    # 首次无 token：允许通过，稍后签发
+
+    # ── 速率限制 ──
+    if not check_rate_limit(player_id):
+        return jsonify({"error": "请求过于频繁，请稍后重试"}), 429
 
     db = get_db()
     now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
@@ -1007,13 +1122,18 @@ def api_plugin_upload_rating():
     existing = db.bg_ratings.find_one({"playerId": player_id})
 
     if existing:
+        # ── 数据合理性：rating 变化幅度 ≤ ±200 ──
         old_rating = existing.get("rating", rating)
+        delta = abs(rating - old_rating)
+        if delta > 200:
+            return jsonify({"error": f"rating 变化幅度 {delta} 超过 ±200 限制"}), 400
+
         set_doc = {
             "lastRating": old_rating,
             "rating": rating,
             "ratingChange": rating - old_rating,
             "mode": mode,
-            "region": data.get("region", "CN"),
+            "region": region,
             "timestamp": now_str,
             "gameCount": existing.get("gameCount", 0) + 1,
         }
@@ -1030,7 +1150,7 @@ def api_plugin_upload_rating():
             "lastRating": rating,
             "ratingChange": 0,
             "mode": mode,
-            "region": data.get("region", "CN"),
+            "region": region,
             "timestamp": now_str,
             "gameCount": 1,
         }
@@ -1041,18 +1161,27 @@ def api_plugin_upload_rating():
             {"$set": {"verificationCode": verification_code}}
         )
 
+    # 签发/续期 token
+    if token is None or include_token:
+        token = generate_plugin_token(player_id)
+
     resp = {"ok": True}
     if verification_code:
         resp["verificationCode"] = verification_code
+    if token:
+        resp["token"] = token
     return jsonify(resp)
 
 
 @app.route("/api/plugin/check-league", methods=["POST"])
+@require_plugin_auth
 def api_plugin_check_league():
     """
     检查是否为联赛对局（替代 C# CheckLeagueQueue）
-    请求体: { gameUuid, accountIdLoList: ["123", "456", ...] }
-    返回: { isLeague: true/false }
+    需要 Header: Authorization: Bearer <token>
+
+    请求体: { playerId, gameUuid, accountIdLoList: [...], players?: {...}, mode?, region?, startedAt? }
+    返回:   { isLeague: true/false }
     """
     data = request.get_json() or {}
     game_uuid = data.get("gameUuid", "").strip()
@@ -1060,6 +1189,10 @@ def api_plugin_check_league():
 
     if not game_uuid or not account_ids:
         return jsonify({"error": "参数不完整"}), 400
+    if not GAME_UUID_RE.match(game_uuid):
+        return jsonify({"error": "gameUuid 格式无效"}), 400
+    if len(account_ids) != 8:
+        return jsonify({"error": "accountIdLoList 必须包含 8 个玩家"}), 400
 
     db = get_db()
 
@@ -1127,11 +1260,14 @@ def api_plugin_check_league():
 
 
 @app.route("/api/plugin/update-placement", methods=["POST"])
+@require_plugin_auth
 def api_plugin_update_placement():
     """
     更新联赛对局排名（替代 C# UpdateLeaguePlacement + CheckAndFinalizeMatch）
-    请求体: { gameUuid, accountIdLo, placement }
-    返回: { ok, finalized }
+    需要 Header: Authorization: Bearer <token>
+
+    请求体: { playerId, gameUuid, accountIdLo, placement }
+    返回:   { ok, finalized }
     """
     data = request.get_json() or {}
     game_uuid = data.get("gameUuid", "").strip()
@@ -1140,14 +1276,28 @@ def api_plugin_update_placement():
 
     if not game_uuid or not account_id_lo:
         return jsonify({"error": "参数不完整"}), 400
-    if placement is None:
-        return jsonify({"error": "placement 不能为空"}), 400
+    if not GAME_UUID_RE.match(game_uuid):
+        return jsonify({"error": "gameUuid 格式无效"}), 400
+    if not isinstance(placement, int) or placement < 1 or placement > 8:
+        return jsonify({"error": "placement 必须是 1-8 的整数"}), 400
 
     db = get_db()
+
+    # 幂等性：检查该玩家是否已经提交过 placement
+    existing_match = db.league_matches.find_one(
+        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo}
+    )
+    if existing_match is None:
+        return jsonify({"error": "未找到匹配的对局或玩家"}), 404
+
+    for p in existing_match.get("players", []):
+        if str(p.get("accountIdLo", "")) == account_id_lo and p.get("placement") is not None:
+            return jsonify({"error": "该玩家已提交过排名，不可重复提交"}), 409
+
     points = 9 if placement == 1 else max(1, 9 - placement)
 
     result = db.league_matches.update_one(
-        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo},
+        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo, "players.placement": None},
         {"$set": {
             "players.$.placement": placement,
             "players.$.points": points,
@@ -1155,7 +1305,7 @@ def api_plugin_update_placement():
     )
 
     if result.modified_count == 0:
-        return jsonify({"error": "未找到匹配的对局或玩家"}), 404
+        return jsonify({"error": "更新失败（可能已提交过或对局不存在）"}), 409
 
     # 检查是否所有 8 人都填完了
     finalized = False
