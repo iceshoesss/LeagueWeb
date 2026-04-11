@@ -1298,48 +1298,53 @@ def api_plugin_update_placement():
 
     db = get_db()
 
-    # 幂等性：检查该玩家是否已经提交过 placement
-    existing_match = db.league_matches.find_one(
-        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo}
-    )
-    if existing_match is None:
-        print(f"[update-placement] 未找到匹配的对局或玩家: accountIdLo={account_id_lo} gameUuid={game_uuid}")
-        return jsonify({"error": "未找到匹配的对局或玩家"}), 404
+    # 查找对局文档
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if match is None:
+        print(f"[update-placement] 未找到对局: gameUuid={game_uuid}")
+        return jsonify({"error": "未找到对局"}), 404
 
-    for p in existing_match.get("players", []):
-        if str(p.get("accountIdLo", "")) == account_id_lo and p.get("placement") is not None:
-            print(f"[update-placement] 重复提交: accountIdLo={account_id_lo} 已有 placement={p['placement']}")
-            return jsonify({"error": "该玩家已提交过排名，不可重复提交"}), 409
+    # 定位目标玩家在数组中的索引
+    players = match.get("players", [])
+    target_index = None
+    for i, p in enumerate(players):
+        if str(p.get("accountIdLo", "")) == account_id_lo:
+            target_index = i
+            if p.get("placement") is not None:
+                print(f"[update-placement] 重复提交: accountIdLo={account_id_lo} 已有 placement={p['placement']}")
+                return jsonify({"error": "该玩家已提交过排名，不可重复提交"}), 409
+            break
 
-    points = 9 if placement == 1 else max(1, 9 - placement)
+    if target_index is None:
+        print(f"[update-placement] 玩家不在对局中: accountIdLo={account_id_lo} gameUuid={game_uuid}")
+        return jsonify({"error": "该玩家不在此对局中"}), 404
 
+    # 通过索引直接更新，避免 $ 位置操作符匹配错误元素
     result = db.league_matches.update_one(
-        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo, "players.placement": None},
+        {"gameUuid": game_uuid},
         {"$set": {
-            "players.$.placement": placement,
-            "players.$.points": points,
+            f"players.{target_index}.placement": placement,
+            f"players.{target_index}.points": points,
         }}
     )
 
     if result.modified_count == 0:
-        print(f"[update-placement] 更新失败（modified_count=0）: accountIdLo={account_id_lo}")
-        return jsonify({"error": "更新失败（可能已提交过或对局不存在）"}), 409
+        print(f"[update-placement] 更新失败: accountIdLo={account_id_lo} index={target_index}")
+        return jsonify({"error": "更新失败"}), 500
 
-    print(f"[update-placement] 已更新: accountIdLo={account_id_lo} placement={placement} points={points}")
+    print(f"[update-placement] 已更新: accountIdLo={account_id_lo} → players[{target_index}].placement={placement} points={points}")
 
-    # 检查是否所有 8 人都填完了
+    # 检查是否所有 8 人都填完了（用刚更新后的内存数据）
+    players[target_index]["placement"] = placement
+    all_done = all(p.get("placement") is not None for p in players)
     finalized = False
-    match = db.league_matches.find_one({"gameUuid": game_uuid, "endedAt": None})
-    if match:
-        players = match.get("players", [])
-        all_done = all(p.get("placement") is not None for p in players)
-        if all_done:
-            db.league_matches.update_one(
-                {"gameUuid": game_uuid},
-                {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
-            )
-            finalized = True
-            print(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
+    if all_done:
+        db.league_matches.update_one(
+            {"gameUuid": game_uuid},
+            {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
+        )
+        finalized = True
+        print(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
 
     return jsonify({"ok": True, "finalized": finalized})
 
