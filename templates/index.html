@@ -81,44 +81,8 @@
                 <span class="active-pulse text-green-400">⚔️</span>
                 <h2 class="text-lg font-bold text-hearth-gold">正在进行</h2>
             </div>
-            <div id="active-games-list" class="divide-y divide-hearth-border">
-                {% for game in active_games %}
-                <div class="px-5 py-3">
-                    <div class="space-y-1.5 mb-2">
-                        {% for p in game.players|selectattr('placement', 'none') %}
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if p.heroCardId %}
-                            <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
-                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
-                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
-                                     class="w-[150%] h-[150%] object-cover"
-                                     onerror="this.closest('div').style.display='none'">
-                            </div>
-                            {% endif %}
-                            <span>{{ p.displayName }}</span>
-                        </div>
-                        {% endfor %}
-                        {% for p in game.players|rejectattr('placement', 'none')|sort(attribute='placement') %}
-                        <div class="flex items-center gap-2 text-sm">
-                            {% if p.heroCardId %}
-                            <div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
-                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
-                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
-                                     class="w-[150%] h-[150%] object-cover grayscale opacity-50"
-                                     onerror="this.closest('div').style.display='none'">
-                            </div>
-                            {% endif %}
-                            <span class="text-gray-500">{{ p.displayName }}</span>
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="flex items-center justify-between text-xs text-hearth-dim">
-                        <span>8 人对局</span>
-                        <span class="text-hearth-gold font-mono" data-started-epoch="{{ game.startedAtEpoch }}">⏱️ --:--</span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
+            <div id="active-games-list" class="divide-y divide-hearth-border"></div>
+            <div id="active-games-pager" class="px-5 py-3 flex items-center justify-center gap-1"></div>
         </div>
 
         <!-- 报名 + 等待队列 -->
@@ -349,13 +313,35 @@ document.addEventListener('visibilitychange', () => {
         connectWaitingQueue();
         connectMatches();
     }
-});function renderActiveGames(games) {
+});// 正在进行 - 分页
+let allActiveGames = [];
+let activePage = 1;
+const ACTIVE_PAGE_SIZE = 4;
+
+function renderActiveGames(games) {
+    allActiveGames = games || [];
+    // 数据减少时回到第 1 页
+    const totalPages = Math.max(1, Math.ceil(allActiveGames.length / ACTIVE_PAGE_SIZE));
+    if (activePage > totalPages) activePage = totalPages;
+    renderActiveGamesPage();
+}
+
+function renderActiveGamesPage() {
     const list = document.getElementById('active-games-list');
-    if (!games.length) {
+    const pager = document.getElementById('active-games-pager');
+
+    if (!allActiveGames.length) {
         list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
+        pager.innerHTML = '';
         return;
     }
-    list.innerHTML = games.map(g => {
+
+    const totalPages = Math.max(1, Math.ceil(allActiveGames.length / ACTIVE_PAGE_SIZE));
+    if (activePage > totalPages) activePage = totalPages;
+    const start = (activePage - 1) * ACTIVE_PAGE_SIZE;
+    const pageGames = allActiveGames.slice(start, start + ACTIVE_PAGE_SIZE);
+
+    list.innerHTML = pageGames.map(g => {
         const placed = g.players.filter(p => p.placement != null).sort((a, b) => a.placement - b.placement);
         const unplaced = g.players.filter(p => p.placement == null);
         const sorted = [...unplaced, ...placed];
@@ -378,8 +364,28 @@ document.addEventListener('visibilitychange', () => {
             </div>
         </div>`;
     }).join('');
+
+    // 翻页控件（与排行榜/玩家页一致的样式）
+    if (totalPages <= 1) { pager.innerHTML = ''; updateTimers(); return; }
+    let btns = '';
+    btns += `<button onclick="goActivePage(${activePage - 1})" ${activePage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        const isActive = p === activePage;
+        btns += `<button onclick="goActivePage(${p})" class="px-2.5 py-1 rounded text-xs ${isActive ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    btns += `<button onclick="goActivePage(${activePage + 1})" ${activePage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    pager.innerHTML = btns;
+
     updateTimers();
 }
+
+function goActivePage(p) {
+    activePage = p;
+    renderActiveGamesPage();
+}
+
+// 初始化：渲染服务端数据
+renderActiveGames({{ active_games | tojson }});
 
 function updateNavCount(count) {
     document.querySelectorAll('[data-nav-active-count]').forEach(el => {
