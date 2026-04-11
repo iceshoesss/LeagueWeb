@@ -5,7 +5,7 @@
 
 from flask import Flask, render_template, jsonify, request, session, redirect, url_for, Response
 from pymongo import MongoClient
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from bson import datetime as bson_datetime
 import hashlib
 import os
@@ -43,7 +43,7 @@ def inject_counts():
     """每个页面自动注入进行中对局数、选手数、当前登录用户"""
     try:
         db = get_db()
-        cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+        cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
         active_count = db.league_matches.count_documents({
             "$and": [
                 {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -230,7 +230,7 @@ def get_active_games():
         _last_cleanup_ts = now
         cleanup_stale_games()
         cleanup_partial_matches()
-    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -248,7 +248,7 @@ def get_active_games():
 def cleanup_stale_games():
     """将超过超时时间的未结束对局标记为超时结束"""
     db = get_db()
-    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -258,7 +258,7 @@ def cleanup_stale_games():
     result = db.league_matches.update_many(
         query,
         {"$set": {
-            "endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "status": "timeout"
         }}
     )
@@ -274,7 +274,7 @@ def cleanup_partial_matches():
     并写入 endedAt 让对局结束。
     """
     db = get_db()
-    cutoff_str = (datetime.utcnow() - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -297,7 +297,7 @@ def cleanup_partial_matches():
         db.league_matches.update_one(
             {"_id": m["_id"]},
             {"$set": {
-                "endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "status": "abandoned"
             }}
         )
@@ -630,7 +630,7 @@ def api_update_placement(game_uuid):
     # 写入 endedAt（如果还没有）并去掉 status 标记
     db.league_matches.update_one(
         {"gameUuid": game_uuid},
-        {"$set": {"endedAt": match.get("endedAt") or datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")},
+        {"$set": {"endedAt": match.get("endedAt") or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")},
          "$unset": {"status": ""}}
     )
 
@@ -699,7 +699,7 @@ def api_queue_join():
     # 没有未满的组，加入报名队列
     db.league_queue.update_one(
         {"name": name},
-        {"$setOnInsert": {"name": name, "joinedAt": datetime.utcnow().isoformat() + "Z"}},
+        {"$setOnInsert": {"name": name, "joinedAt": datetime.now(UTC).isoformat() + "Z"}},
         upsert=True,
     )
 
@@ -717,7 +717,7 @@ def api_queue_join():
             players.append({"name": p_name, "accountIdLo": p_lo})
         db.league_waiting_queue.insert_one({
             "players": players,
-            "createdAt": datetime.utcnow().isoformat() + "Z",
+            "createdAt": datetime.now(UTC).isoformat() + "Z",
         })
         db.league_queue.delete_many({"name": {"$in": names}})
         return jsonify({"ok": True, "name": name, "moved": True})
@@ -801,7 +801,7 @@ def api_register():
             "accountIdLo": account_id_lo,
             "displayName": display_name,
             "verified": True,
-            "verifiedAt": datetime.utcnow().isoformat() + "Z",
+            "verifiedAt": datetime.now(UTC).isoformat() + "Z",
         },
         "$setOnInsert": {
             "totalPoints": 0,
@@ -809,7 +809,7 @@ def api_register():
             "wins": 0,
             "chickens": 0,
             "avgPlacement": 0,
-            "createdAt": datetime.utcnow().isoformat() + "Z",
+            "createdAt": datetime.now(UTC).isoformat() + "Z",
         }},
         upsert=True,
     )
@@ -1001,7 +1001,7 @@ def api_plugin_upload_rating():
         return jsonify({"error": "rating 不能为空"}), 400
 
     db = get_db()
-    now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
     # 查找现有文档
     existing = db.bg_ratings.find_one({"playerId": player_id})
@@ -1109,7 +1109,7 @@ def api_plugin_check_league():
     # 创建 league_matches 文档（upsert 防重复）
     mode = data.get("mode", "solo")
     region = data.get("region", "CN")
-    started_at = data.get("startedAt", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"))
+    started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
 
     db.league_matches.update_one(
         {"gameUuid": game_uuid},
@@ -1166,7 +1166,7 @@ def api_plugin_update_placement():
         if all_done:
             db.league_matches.update_one(
                 {"gameUuid": game_uuid},
-                {"$set": {"endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}}
+                {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
             )
             finalized = True
 

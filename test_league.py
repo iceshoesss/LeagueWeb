@@ -14,7 +14,7 @@ import hashlib
 import time
 import random
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from pymongo import MongoClient
 
 
@@ -93,7 +93,7 @@ def try_join_queue(db, player):
         {"$setOnInsert": {
             "name": name,
             "accountIdLo": player["accountIdLo"],
-            "joinedAt": datetime.utcnow().isoformat() + "Z",
+            "joinedAt": datetime.now(UTC).isoformat() + "Z",
         }},
         upsert=True,
     )
@@ -106,7 +106,7 @@ def try_join_queue(db, player):
         names = [s["name"] for s in signup]
         db.league_waiting_queue.insert_one({
             "players": players,
-            "createdAt": datetime.utcnow().isoformat() + "Z",
+            "createdAt": datetime.now(UTC).isoformat() + "Z",
         })
         db.league_queue.delete_many({"name": {"$in": names}})
         return True, PLAYERS_PER_GAME
@@ -120,7 +120,7 @@ def run_game(db, game_players, game_num):
     game_players: 8 个玩家的列表
     """
     game_uuid = str(uuid.uuid4())
-    started_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+    started_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
 
     print(f"\n  🎮 第 {game_num} 局开始 (gameUuid: {game_uuid[:8]}...)")
     print(f"     玩家: {', '.join(p['displayName'] for p in game_players)}")
@@ -211,7 +211,7 @@ def run_game(db, game_players, game_num):
                 "ratingChange": rating_change,
                 "mode": "solo",
                 "region": "TEST",
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"),
+                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"),
             },
             "$inc": {"gameCount": 1}},
             upsert=True,
@@ -226,7 +226,7 @@ def run_game(db, game_players, game_num):
         if all_done:
             db.league_matches.update_one(
                 {"gameUuid": game_uuid},
-                {"$set": {"endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")}}
+                {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")}}
             )
 
         if step < len(submit_order) - 1:
@@ -283,7 +283,7 @@ def main():
                 "accountIdLo": p["accountIdLo"],
                 "displayName": p["displayName"],
                 "verified": True,
-                "verifiedAt": datetime.utcnow().isoformat() + "Z",
+                "verifiedAt": datetime.now(UTC).isoformat() + "Z",
             },
             "$setOnInsert": {
                 "totalPoints": 0,
@@ -291,7 +291,7 @@ def main():
                 "wins": 0,
                 "chickens": 0,
                 "avgPlacement": 0,
-                "createdAt": datetime.utcnow().isoformat() + "Z",
+                "createdAt": datetime.now(UTC).isoformat() + "Z",
             }},
             upsert=True,
         )
