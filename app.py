@@ -683,10 +683,16 @@ def api_queue_join():
             incomplete_group = g
             break
 
+    # 查找 accountIdLo
+    player_info = db.league_players.find_one({"battleTag": name})
+    account_id_lo = str(player_info.get("accountIdLo", "")) if player_info else ""
+
+    player_entry = {"name": name, "accountIdLo": account_id_lo}
+
     if incomplete_group:
         db.league_waiting_queue.update_one(
             {"_id": incomplete_group["_id"]},
-            {"$push": {"players": {"name": name}}}
+            {"$push": {"players": player_entry}}
         )
         return jsonify({"ok": True, "name": name, "moved": True})
 
@@ -701,8 +707,14 @@ def api_queue_join():
     signup_count = db.league_queue.count_documents({})
     if signup_count >= 8:
         signup = list(db.league_queue.find().sort("joinedAt", 1).limit(8))
-        players = [{"name": p["name"]} for p in signup]
-        names = [p["name"] for p in signup]
+        players = []
+        names = []
+        for p in signup:
+            p_name = p["name"]
+            names.append(p_name)
+            p_info = db.league_players.find_one({"battleTag": p_name})
+            p_lo = str(p_info.get("accountIdLo", "")) if p_info else ""
+            players.append({"name": p_name, "accountIdLo": p_lo})
         db.league_waiting_queue.insert_one({
             "players": players,
             "createdAt": datetime.utcnow().isoformat() + "Z",
@@ -960,6 +972,205 @@ def sse_matches():
         } for m in matches]
     return Response(_sse_generate(fetch), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── 插件专用 API（C# 插件通过 HTTP 调用，替代直连 MongoDB）──────────
+
+def _generate_verification_code(oid):
+    """基于 MongoDB ObjectId 生成确定性验证码（SHA256 前 8 位大写）"""
+    raw = f"bgtracker:{oid}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:8].upper()
+
+
+@app.route("/api/plugin/upload-rating", methods=["POST"])
+def api_plugin_upload_rating():
+    """
+    插件上报分数（替代 C# UploadToMongo + IncrementLeagueCount）
+    请求体: { playerId, accountIdLo, rating, mode, gameUuid }
+    """
+    data = request.get_json() or {}
+    player_id = data.get("playerId", "").strip()
+    account_id_lo = data.get("accountIdLo", "").strip()
+    rating = data.get("rating")
+    mode = data.get("mode", "solo")
+    game_uuid = data.get("gameUuid", "").strip()
+
+    if not player_id or player_id == "unknown":
+        return jsonify({"error": "playerId 无效"}), 400
+    if rating is None:
+        return jsonify({"error": "rating 不能为空"}), 400
+
+    db = get_db()
+    now_str = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+
+    # 查找现有文档
+    existing = db.bg_ratings.find_one({"playerId": player_id})
+
+    if existing:
+        old_rating = existing.get("rating", rating)
+        set_doc = {
+            "lastRating": old_rating,
+            "rating": rating,
+            "ratingChange": rating - old_rating,
+            "mode": mode,
+            "region": data.get("region", "CN"),
+            "timestamp": now_str,
+            "gameCount": existing.get("gameCount", 0) + 1,
+        }
+        if account_id_lo:
+            set_doc["accountIdLo"] = account_id_lo
+        db.bg_ratings.update_one({"_id": existing["_id"]}, {"$set": set_doc})
+        verification_code = existing.get("verificationCode")
+    else:
+        # 首次上传
+        doc = {
+            "playerId": player_id,
+            "accountIdLo": account_id_lo,
+            "rating": rating,
+            "lastRating": rating,
+            "ratingChange": 0,
+            "mode": mode,
+            "region": data.get("region", "CN"),
+            "timestamp": now_str,
+            "gameCount": 1,
+        }
+        result = db.bg_ratings.insert_one(doc)
+        verification_code = _generate_verification_code(result.inserted_id)
+        db.bg_ratings.update_one(
+            {"_id": result.inserted_id},
+            {"$set": {"verificationCode": verification_code}}
+        )
+
+    resp = {"ok": True}
+    if verification_code:
+        resp["verificationCode"] = verification_code
+    return jsonify(resp)
+
+
+@app.route("/api/plugin/check-league", methods=["POST"])
+def api_plugin_check_league():
+    """
+    检查是否为联赛对局（替代 C# CheckLeagueQueue）
+    请求体: { gameUuid, accountIdLoList: ["123", "456", ...] }
+    返回: { isLeague: true/false }
+    """
+    data = request.get_json() or {}
+    game_uuid = data.get("gameUuid", "").strip()
+    account_ids = set(str(a) for a in data.get("accountIdLoList", []))
+
+    if not game_uuid or not account_ids:
+        return jsonify({"error": "参数不完整"}), 400
+
+    db = get_db()
+
+    # 遍历等待组，找完全匹配
+    waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
+    matched_group = None
+
+    for group in waiting_groups:
+        queue_ids = set()
+        has_all_ids = True
+        for p in group.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            if lo:
+                queue_ids.add(lo)
+            else:
+                has_all_ids = False
+                break
+
+        # 只匹配有完整 accountIdLo 的组（新数据）
+        if has_all_ids and len(account_ids) == len(queue_ids) and account_ids == queue_ids:
+            matched_group = group
+            break
+
+    if matched_group is None:
+        return jsonify({"isLeague": False})
+
+    # 删除等待组
+    db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
+
+    # 构建 players 数组（优先用请求体中的详细信息，fallback 到等待组数据）
+    detailed_players = data.get("players", {})  # {accountIdLo: {heroCardId, heroName, battleTag, displayName}}
+
+    players = []
+    for p in matched_group.get("players", []):
+        lo = str(p.get("accountIdLo", ""))
+        detail = detailed_players.get(lo, {})
+        players.append({
+            "accountIdLo": lo,
+            "battleTag": detail.get("battleTag", p.get("name", "")),
+            "displayName": detail.get("displayName", p.get("name", "")),
+            "heroCardId": detail.get("heroCardId", ""),
+            "heroName": detail.get("heroName", ""),
+            "placement": None,
+            "points": None,
+        })
+
+    # 创建 league_matches 文档（upsert 防重复）
+    mode = data.get("mode", "solo")
+    region = data.get("region", "CN")
+    started_at = data.get("startedAt", datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S"))
+
+    db.league_matches.update_one(
+        {"gameUuid": game_uuid},
+        {"$setOnInsert": {
+            "players": players,
+            "region": region,
+            "mode": mode,
+            "startedAt": started_at,
+            "endedAt": None,
+        }},
+        upsert=True,
+    )
+
+    return jsonify({"isLeague": True})
+
+
+@app.route("/api/plugin/update-placement", methods=["POST"])
+def api_plugin_update_placement():
+    """
+    更新联赛对局排名（替代 C# UpdateLeaguePlacement + CheckAndFinalizeMatch）
+    请求体: { gameUuid, accountIdLo, placement }
+    返回: { ok, finalized }
+    """
+    data = request.get_json() or {}
+    game_uuid = data.get("gameUuid", "").strip()
+    account_id_lo = str(data.get("accountIdLo", ""))
+    placement = data.get("placement")
+
+    if not game_uuid or not account_id_lo:
+        return jsonify({"error": "参数不完整"}), 400
+    if placement is None:
+        return jsonify({"error": "placement 不能为空"}), 400
+
+    db = get_db()
+    points = 9 if placement == 1 else max(1, 9 - placement)
+
+    result = db.league_matches.update_one(
+        {"gameUuid": game_uuid, "players.accountIdLo": account_id_lo},
+        {"$set": {
+            "players.$.placement": placement,
+            "players.$.points": points,
+        }}
+    )
+
+    if result.modified_count == 0:
+        return jsonify({"error": "未找到匹配的对局或玩家"}), 404
+
+    # 检查是否所有 8 人都填完了
+    finalized = False
+    match = db.league_matches.find_one({"gameUuid": game_uuid, "endedAt": None})
+    if match:
+        players = match.get("players", [])
+        all_done = all(p.get("placement") is not None for p in players)
+        if all_done:
+            db.league_matches.update_one(
+                {"gameUuid": game_uuid},
+                {"$set": {"endedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")}}
+            )
+            finalized = True
+
+    return jsonify({"ok": True, "finalized": finalized})
 
 
 # ── 全局错误处理 ─────────────────────────────────────
