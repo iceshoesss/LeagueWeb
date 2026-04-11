@@ -1201,38 +1201,7 @@ def api_plugin_check_league():
             break
 
     if matched_group is None:
-        # [TESTING] 暂时跳过等待组匹配，直接用插件上报的玩家数据创建联赛对局
-        detailed_players = data.get("players", {})
-        players = []
-        for lo in account_ids:
-            detail = detailed_players.get(lo, {})
-            players.append({
-                "accountIdLo": lo,
-                "battleTag": detail.get("battleTag", ""),
-                "displayName": detail.get("displayName", ""),
-                "heroCardId": detail.get("heroCardId", ""),
-                "heroName": detail.get("heroName", ""),
-                "placement": None,
-                "points": None,
-            })
-
-        mode = data.get("mode", "solo")
-        region = data.get("region", "CN")
-        started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
-
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$setOnInsert": {
-                "players": players,
-                "region": region,
-                "mode": mode,
-                "startedAt": started_at,
-                "endedAt": None,
-            }},
-            upsert=True,
-        )
-
-        return jsonify({"isLeague": True})
+        return jsonify({"isLeague": False})
 
     # 删除等待组
     db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
