@@ -68,17 +68,13 @@
 
     <!-- 对局分析：折线图 + 饼图 -->
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-6" id="analysis-box">
-        <div class="px-5 py-3 border-b border-hearth-border flex items-center gap-1">
-            <button class="analysis-tab active px-4 py-1.5 rounded-md text-xs font-bold transition" data-tab="overview">总览</button>
-            <button class="analysis-tab px-4 py-1.5 rounded-md text-xs font-bold transition" data-tab="trend">趋势</button>
-        </div>
-        <div class="flex" id="analysis-content">
-            <!-- 左侧：统计数据 -->
-            <div class="flex-[3] p-5 border-r border-hearth-border/50" id="analysis-left">
-                <div class="grid grid-cols-3 gap-4 text-sm" id="stats-columns"></div>
+        <div class="flex">
+            <!-- 左侧：折线图 -->
+            <div class="flex-[3] p-4 border-r border-hearth-border/50">
+                <div id="line-chart" style="width:100%;height:300px;"></div>
             </div>
             <!-- 右侧：饼图 -->
-            <div class="flex-[2] p-4 flex flex-col items-center" id="analysis-right">
+            <div class="flex-[2] p-4 flex flex-col items-center">
                 <div class="text-sm font-bold mb-1" style="color:#f0c040;">排名分布</div>
                 <div id="pie-chart" style="width:100%;height:280px;"></div>
             </div>
@@ -101,32 +97,6 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.analysis-tab {
-    background: transparent;
-    color: #8b8b9e;
-    border: none;
-    cursor: pointer;
-}
-.analysis-tab:hover {
-    color: #e0e0e0;
-    background: rgba(255,255,255,0.05);
-}
-.analysis-tab.active {
-    background: rgba(226,183,20,0.15);
-    color: #e2b714;
-}
-.stat-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 5px 0;
-    border-bottom: 1px solid rgba(42,42,74,0.5);
-}
-.stat-item:last-child { border-bottom: none; }
-.stat-label { color: #8b8b9e; font-size: 12px; }
-.stat-value { color: #e0e0e0; font-size: 12px; font-weight: 600; font-family: monospace; }
-.stat-value.gold { color: #e2b714; }
-</style>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
 const allMatches = {{ matches_json | tojson }};
@@ -138,7 +108,17 @@ const placements = allMatches
     .filter(m => m.placement != null && m.status === 'completed')
     .map(m => m.placement);
 
-const pieColors = ['#fbbf24','#d1d5db','#fb923c','#60a5fa','#6366f1','#8b5cf6','#a78bfa','#6b7280'];
+const rankColors = {
+    1: '#fbbf24',   // 🥇 金
+    2: '#4ade80',   // 前四 胜
+    3: '#4ade80',
+    4: '#4ade80',
+    5: '#f87171',   // 后四 败
+    6: '#f87171',
+    7: '#f87171',
+    8: '#ef4444',   // 💀 惨
+};
+const pieColors = ['#fbbf24','#4ade80','#4ade80','#4ade80','#f87171','#f87171','#f87171','#ef4444'];
 
 function initAnalysis() {
     if (!placements.length) {
@@ -146,38 +126,78 @@ function initAnalysis() {
         return;
     }
 
-    // 统计数据
-    const total = placements.length;
-    const avg = (placements.reduce((a,b) => a+b, 0) / total).toFixed(2);
-    const chickens = placements.filter(p => p === 1).length;
-    const top4 = placements.filter(p => p <= 4).length;
-    const top2 = placements.filter(p => p <= 2).length;
-    const worst = Math.max(...placements);
-    const best = Math.min(...placements);
+    // ── 左侧：折线图 ──
+    const recent = placements.slice(-20);
+    const lineChart = echarts.init(document.getElementById('line-chart'), 'dark');
+    lineChart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+                const p = params[0];
+                const val = p.value;
+                const labels = { 1:'吃鸡 🏆', 2:'前四 ✓', 3:'前四 ✓', 4:'前四 ✓', 5:'后四 ✗', 6:'后四 ✗', 7:'后四 ✗', 8:'垫底 💀' };
+                return `第 ${val} 名 · ${labels[val] || ''}`;
+            },
+            backgroundColor: 'rgba(22,33,62,0.95)',
+            borderColor: 'rgba(226,183,20,0.3)',
+            textStyle: { color: '#e0e0e0', fontSize: 12 },
+        },
+        grid: { left: 30, right: 12, top: 12, bottom: 28 },
+        xAxis: {
+            type: 'category',
+            data: recent.map((_, i) => `#${placements.length - recent.length + i + 1}`),
+            axisLine: { lineStyle: { color: 'rgba(226,183,20,0.15)' } },
+            axisTick: { show: false },
+            axisLabel: { color: '#666', fontSize: 9 },
+        },
+        yAxis: {
+            type: 'value',
+            inverse: true,
+            min: 1, max: 8, interval: 1,
+            axisLine: { show: false },
+            axisLabel: { color: '#666', fontSize: 10 },
+            splitLine: { lineStyle: { color: 'rgba(226,183,20,0.06)' } },
+        },
+        series: [{
+            type: 'line',
+            data: recent.map(val => ({
+                value: val,
+                itemStyle: { color: rankColors[val] || '#888' },
+            })),
+            smooth: 0.35,
+            symbol: 'circle',
+            symbolSize: 10,
+            lineStyle: {
+                width: 2,
+                color: {
+                    type: 'linear', x: 0, y: 0, x2: 1, y2: 0,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(96,165,250,0.4)' },
+                        { offset: 1, color: 'rgba(96,165,250,0.6)' },
+                    ],
+                },
+            },
+            itemStyle: {
+                borderWidth: 2,
+                borderColor: '#16213e',
+            },
+            areaStyle: {
+                color: {
+                    type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                    colorStops: [
+                        { offset: 0, color: 'rgba(96,165,250,0.15)' },
+                        { offset: 1, color: 'rgba(96,165,250,0)' },
+                    ],
+                },
+            },
+        }],
+        animation: true,
+        animationDuration: 600,
+    });
+    window.addEventListener('resize', () => lineChart.resize());
 
-    // 渲染三列统计
-    document.getElementById('stats-columns').innerHTML = `
-        <div>
-            <div class="stat-item"><span class="stat-label">场次</span><span class="stat-value">${total}</span></div>
-            <div class="stat-item"><span class="stat-label">场均排名</span><span class="stat-value gold">${avg}</span></div>
-            <div class="stat-item"><span class="stat-label">最高排名</span><span class="stat-value">${best}st</span></div>
-            <div class="stat-item"><span class="stat-label">最低排名</span><span class="stat-value">${worst}th</span></div>
-        </div>
-        <div>
-            <div class="stat-item"><span class="stat-label">吃鸡</span><span class="stat-value gold">${chickens} (${(chickens/total*100).toFixed(1)}%)</span></div>
-            <div class="stat-item"><span class="stat-label">前二</span><span class="stat-value">${top2} (${(top2/total*100).toFixed(1)}%)</span></div>
-            <div class="stat-item"><span class="stat-label">前四</span><span class="stat-value">${top4} (${(top4/total*100).toFixed(1)}%)</span></div>
-            <div class="stat-item"><span class="stat-label">后四</span><span class="stat-value">${total - top4} (${((total-top4)/total*100).toFixed(1)}%)</span></div>
-        </div>
-        <div>
-            ${[1,2,3,4,5,6,7,8].map(r => {
-                const c = placements.filter(p => p === r).length;
-                return `<div class="stat-item"><span class="stat-label">第${r}名</span><span class="stat-value">${c} (${(c/total*100).toFixed(1)}%)</span></div>`;
-            }).join('')}
-        </div>
-    `;
-
-    // 饼图
+    // ── 右侧：饼图 ──
     const dist = {};
     placements.forEach(p => { dist[p] = (dist[p] || 0) + 1; });
     const pieData = Object.entries(dist).sort((a,b) => a[0]-b[0]).map(([k,v]) => ({
@@ -209,108 +229,12 @@ function initAnalysis() {
                 borderColor: '#16213e',
                 borderWidth: 2,
             },
-            color: pieColors,
+            color: ['#fbbf24','#4ade80','#34d399','#60a5fa','#f87171','#ef4444','#dc2626','#991b1b'],
             animation: true,
             animationDuration: 800,
-            animationEasing: 'cubicOut',
         }],
     });
     window.addEventListener('resize', () => pieChart.resize());
-
-    // Tab 切换
-    document.querySelectorAll('.analysis-tab').forEach(btn => {
-        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
-    });
-}
-
-function switchTab(tab) {
-    document.querySelectorAll('.analysis-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    const left = document.getElementById('analysis-left');
-
-    if (tab === 'trend') {
-        // 折线图视图
-        const recent = placements.slice(-20);
-        left.innerHTML = '<div id="line-chart" style="width:100%;height:300px;"></div>';
-        const lineChart = echarts.init(document.getElementById('line-chart'), 'dark');
-        lineChart.setOption({
-            backgroundColor: 'transparent',
-            tooltip: {
-                trigger: 'axis',
-                formatter: `第{c}名`,
-                backgroundColor: 'rgba(22,33,62,0.95)',
-                borderColor: 'rgba(226,183,20,0.3)',
-                textStyle: { color: '#e0e0e0', fontSize: 12 },
-            },
-            grid: { left: 35, right: 15, top: 15, bottom: 25 },
-            xAxis: {
-                type: 'category',
-                data: recent.map((_, i) => `#${placements.length - recent.length + i + 1}`),
-                axisLine: { lineStyle: { color: 'rgba(226,183,20,0.2)' } },
-                axisTick: { show: false },
-                axisLabel: { color: '#888', fontSize: 10 },
-            },
-            yAxis: {
-                type: 'value',
-                inverse: true,
-                min: 1, max: 8, interval: 1,
-                axisLine: { show: false },
-                axisLabel: { color: '#888', fontSize: 10 },
-                splitLine: { lineStyle: { color: 'rgba(226,183,20,0.06)' } },
-            },
-            series: [{
-                type: 'line',
-                data: recent,
-                smooth: 0.35,
-                symbol: 'circle',
-                symbolSize: 7,
-                lineStyle: { width: 2.5, color: '#60a5fa' },
-                itemStyle: { color: '#60a5fa', borderColor: '#16213e', borderWidth: 2 },
-                areaStyle: {
-                    color: {
-                        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-                        colorStops: [
-                            { offset: 0, color: 'rgba(96,165,250,0.25)' },
-                            { offset: 1, color: 'rgba(96,165,250,0)' },
-                        ],
-                    },
-                },
-            }],
-            animation: true,
-            animationDuration: 600,
-        });
-        window.addEventListener('resize', () => lineChart.resize());
-    } else {
-        // 总览视图（统计数据）
-        const total = placements.length;
-        const avg = (placements.reduce((a,b) => a+b, 0) / total).toFixed(2);
-        const chickens = placements.filter(p => p === 1).length;
-        const top4 = placements.filter(p => p <= 4).length;
-        const top2 = placements.filter(p => p <= 2).length;
-        const worst = Math.max(...placements);
-        const best = Math.min(...placements);
-        left.innerHTML = `
-            <div class="grid grid-cols-3 gap-4 text-sm">
-                <div>
-                    <div class="stat-item"><span class="stat-label">场次</span><span class="stat-value">${total}</span></div>
-                    <div class="stat-item"><span class="stat-label">场均排名</span><span class="stat-value gold">${avg}</span></div>
-                    <div class="stat-item"><span class="stat-label">最高排名</span><span class="stat-value">${best}st</span></div>
-                    <div class="stat-item"><span class="stat-label">最低排名</span><span class="stat-value">${worst}th</span></div>
-                </div>
-                <div>
-                    <div class="stat-item"><span class="stat-label">吃鸡</span><span class="stat-value gold">${chickens} (${(chickens/total*100).toFixed(1)}%)</span></div>
-                    <div class="stat-item"><span class="stat-label">前二</span><span class="stat-value">${top2} (${(top2/total*100).toFixed(1)}%)</span></div>
-                    <div class="stat-item"><span class="stat-label">前四</span><span class="stat-value">${top4} (${(top4/total*100).toFixed(1)}%)</span></div>
-                    <div class="stat-item"><span class="stat-label">后四</span><span class="stat-value">${total - top4} (${((total-top4)/total*100).toFixed(1)}%)</span></div>
-                </div>
-                <div>
-                    ${[1,2,3,4,5,6,7,8].map(r => {
-                        const c = placements.filter(p => p === r).length;
-                        return `<div class="stat-item"><span class="stat-label">第${r}名</span><span class="stat-value">${c} (${(c/total*100).toFixed(1)}%)</span></div>`;
-                    }).join('')}
-                </div>
-            </div>
-        `;
-    }
 }
 
 initAnalysis();
