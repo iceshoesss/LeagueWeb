@@ -220,30 +220,20 @@ def run_game(db, game_players, game_num):
         # 更新玩家 rating 供后续对局使用
         p["rating"] = new_rating
 
-        # CheckAndFinalizeMatch
-        doc = db.league_matches.find_one({"gameUuid": game_uuid})
-        all_done = all(pl.get("placement") is not None for pl in doc["players"])
-        if all_done:
-            db.league_matches.update_one(
-                {"gameUuid": game_uuid},
-                {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")}}
-            )
-
         if step < len(submit_order) - 1:
             time.sleep(UPLOAD_INTERVAL)
 
-    # ── 安全网：显式 finalize ──
-    # CheckAndFinalizeMatch 在最后一个玩家提交时可能因连接池时序未生效，
-    # 这里显式检查并设置 endedAt
+    # ── 所有排名提交完成后，统一 finalize ──
+    # 不在循环内检查，避免最后一个玩家提交后 find_one 读到旧状态导致 endedAt 写不进去
     doc = db.league_matches.find_one({"gameUuid": game_uuid})
-    if doc and doc.get("endedAt") is None:
+    if doc:
         all_placed = all(pl.get("placement") is not None for pl in doc.get("players", []))
-        if all_placed:
+        if all_placed and doc.get("endedAt") is None:
             db.league_matches.update_one(
                 {"gameUuid": game_uuid},
                 {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")}}
             )
-            print(f"     ✅ finalize 安全网生效，endedAt 已补设")
+            print(f"     ✅ endedAt 已写入")
 
     # 打印本局结果
     match_doc = db.league_matches.find_one({"gameUuid": game_uuid})
