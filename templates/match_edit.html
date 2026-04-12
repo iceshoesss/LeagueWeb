@@ -17,7 +17,8 @@
 
         <div class="divide-y divide-hearth-border" id="players-list">
             {% for p in match.players %}
-            <div class="flex items-center gap-4 px-6 py-4">
+            {% set locked = p.placement is not none %}
+            <div class="flex items-center gap-4 px-6 py-4{% if locked %} opacity-60{% endif %}">
                 <!-- 英雄头像 -->
                 <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
                     {% if p.heroCardId %}
@@ -34,13 +35,20 @@
                 </div>
                 <!-- 排名下拉 -->
                 <div class="flex-shrink-0">
+                    {% if locked %}
+                    <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-sm text-green-400 w-24 justify-center">
+                        <span>🔒</span>
+                        <span>第 {{ p.placement }} 名</span>
+                    </div>
+                    {% else %}
                     <select data-account-id="{{ p.accountIdLo }}"
                         class="placement-select bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/60 transition w-24 text-center">
                         <option value="">排名</option>
                         {% for i in range(1, 9) %}
-                        <option value="{{ i }}" {% if p.placement == i %}selected{% endif %}>第 {{ i }} 名</option>
+                        <option value="{{ i }}">第 {{ i }} 名</option>
                         {% endfor %}
                     </select>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -65,6 +73,13 @@
 <script>
 const GAME_UUID = {{ match.gameUuid | tojson }};
 
+// 已锁定的玩家及其排名（后端校验用）
+const LOCKED_PLACEMENTS = {
+    {% for p in match.players if p.placement is not none %}
+    "{{ p.accountIdLo }}": {{ p.placement }},
+    {% endfor %}
+};
+
 function showError(msg) {
     const el = document.getElementById('error-msg');
     el.textContent = msg;
@@ -75,21 +90,24 @@ async function submitPlacements() {
     const selects = document.querySelectorAll('.placement-select');
     const placements = {};
     const used = new Set();
-    let hasError = false;
+
+    // 已锁定的排名也算已占用
+    Object.values(LOCKED_PLACEMENTS).forEach(v => used.add(v));
 
     document.getElementById('error-msg').classList.add('hidden');
 
+    let hasError = false;
     selects.forEach(sel => {
         const lo = sel.dataset.accountId;
         const val = sel.value;
         if (!val) {
-            showError('所有玩家都需要选择排名');
+            showError('所有未锁定的玩家都需要选择排名');
             hasError = true;
             return;
         }
         const num = parseInt(val);
         if (used.has(num)) {
-            showError(`第 ${num} 名重复了`);
+            showError(`第 ${num} 名已被占用（已被锁定或重复选择）`);
             hasError = true;
             return;
         }
@@ -98,9 +116,8 @@ async function submitPlacements() {
     });
 
     if (hasError) return;
-
-    if (Object.keys(placements).length !== 8) {
-        showError('需要 8 个玩家的排名');
+    if (Object.keys(placements).length === 0) {
+        showError('没有需要提交的排名');
         return;
     }
 

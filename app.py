@@ -695,19 +695,26 @@ def api_update_placement(game_uuid):
     if not match:
         return jsonify({"error": "对局不存在"}), 404
 
-    # 验证：8 个玩家排名 1-8 不重复
+    # 验证：提交的排名不重复，且值在 1-8 范围内
     values = list(placements.values())
-    if len(values) != 8:
-        return jsonify({"error": "需要 8 个玩家的排名"}), 400
-    if sorted(values) != list(range(1, 9)):
-        return jsonify({"error": "排名必须是 1-8 各出现一次"}), 400
+    if not values:
+        return jsonify({"error": "未提供排名数据"}), 400
+    if any(v < 1 or v > 8 for v in values):
+        return jsonify({"error": "排名必须在 1-8 之间"}), 400
+    if len(values) != len(set(values)):
+        return jsonify({"error": "提交的排名中存在重复"}), 400
 
     # 逐个更新 players 数组中对应玩家的 placement 和 points
     players = match.get("players", [])
     updated = 0
+    skipped_locked = 0
     for p in players:
         lo = str(p.get("accountIdLo", ""))
         if lo in placements:
+            # 已有排名的玩家禁止修改，防止篡改
+            if p.get("placement") is not None:
+                skipped_locked += 1
+                continue
             placement = placements[lo]
             points = 9 if placement == 1 else max(1, 9 - placement)
 
@@ -721,6 +728,8 @@ def api_update_placement(game_uuid):
             updated += 1
 
     if updated == 0:
+        if skipped_locked > 0:
+            return jsonify({"error": f"所有提交的玩家已有排名（已锁定 {skipped_locked} 人），无法修改"}), 400
         return jsonify({"error": "未匹配到任何玩家"}), 400
 
     # 写入 endedAt（如果还没有）并去掉 status 标记
@@ -730,7 +739,7 @@ def api_update_placement(game_uuid):
          "$unset": {"status": ""}}
     )
 
-    return jsonify({"ok": True, "updated": updated})
+    return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
 
 # ── 报名队列 API ──────────────────────────────────────
