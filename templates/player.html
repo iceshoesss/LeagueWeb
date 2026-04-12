@@ -127,7 +127,7 @@ function initAnalysis() {
     }
 
     // ── 左侧：折线图 ──
-    const recent = placements.slice(-20);
+    const recent = placements.slice(-20).reverse();
     const lineChart = echarts.init(document.getElementById('line-chart'), 'dark');
     lineChart.setOption({
         backgroundColor: 'transparent',
