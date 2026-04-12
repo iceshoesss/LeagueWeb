@@ -139,6 +139,11 @@ def require_plugin_auth(f):
 GAME_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', re.IGNORECASE)
 
 
+# ── 排除有问题的对局（timeout / abandoned）的统一过滤条件 ─────────
+# 只统计正常完成的对局：status 不存在 或 status == "completed"
+VALID_MATCH_FILTER = {"$or": [{"status": {"$exists": False}}, {"status": "completed"}]}
+
+
 @app.context_processor
 def inject_counts():
     """每个页面自动注入进行中对局数、选手数、当前登录用户"""
@@ -255,7 +260,7 @@ def get_players():
 
     db = get_db()
     pipeline = [
-        {"$match": {"endedAt": {"$ne": None}}},
+        {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER]}},
         {"$unwind": "$players"},
         {"$match": {"players.points": {"$ne": None}}},
         {"$group": {
@@ -306,9 +311,11 @@ def get_completed_matches(limit=10):
     # $not + $elemMatch: 确保没有 placement 为 null 的玩家
     pipeline = [
         {"$match": {
-            "endedAt": {"$nin": [None]},
-            "status": {"$exists": False},
-            "players": {"$not": {"$elemMatch": {"placement": None}}}
+            "$and": [
+                {"endedAt": {"$nin": [None]}},
+                VALID_MATCH_FILTER,
+                {"players": {"$not": {"$elemMatch": {"placement": None}}}},
+            ]
         }},
         {"$sort": {"endedAt": -1}},
         {"$limit": limit}
@@ -414,7 +421,7 @@ def get_player(battle_tag):
     """从 league_matches + bg_ratings 聚合获取单个选手信息"""
     db = get_db()
     pipeline = [
-        {"$match": {"endedAt": {"$ne": None}, "players.battleTag": battle_tag}},
+        {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER, {"players.battleTag": battle_tag}]}},
         {"$unwind": "$players"},
         {"$match": {"players.battleTag": battle_tag, "players.points": {"$ne": None}}},
         {"$group": {
@@ -459,9 +466,11 @@ def get_rival_stats(battle_tag):
     db = get_db()
     pipeline = [
         {"$match": {
-            "players.battleTag": battle_tag,
-            "endedAt": {"$ne": None},
-            "status": {"$exists": False}
+            "$and": [
+                {"players.battleTag": battle_tag},
+                {"endedAt": {"$ne": None}},
+                VALID_MATCH_FILTER,
+            ]
         }},
         {"$project": {
             "players.battleTag": 1,
@@ -523,12 +532,15 @@ def get_rival_stats(battle_tag):
 
 
 def get_player_matches(battle_tag):
-    """获取某选手的所有对局记录（含超时/中断对局，标记 status）"""
+    """获取某选手的所有对局记录（排除超时/中断等有问题的对局）"""
     db = get_db()
     pipeline = [
         {"$match": {
-            "players.battleTag": battle_tag,
-            "endedAt": {"$nin": [None]}
+            "$and": [
+                {"players.battleTag": battle_tag},
+                {"endedAt": {"$nin": [None]}},
+                VALID_MATCH_FILTER,
+            ]
         }},
         {"$sort": {"endedAt": -1}},
         {"$unwind": "$players"},
