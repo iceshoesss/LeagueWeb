@@ -127,7 +127,7 @@ function initAnalysis() {
     }
 
     // ── 左侧：折线图 ──
-    const recent = placements.slice(-20);
+    const recent = placements.slice(-20).reverse();
     const lineChart = echarts.init(document.getElementById('line-chart'), 'dark');
     lineChart.setOption({
         backgroundColor: 'transparent',
@@ -147,6 +147,7 @@ function initAnalysis() {
         xAxis: {
             type: 'category',
             data: recent.map((_, i) => `#${placements.length - recent.length + i + 1}`),
+            // recent 已 reverse（左旧右新），x 轴标签从旧到新递增
             axisLine: { lineStyle: { color: 'rgba(226,183,20,0.15)' } },
             axisTick: { show: false },
             axisLabel: { color: '#666', fontSize: 9 },
