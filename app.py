@@ -1127,6 +1127,12 @@ def api_plugin_upload_rating():
             set_doc["accountIdLo"] = account_id_lo
         db.bg_ratings.update_one({"_id": existing["_id"]}, {"$set": set_doc})
         verification_code = existing.get("verificationCode")
+        if not verification_code:
+            verification_code = _generate_verification_code(existing["_id"])
+            db.bg_ratings.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"verificationCode": verification_code}}
+            )
     else:
         # 首次上传
         doc = {
