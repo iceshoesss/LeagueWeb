@@ -36,6 +36,14 @@ DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
 
+# 管理员列表（完整 battleTag，含 #tag）
+ADMIN_TAGS = {
+    "南怀北瑾丨少头脑#5267",
+}
+
+def is_admin(battle_tag):
+    return battle_tag in ADMIN_TAGS
+
 _client = None
 _db = None
 _last_cleanup_ts = 0
@@ -626,6 +634,11 @@ def match_page(game_uuid):
 
 @app.route("/match/<game_uuid>/edit")
 def match_edit_page(game_uuid):
+    # 必须登录
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return redirect(url_for("register_page"))
+
     match = get_match(game_uuid)
     if not match:
         return render_template("404.html", title="对局不存在", emoji="⚔️",
@@ -634,7 +647,15 @@ def match_edit_page(game_uuid):
     is_problem = any(p.get("placement") is None for p in match.get("players", []))
     if not is_problem:
         return redirect(url_for("match_page", game_uuid=game_uuid))
-    return render_template("match_edit.html", match=match)
+
+    admin = is_admin(battle_tag)
+    # 非管理员：检查自己是否在这局对局中
+    if not admin:
+        in_match = any(p.get("battleTag") == battle_tag for p in match.get("players", []))
+        if not in_match:
+            return redirect(url_for("match_page", game_uuid=game_uuid))
+
+    return render_template("match_edit.html", match=match, is_admin=admin, my_battle_tag=battle_tag)
 
 
 @app.route("/register")
@@ -684,6 +705,11 @@ def api_active_games():
 @app.route("/api/match/<game_uuid>/update-placement", methods=["POST"])
 def api_update_placement(game_uuid):
     """手动补录对局排名"""
+    # 必须登录
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+
     data = request.get_json() or {}
     placements = data.get("placements", {})  # {accountIdLo: placement}
 
@@ -694,6 +720,23 @@ def api_update_placement(game_uuid):
     match = db.league_matches.find_one({"gameUuid": game_uuid})
     if not match:
         return jsonify({"error": "对局不存在"}), 404
+
+    admin = is_admin(battle_tag)
+
+    # 非管理员：只能改自己的，且必须是这局对局的参与者
+    if not admin:
+        my_account_ids = set()
+        in_match = False
+        for p in match.get("players", []):
+            if p.get("battleTag") == battle_tag:
+                in_match = True
+                my_account_ids.add(str(p.get("accountIdLo", "")))
+        if not in_match:
+            return jsonify({"error": "你不是这局对局的参与者"}), 403
+        # 检查提交中是否有非自己的玩家
+        for lo in placements:
+            if lo not in my_account_ids:
+                return jsonify({"error": "你只能补录自己的排名"}), 403
 
     # 验证：提交的排名不重复，且值在 1-8 范围内
     values = list(placements.values())

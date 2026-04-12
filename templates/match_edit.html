@@ -12,13 +12,15 @@
         </div>
 
         <div class="px-6 py-3 bg-yellow-500/10 border-b border-hearth-border text-sm text-yellow-300 text-center">
-            为需要补录的玩家选择排名（可分次提交，已锁定的不可修改）
+            {% if is_admin %}👑 管理员模式：可以补录所有玩家的排名{% else %}请为自己选择排名（🔒 = 已锁定不可改）{% endif %}
         </div>
 
         <div class="divide-y divide-hearth-border" id="players-list">
             {% for p in match.players %}
             {% set locked = p.placement is not none %}
-            <div class="flex items-center gap-4 px-6 py-4{% if locked %} opacity-60{% endif %}">
+            {% set is_mine = is_admin or (p.battleTag == my_battle_tag) %}
+            {% set show_dropdown = is_mine and not locked %}
+            <div class="flex items-center gap-4 px-6 py-4{% if locked or not is_mine %} opacity-60{% endif %}">
                 <!-- 英雄头像 -->
                 <div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
                     {% if p.heroCardId %}
@@ -33,14 +35,14 @@
                     <div class="font-medium truncate">{{ p.displayName }}</div>
                     <div class="text-xs text-hearth-dim">{{ p.heroName }}</div>
                 </div>
-                <!-- 排名下拉 -->
+                <!-- 排名区域 -->
                 <div class="flex-shrink-0">
                     {% if locked %}
                     <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/30 text-sm text-green-400 w-24 justify-center">
                         <span>🔒</span>
                         <span>第 {{ p.placement }} 名</span>
                     </div>
-                    {% else %}
+                    {% elif show_dropdown %}
                     <select data-account-id="{{ p.accountIdLo }}"
                         class="placement-select bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/60 transition w-24 text-center">
                         <option value="">排名</option>
@@ -48,6 +50,10 @@
                         <option value="{{ i }}">第 {{ i }} 名</option>
                         {% endfor %}
                     </select>
+                    {% else %}
+                    <div class="px-3 py-2 rounded-lg bg-black/20 border border-hearth-border/50 text-sm text-hearth-dim w-24 text-center">
+                        待补录
+                    </div>
                     {% endif %}
                 </div>
             </div>
