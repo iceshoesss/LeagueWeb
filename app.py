@@ -1250,7 +1250,44 @@ def api_plugin_check_league():
             break
 
     if matched_group is None:
-        return jsonify({"isLeague": False})
+        # 非联赛局，但仍处理验证码
+        resp = {"isLeague": False}
+        player_id = data.get("playerId", "").strip()
+        if player_id and player_id != "unknown":
+            account_id_lo_for_code = data.get("accountIdLo", "").strip()
+            existing_rating = db.bg_ratings.find_one({"playerId": player_id})
+            if existing_rating:
+                vc = existing_rating.get("verificationCode")
+                if vc:
+                    resp["verificationCode"] = vc
+                if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
+                    db.bg_ratings.update_one(
+                        {"_id": existing_rating["_id"]},
+                        {"$set": {"accountIdLo": account_id_lo_for_code}}
+                    )
+            else:
+                mode = data.get("mode", "solo")
+                region = data.get("region", "CN")
+                now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+                doc = {
+                    "playerId": player_id,
+                    "accountIdLo": account_id_lo_for_code,
+                    "rating": 0,
+                    "lastRating": 0,
+                    "ratingChange": 0,
+                    "mode": mode,
+                    "region": region,
+                    "timestamp": now_str,
+                    "gameCount": 0,
+                }
+                result = db.bg_ratings.insert_one(doc)
+                vc = _generate_verification_code(result.inserted_id)
+                db.bg_ratings.update_one(
+                    {"_id": result.inserted_id},
+                    {"$set": {"verificationCode": vc}}
+                )
+                resp["verificationCode"] = vc
+        return jsonify(resp)
 
     # 删除等待组
     db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
@@ -1289,7 +1326,42 @@ def api_plugin_check_league():
         upsert=True,
     )
 
-    return jsonify({"isLeague": True})
+    # ── 验证码处理（插件纯联赛模式下，check-league 承担验证码职责）──
+    resp = {"isLeague": True}
+    player_id = data.get("playerId", "").strip()
+    if player_id and player_id != "unknown":
+        account_id_lo_for_code = data.get("accountIdLo", "").strip()
+        existing_rating = db.bg_ratings.find_one({"playerId": player_id})
+        if existing_rating:
+            vc = existing_rating.get("verificationCode")
+            if vc:
+                resp["verificationCode"] = vc
+            if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
+                db.bg_ratings.update_one(
+                    {"_id": existing_rating["_id"]},
+                    {"$set": {"accountIdLo": account_id_lo_for_code}}
+                )
+        else:
+            doc = {
+                "playerId": player_id,
+                "accountIdLo": account_id_lo_for_code,
+                "rating": 0,
+                "lastRating": 0,
+                "ratingChange": 0,
+                "mode": mode,
+                "region": region,
+                "timestamp": started_at,
+                "gameCount": 0,
+            }
+            result = db.bg_ratings.insert_one(doc)
+            vc = _generate_verification_code(result.inserted_id)
+            db.bg_ratings.update_one(
+                {"_id": result.inserted_id},
+                {"$set": {"verificationCode": vc}}
+            )
+            resp["verificationCode"] = vc
+
+    return jsonify(resp)
 
 
 @app.route("/api/plugin/update-placement", methods=["POST"])
