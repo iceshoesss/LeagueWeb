@@ -1249,6 +1249,7 @@ def api_plugin_check_league():
             matched_group = group
             break
 
+    # >>> BEGIN TEST_MODE
     if matched_group is None:
         # 非联赛局，但仍处理验证码
         resp = {"isLeague": False}
@@ -1288,6 +1289,7 @@ def api_plugin_check_league():
                 )
                 resp["verificationCode"] = vc
         return jsonify(resp)
+    # <<< END TEST_MODE
 
     # 删除等待组
     db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
