@@ -36,9 +36,6 @@ DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
 
-# 初始管理员（仅首次写入，之后以数据库为准）
-SEED_ADMIN = "南怀北瑾丨少头脑#5267"
-
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
     if not battle_tag:
@@ -46,20 +43,9 @@ def is_admin(battle_tag):
     db = get_db()
     return db.league_admins.count_documents({"battleTag": battle_tag}) > 0
 
-def ensure_seed_admin():
-    """确保至少有一个管理员（首次启动时写入种子管理员）"""
-    db = get_db()
-    if db.league_admins.count_documents({}) == 0:
-        db.league_admins.insert_one({
-            "battleTag": SEED_ADMIN,
-            "addedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "addedBy": "system",
-        })
-
 _client = None
 _db = None
 _last_cleanup_ts = 0
-_admin_seeded = False
 
 # ── 排行榜缓存 ───────────────────────────────────────
 _leaderboard_cache = {"data": None, "ts": 0}
@@ -156,14 +142,8 @@ GAME_UUID_RE = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 @app.context_processor
 def inject_counts():
     """每个页面自动注入进行中对局数、选手数、当前登录用户"""
-    global _admin_seeded
     try:
         db = get_db()
-        # 首次请求时确保种子管理员存在
-        if not _admin_seeded:
-            ensure_seed_admin()
-            _admin_seeded = True
-
         cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
         active_count = db.league_matches.count_documents({
             "$and": [
