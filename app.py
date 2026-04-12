@@ -1251,41 +1251,8 @@ def api_plugin_check_league():
 
     # >>> BEGIN TEST_MODE
     if matched_group is None:
-        # [TESTING] 暂时跳过等待组匹配，直接用插件上报的玩家数据创建联赛对局
-        detailed_players = data.get("players", {})
-        account_ids_raw = data.get("accountIdLoList", [])
-        account_ids = sorted(account_ids_raw) if isinstance(account_ids_raw, list) else []
-        players = []
-        for lo in account_ids:
-            detail = detailed_players.get(lo, {})
-            players.append({
-                "accountIdLo": lo,
-                "battleTag": detail.get("battleTag", ""),
-                "displayName": detail.get("displayName", ""),
-                "heroCardId": detail.get("heroCardId", ""),
-                "heroName": detail.get("heroName", ""),
-                "placement": None,
-                "points": None,
-            })
-
-        mode = data.get("mode", "solo")
-        region = data.get("region", "CN")
-        started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
-
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$setOnInsert": {
-                "players": players,
-                "region": region,
-                "mode": mode,
-                "startedAt": started_at,
-                "endedAt": None,
-            }},
-            upsert=True,
-        )
-
-        # 验证码处理
-        resp = {"isLeague": True}
+        # 非联赛局，但仍处理验证码
+        resp = {"isLeague": False}
         player_id = data.get("playerId", "").strip()
         if player_id and player_id != "unknown":
             account_id_lo_for_code = data.get("accountIdLo", "").strip()
@@ -1294,17 +1261,32 @@ def api_plugin_check_league():
                 vc = existing_rating.get("verificationCode")
                 if vc:
                     resp["verificationCode"] = vc
+                if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
+                    db.bg_ratings.update_one(
+                        {"_id": existing_rating["_id"]},
+                        {"$set": {"accountIdLo": account_id_lo_for_code}}
+                    )
             else:
+                mode = data.get("mode", "solo")
+                region = data.get("region", "CN")
                 now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
                 doc = {
                     "playerId": player_id,
                     "accountIdLo": account_id_lo_for_code,
-                    "rating": 0, "lastRating": 0, "ratingChange": 0,
-                    "mode": mode, "region": region, "timestamp": now_str, "gameCount": 0,
+                    "rating": 0,
+                    "lastRating": 0,
+                    "ratingChange": 0,
+                    "mode": mode,
+                    "region": region,
+                    "timestamp": now_str,
+                    "gameCount": 0,
                 }
                 result = db.bg_ratings.insert_one(doc)
                 vc = _generate_verification_code(result.inserted_id)
-                db.bg_ratings.update_one({"_id": result.inserted_id}, {"$set": {"verificationCode": vc}})
+                db.bg_ratings.update_one(
+                    {"_id": result.inserted_id},
+                    {"$set": {"verificationCode": vc}}
+                )
                 resp["verificationCode"] = vc
         return jsonify(resp)
     # <<< END TEST_MODE
