@@ -1167,10 +1167,13 @@ def api_plugin_check_league():
     account_ids = set(str(a) for a in data.get("accountIdLoList", []))
 
     if not game_uuid or not account_ids:
+        print(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)}")
         return jsonify({"error": "参数不完整"}), 400
     if not GAME_UUID_RE.match(game_uuid):
+        print(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
         return jsonify({"error": "gameUuid 格式无效"}), 400
     if len(account_ids) != 8:
+        print(f"[check-league] 400: accountIdLoList 不足 8 人: {len(account_ids)}")
         return jsonify({"error": "accountIdLoList 必须包含 8 个玩家"}), 400
 
     db = get_db()
