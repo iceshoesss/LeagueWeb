@@ -17,7 +17,7 @@
 
         <div class="divide-y divide-hearth-border" id="players-list">
             {% for p in match.players %}
-            {% set locked = (p.placement is not none) and not is_admin %}
+            {% set locked = p.placement is not none %}
             {% set is_mine = is_admin or (p.battleTag == my_battle_tag) %}
             {% set show_dropdown = is_mine and not locked %}
             <div class="flex items-center gap-4 px-6 py-4{% if locked or not is_mine %} opacity-60{% endif %}">

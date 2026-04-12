@@ -765,8 +765,8 @@ def api_update_placement(game_uuid):
     for p in players:
         lo = str(p.get("accountIdLo", ""))
         if lo in placements:
-            # 已有排名的玩家禁止非管理员修改，防止篡改
-            if p.get("placement") is not None and not admin:
+            # 已有排名的玩家禁止修改，防止篡改
+            if p.get("placement") is not None:
                 skipped_locked += 1
                 continue
             placement = placements[lo]
