@@ -12,7 +12,7 @@
         </div>
 
         <div class="px-6 py-3 bg-yellow-500/10 border-b border-hearth-border text-sm text-yellow-300 text-center">
-            请为每位玩家选择正确的排名（1-8 不重复）
+            为需要补录的玩家选择排名（可分次提交，已锁定的不可修改）
         </div>
 
         <div class="divide-y divide-hearth-border" id="players-list">
@@ -100,11 +100,7 @@ async function submitPlacements() {
     selects.forEach(sel => {
         const lo = sel.dataset.accountId;
         const val = sel.value;
-        if (!val) {
-            showError('所有未锁定的玩家都需要选择排名');
-            hasError = true;
-            return;
-        }
+        if (!val) return; // 跳过未选择的玩家
         const num = parseInt(val);
         if (used.has(num)) {
             showError(`第 ${num} 名已被占用（已被锁定或重复选择）`);
@@ -117,7 +113,7 @@ async function submitPlacements() {
 
     if (hasError) return;
     if (Object.keys(placements).length === 0) {
-        showError('没有需要提交的排名');
+        showError('请至少为一位玩家选择排名');
         return;
     }
 
