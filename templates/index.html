@@ -87,6 +87,16 @@
 
         <!-- 报名 + 等待队列 -->
         <div class="w-72 space-y-3" id="queue-column">
+        <!-- 问题对局提醒 -->
+        <div id="problem-banner" class="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 text-center hidden">
+            <div class="text-sm text-red-400 font-bold">
+                ⚠️ <span id="problem-count">0</span> 场对局未被正常记录
+            </div>
+            <a href="/problems" class="text-xs text-red-300 hover:text-red-200 underline mt-1 inline-block">
+                请点击此处修改您的战绩 →
+            </a>
+        </div>
+
         <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
@@ -300,6 +310,32 @@ function connectMatches() {
 }
 connectMatches();
 
+// --- 问题对局数量 SSE ---
+let problemEs = null;
+function connectProblemMatches() {
+    if (problemEs) problemEs.close();
+    problemEs = new EventSource('/api/events/problem-matches');
+    problemEs.onmessage = function(e) {
+        try {
+            const data = JSON.parse(e.data);
+            const banner = document.getElementById('problem-banner');
+            const countEl = document.getElementById('problem-count');
+            if (data.count > 0) {
+                countEl.textContent = data.count;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error('SSE problem-matches parse error:', err);
+        }
+    };
+    problemEs.onerror = function() {
+        console.warn('SSE problem-matches disconnected, will auto-reconnect');
+    };
+}
+connectProblemMatches();
+
 // 页面不可见时关闭 SSE，可见时重连（避免切 tab 后连接堆积）
 document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
@@ -307,11 +343,13 @@ document.addEventListener('visibilitychange', () => {
         queueEs?.close();
         waitingEs?.close();
         matchesEs?.close();
+        problemEs?.close();
     } else {
         connectActiveGames();
         connectQueue();
         connectWaitingQueue();
         connectMatches();
+        connectProblemMatches();
     }
 });// 正在进行 - 分页
 let allActiveGames = [];

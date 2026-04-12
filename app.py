@@ -1133,6 +1133,26 @@ def sse_matches():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+@app.route("/api/events/problem-matches")
+def sse_problem_matches():
+    """SSE: 问题对局数量变化推送"""
+    def fetch():
+        db = get_db()
+        count = db.league_matches.count_documents({
+            "endedAt": {"$nin": [None]},
+            "$or": [
+                {"status": {"$in": ["timeout", "abandoned"]}},
+                {"$and": [
+                    {"status": {"$exists": False}},
+                    {"players": {"$elemMatch": {"placement": None}}}
+                ]}
+            ]
+        })
+        return {"count": count}
+    return Response(_sse_generate(fetch), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
 # ── 插件专用 API（C# 插件通过 HTTP 调用，替代直连 MongoDB）──────────
 
 def _generate_verification_code(oid):
