@@ -1403,10 +1403,7 @@ def api_plugin_check_league():
         return jsonify({"error": "gameUuid 格式无效"}), 400
     db = get_db()
 
-    # 先清理过期等待组
-    cleanup_stale_queues()
-
-    # 遍历等待组，找完全匹配
+    # 遍历等待组，找完全匹配（清理放到匹配之后，避免刚要匹配的等待组被超时清理删掉）
     waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
     matched_group = None
 
@@ -1440,6 +1437,7 @@ def api_plugin_check_league():
         )
         if vc:
             resp["verificationCode"] = vc
+        cleanup_stale_queues()
         return jsonify(resp)
     # <<< END TEST_MODE
 
@@ -1491,6 +1489,7 @@ def api_plugin_check_league():
     if vc:
         resp["verificationCode"] = vc
 
+    cleanup_stale_queues()
     return jsonify(resp)
 
 
