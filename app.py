@@ -33,6 +33,11 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
 
+# Session cookie 配置 — 确保跨页面导航时浏览器正确发送 cookie
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = False  # 生产环境若用 HTTPS 可改为 True
+
 
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
@@ -163,7 +168,7 @@ def inject_counts():
     """每个页面自动注入进行中对局数、选手数、当前登录用户"""
     try:
         db = get_db()
-        cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+        cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
         active_count = db.league_matches.count_documents({
             "$and": [
                 {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -232,12 +237,16 @@ def to_epoch(dt_val):
 
 
 def to_iso_str(dt_val):
-    """安全地把各种格式的时间值转为 ISO 字符串（UTC）"""
+    """安全地把各种格式的时间值转为 ISO 字符串（UTC，带 Z 后缀）"""
     if dt_val is None:
         return ""
     if isinstance(dt_val, (datetime, bson_datetime.datetime)):
-        return dt_val.strftime("%Y-%m-%dT%H:%M:%S")
-    return str(dt_val)
+        return dt_val.strftime("%Y-%m-%dT%H:%M:%SZ")
+    s = str(dt_val)
+    # 补齐时区标记，方便前端 new Date() 正确解析为 UTC
+    if s and not s.endswith("Z") and "+" not in s and s.count("-") <= 2:
+        s += "Z"
+    return s
 
 
 def to_cst_str(dt_val):
@@ -355,7 +364,7 @@ def get_active_games():
         cleanup_stale_games()
         cleanup_partial_matches()
         cleanup_stale_queues()
-    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -373,7 +382,7 @@ def get_active_games():
 def cleanup_stale_games():
     """将超过超时时间的未结束对局标记为超时结束"""
     db = get_db()
-    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -399,7 +408,7 @@ def cleanup_partial_matches():
     并写入 endedAt 让对局结束。
     """
     db = get_db()
-    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
@@ -1294,7 +1303,7 @@ def _ensure_verification_code(db, player_id, account_id_lo="", mode="solo", regi
         return vc
 
     if timestamp is None:
-        timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     doc = {
         "playerId": player_id,
         "accountIdLo": account_id_lo,
@@ -1337,7 +1346,7 @@ def api_plugin_upload_rating():
         return jsonify({"error": "请求过于频繁，请稍后重试"}), 429
 
     db = get_db()
-    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # 查找现有文档
     existing = db.bg_ratings.find_one({"playerId": player_id})
@@ -1466,7 +1475,7 @@ def api_plugin_check_league():
     # 创建 league_matches 文档（upsert 防重复）
     mode = data.get("mode", "solo")
     region = data.get("region", "CN")
-    started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
+    started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
     db.league_matches.update_one(
         {"gameUuid": game_uuid},

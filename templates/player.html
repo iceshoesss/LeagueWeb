@@ -230,10 +230,19 @@ initAnalysis();
 
 function toCst(isoStr) {
     if (!isoStr) return '—';
-    const d = new Date(isoStr + (isoStr.includes('Z') || isoStr.includes('+') ? '' : 'Z'));
-    d.setHours(d.getHours() + 8);
+    // 后端返回 UTC 时间（带 Z 后缀），确保 new Date 正确解析为 UTC
+    let s = isoStr;
+    if (!s.endsWith('Z') && !s.includes('+')) s += 'Z';
+    const d = new Date(s);
+    // 手动 +8h 转北京时间
     const pad = n => n.toString().padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const y = d.getUTCFullYear();
+    const mo = pad(d.getUTCMonth() + 1);
+    const da = pad(d.getUTCDate());
+    let h = d.getUTCHours() + 8;
+    const mi = pad(d.getUTCMinutes());
+    if (h >= 24) { h -= 24; /* 跨天简单处理，BG 对局不会跨午夜 */ }
+    return `${y}-${mo}-${da} ${pad(h)}:${mi}`;
 }
 
 function renderMatches() {
