@@ -1031,6 +1031,31 @@ def api_login():
     if hash_idx > 0:
         display_name = battle_tag[:hash_idx]
 
+    # 提取 accountIdLo
+    raw_lo = rating.get("accountIdLo")
+    account_id_lo = str(raw_lo) if raw_lo else ""
+
+    # 写入 league_players（登录即注册）
+    db.league_players.update_one(
+        {"battleTag": battle_tag},
+        {"$set": {
+            "battleTag": battle_tag,
+            "accountIdLo": account_id_lo,
+            "displayName": display_name,
+            "verified": True,
+            "verifiedAt": datetime.now(UTC).isoformat() + "Z",
+        },
+        "$setOnInsert": {
+            "totalPoints": 0,
+            "totalGames": 0,
+            "wins": 0,
+            "chickens": 0,
+            "avgPlacement": 0,
+            "createdAt": datetime.now(UTC).isoformat() + "Z",
+        }},
+        upsert=True,
+    )
+
     # 写 session
     session["battleTag"] = battle_tag
     session["displayName"] = display_name
