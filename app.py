@@ -1043,11 +1043,6 @@ def api_register():
             "verifiedAt": datetime.now(UTC).isoformat() + "Z",
         },
         "$setOnInsert": {
-            "totalPoints": 0,
-            "totalGames": 0,
-            "wins": 0,
-            "chickens": 0,
-            "avgPlacement": 0,
             "createdAt": datetime.now(UTC).isoformat() + "Z",
         }},
         upsert=True,
@@ -1126,11 +1121,6 @@ def api_login():
             "verifiedAt": datetime.now(UTC).isoformat() + "Z",
         },
         "$setOnInsert": {
-            "totalPoints": 0,
-            "totalGames": 0,
-            "wins": 0,
-            "chickens": 0,
-            "avgPlacement": 0,
             "createdAt": datetime.now(UTC).isoformat() + "Z",
         }},
         upsert=True,
