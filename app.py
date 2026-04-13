@@ -10,11 +10,20 @@ from bson import datetime as bson_datetime
 from functools import wraps
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import hashlib
+import logging
 import os
 import re
 import time
 import json
 import secrets
+
+# ── 日志配置 ────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("bgtracker")
 
 try:
     from gevent import sleep as gsleep
@@ -163,7 +172,7 @@ def inject_counts():
         })
         player_count = db.league_players.count_documents({"verified": True})
     except Exception as e:
-        print(f"[inject_counts] 数据库查询失败: {e}")
+        log.error(f"[inject_counts] 数据库查询失败: {e}")
         active_count = 0
         player_count = 0
 
@@ -379,7 +388,7 @@ def cleanup_stale_games():
         }}
     )
     if result.modified_count > 0:
-        print(f"清理了 {result.modified_count} 个超时对局")
+        log.info(f"清理了 {result.modified_count} 个超时对局")
 
 
 def cleanup_partial_matches():
@@ -420,7 +429,7 @@ def cleanup_partial_matches():
         count += 1
 
     if count > 0:
-        print(f"标记了 {count} 个部分掉线对局")
+        log.info(f"标记了 {count} 个部分掉线对局")
 
 
 def cleanup_stale_queues():
@@ -445,7 +454,7 @@ def cleanup_stale_queues():
     if expired_queue:
         names = [p["name"] for p in expired_queue]
         db.league_queue.delete_many({"name": {"$in": names}})
-        print(f"报名队列踢出超时玩家: {names}")
+        log.info(f"报名队列踢出超时玩家: {names}")
 
     # 2. 清理等待队列中超时的组（直接解散，不回队列）
     waiting_cutoff = (now_dt - timedelta(minutes=WAITING_QUEUE_TIMEOUT_MINUTES)).isoformat() + "Z"
@@ -455,7 +464,7 @@ def cleanup_stale_queues():
     for group in expired_groups:
         db.league_waiting_queue.delete_one({"_id": group["_id"]})
         expired_names = [p.get("name", "") for p in group.get("players", [])]
-        print(f"等待组解散: {expired_names}")
+        log.info(f"等待组解散: {expired_names}")
 
 
 @app.before_request
@@ -1186,7 +1195,7 @@ def _sse_generate(fetch_fn, poll_interval=2, max_lifetime=120):
         except GeneratorExit:
             break
         except Exception as e:
-            print(f"[SSE] error: {e}")
+            log.error(f"[SSE] error: {e}")
             gsleep(poll_interval)
 
 
@@ -1272,6 +1281,40 @@ def _generate_verification_code(oid):
     """基于 MongoDB ObjectId 生成确定性验证码（SHA256 前 8 位大写）"""
     raw = f"bgtracker:{oid}"
     return hashlib.sha256(raw.encode()).hexdigest()[:8].upper()
+
+
+def _ensure_verification_code(db, player_id, account_id_lo="", mode="solo", region="CN", timestamp=None):
+    """
+    确保玩家在 bg_ratings 中有记录并返回验证码。
+    已有记录 → 返回现有验证码（可选更新 accountIdLo）。
+    无记录 → 创建记录并生成新验证码。
+    返回: verification_code (str) 或 None（player_id 无效时）。
+    """
+    if not player_id or player_id == "unknown":
+        return None
+
+    existing = db.bg_ratings.find_one({"playerId": player_id})
+    if existing:
+        vc = existing.get("verificationCode")
+        if account_id_lo and not existing.get("accountIdLo"):
+            db.bg_ratings.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {"accountIdLo": account_id_lo}},
+            )
+        return vc
+
+    if timestamp is None:
+        timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    doc = {
+        "playerId": player_id,
+        "accountIdLo": account_id_lo,
+        "rating": 0, "lastRating": 0, "ratingChange": 0,
+        "mode": mode, "region": region, "timestamp": timestamp, "gameCount": 0,
+    }
+    result = db.bg_ratings.insert_one(doc)
+    vc = _generate_verification_code(result.inserted_id)
+    db.bg_ratings.update_one({"_id": result.inserted_id}, {"$set": {"verificationCode": vc}})
+    return vc
 
 
 @app.route("/api/plugin/upload-rating", methods=["POST"])
@@ -1363,13 +1406,13 @@ def api_plugin_check_league():
     account_ids = set(str(a) for a in data.get("accountIdLoList", []))
 
     if not game_uuid or not account_ids:
-        print(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)}")
+        log.warning(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)}")
         return jsonify({"error": "参数不完整"}), 400
     if not GAME_UUID_RE.match(game_uuid):
-        print(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
+        log.warning(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
         return jsonify({"error": "gameUuid 格式无效"}), 400
     if len(account_ids) != 8:
-        print(f"[check-league] 400: accountIdLoList 不足 8 人: {len(account_ids)}")
+        log.warning(f"[check-league] 400: accountIdLoList 不足 8 人: {len(account_ids)}")
         return jsonify({"error": "accountIdLoList 必须包含 8 个玩家"}), 400
 
     db = get_db()
@@ -1400,73 +1443,17 @@ def api_plugin_check_league():
     # >>> BEGIN TEST_MODE
     if matched_group is None:
         # fallback：等待组已被队友匹配删除，但联赛对局已创建
-        if db.league_matches.find_one({"gameUuid": game_uuid}):
-            resp = {"isLeague": True}
-            player_id = data.get("playerId", "").strip()
-            if player_id and player_id != "unknown":
-                account_id_lo_for_code = data.get("accountIdLo", "").strip()
-                existing_rating = db.bg_ratings.find_one({"playerId": player_id})
-                if existing_rating:
-                    vc = existing_rating.get("verificationCode")
-                    if vc:
-                        resp["verificationCode"] = vc
-                    if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
-                        db.bg_ratings.update_one(
-                            {"_id": existing_rating["_id"]},
-                            {"$set": {"accountIdLo": account_id_lo_for_code}}
-                        )
-                else:
-                    mode = data.get("mode", "solo")
-                    region = data.get("region", "CN")
-                    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
-                    doc = {
-                        "playerId": player_id,
-                        "accountIdLo": account_id_lo_for_code,
-                        "rating": 0, "lastRating": 0, "ratingChange": 0,
-                        "mode": mode, "region": region, "timestamp": now_str, "gameCount": 0,
-                    }
-                    result = db.bg_ratings.insert_one(doc)
-                    vc = _generate_verification_code(result.inserted_id)
-                    db.bg_ratings.update_one({"_id": result.inserted_id}, {"$set": {"verificationCode": vc}})
-                    resp["verificationCode"] = vc
-            return jsonify(resp)
-        # 真的不是联赛局
-        resp = {"isLeague": False}
-        player_id = data.get("playerId", "").strip()
-        if player_id and player_id != "unknown":
-            account_id_lo_for_code = data.get("accountIdLo", "").strip()
-            existing_rating = db.bg_ratings.find_one({"playerId": player_id})
-            if existing_rating:
-                vc = existing_rating.get("verificationCode")
-                if vc:
-                    resp["verificationCode"] = vc
-                if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
-                    db.bg_ratings.update_one(
-                        {"_id": existing_rating["_id"]},
-                        {"$set": {"accountIdLo": account_id_lo_for_code}}
-                    )
-            else:
-                mode = data.get("mode", "solo")
-                region = data.get("region", "CN")
-                now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
-                doc = {
-                    "playerId": player_id,
-                    "accountIdLo": account_id_lo_for_code,
-                    "rating": 0,
-                    "lastRating": 0,
-                    "ratingChange": 0,
-                    "mode": mode,
-                    "region": region,
-                    "timestamp": now_str,
-                    "gameCount": 0,
-                }
-                result = db.bg_ratings.insert_one(doc)
-                vc = _generate_verification_code(result.inserted_id)
-                db.bg_ratings.update_one(
-                    {"_id": result.inserted_id},
-                    {"$set": {"verificationCode": vc}}
-                )
-                resp["verificationCode"] = vc
+        is_league = db.league_matches.find_one({"gameUuid": game_uuid}) is not None
+        resp = {"isLeague": is_league}
+        vc = _ensure_verification_code(
+            db,
+            player_id=data.get("playerId", "").strip(),
+            account_id_lo=data.get("accountIdLo", "").strip(),
+            mode=data.get("mode", "solo"),
+            region=data.get("region", "CN"),
+        )
+        if vc:
+            resp["verificationCode"] = vc
         return jsonify(resp)
     # <<< END TEST_MODE
 
@@ -1509,38 +1496,14 @@ def api_plugin_check_league():
 
     # ── 验证码处理（插件纯联赛模式下，check-league 承担验证码职责）──
     resp = {"isLeague": True}
-    player_id = data.get("playerId", "").strip()
-    if player_id and player_id != "unknown":
-        account_id_lo_for_code = data.get("accountIdLo", "").strip()
-        existing_rating = db.bg_ratings.find_one({"playerId": player_id})
-        if existing_rating:
-            vc = existing_rating.get("verificationCode")
-            if vc:
-                resp["verificationCode"] = vc
-            if account_id_lo_for_code and not existing_rating.get("accountIdLo"):
-                db.bg_ratings.update_one(
-                    {"_id": existing_rating["_id"]},
-                    {"$set": {"accountIdLo": account_id_lo_for_code}}
-                )
-        else:
-            doc = {
-                "playerId": player_id,
-                "accountIdLo": account_id_lo_for_code,
-                "rating": 0,
-                "lastRating": 0,
-                "ratingChange": 0,
-                "mode": mode,
-                "region": region,
-                "timestamp": started_at,
-                "gameCount": 0,
-            }
-            result = db.bg_ratings.insert_one(doc)
-            vc = _generate_verification_code(result.inserted_id)
-            db.bg_ratings.update_one(
-                {"_id": result.inserted_id},
-                {"$set": {"verificationCode": vc}}
-            )
-            resp["verificationCode"] = vc
+    vc = _ensure_verification_code(
+        db,
+        player_id=data.get("playerId", "").strip(),
+        account_id_lo=data.get("accountIdLo", "").strip(),
+        mode=mode, region=region, timestamp=started_at,
+    )
+    if vc:
+        resp["verificationCode"] = vc
 
     return jsonify(resp)
 
@@ -1561,7 +1524,7 @@ def api_plugin_update_placement():
     placement = data.get("placement")
 
     # ── 请求日志 ──
-    print(f"[update-placement] 收到请求: accountIdLo={account_id_lo} gameUuid={game_uuid} placement={placement} playerId={player_id}")
+    log.info(f"[update-placement] 收到请求: accountIdLo={account_id_lo} gameUuid={game_uuid} placement={placement} playerId={player_id}")
 
     if not game_uuid or not account_id_lo:
         return jsonify({"error": "参数不完整"}), 400
@@ -1583,7 +1546,7 @@ def api_plugin_update_placement():
     # 查找对局文档
     match = db.league_matches.find_one({"gameUuid": game_uuid})
     if match is None:
-        print(f"[update-placement] 未找到对局: gameUuid={game_uuid}")
+        log.error(f"[update-placement] 未找到对局: gameUuid={game_uuid}")
         return jsonify({"error": "未找到对局"}), 404
 
     # 定位目标玩家在数组中的索引
@@ -1593,12 +1556,12 @@ def api_plugin_update_placement():
         if str(p.get("accountIdLo", "")) == account_id_lo:
             target_index = i
             if p.get("placement") is not None:
-                print(f"[update-placement] 重复提交: accountIdLo={account_id_lo} 已有 placement={p['placement']}")
+                log.warning(f"[update-placement] 重复提交: accountIdLo={account_id_lo} 已有 placement={p['placement']}")
                 return jsonify({"error": "该玩家已提交过排名，不可重复提交"}), 409
             break
 
     if target_index is None:
-        print(f"[update-placement] 玩家不在对局中: accountIdLo={account_id_lo} gameUuid={game_uuid}")
+        log.error(f"[update-placement] 玩家不在对局中: accountIdLo={account_id_lo} gameUuid={game_uuid}")
         return jsonify({"error": "该玩家不在此对局中"}), 404
 
     # 通过索引直接更新，避免 $ 位置操作符匹配错误元素
@@ -1611,10 +1574,10 @@ def api_plugin_update_placement():
     )
 
     if result.modified_count == 0:
-        print(f"[update-placement] 更新失败: accountIdLo={account_id_lo} index={target_index}")
+        log.error(f"[update-placement] 更新失败: accountIdLo={account_id_lo} index={target_index}")
         return jsonify({"error": "更新失败"}), 500
 
-    print(f"[update-placement] 已更新: accountIdLo={account_id_lo} → players[{target_index}].placement={placement} points={points}")
+    log.info(f"[update-placement] 已更新: accountIdLo={account_id_lo} → players[{target_index}].placement={placement} points={points}")
 
     # 检查是否所有 8 人都填完了（用刚更新后的内存数据）
     players[target_index]["placement"] = placement
@@ -1626,7 +1589,7 @@ def api_plugin_update_placement():
             {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
         )
         finalized = True
-        print(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
+        log.info(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
 
     return jsonify({"ok": True, "finalized": finalized})
 
