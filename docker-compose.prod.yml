@@ -1,0 +1,47 @@
+# 生产部署（公网 IP + HTTPS）
+# 使用前：
+#   1. 把 nginx.conf 里的 YOUR_DOMAIN 替换为实际域名
+#   2. 先用 certbot 签发证书：certbot certonly --standalone -d your-domain.com
+#   3. docker compose -f docker-compose.prod.yml up -d
+#
+# 不需要 MongoDB 内置服务，走外部连接。
+
+services:
+  web:
+    container_name: leagueWeb
+    image: ghcr.io/iceshoesss/league-web:latest
+    expose:
+      - "5000"                    # 只对内暴露，不对外
+    environment:
+      - MONGO_URL=mongodb://192.168.31.2:27017
+      - DB_NAME=hearthstone
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-changeme-in-production}
+      - SITE_NAME=我的战棋联赛
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: leagueNginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: leagueCertbot
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    # 首次签发：docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN
+    # 续签（可加到 cron）：docker compose -f docker-compose.prod.yml run --rm certbot renew
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do sleep 6h & wait $${!}; certbot renew; done'"
+
+volumes:
+  certbot_webroot:

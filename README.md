@@ -1,101 +1,73 @@
-# 联赛网站 (league/)
+# LeagueWeb
 
-酒馆战棋联赛排行榜 + 报名系统 + 对局管理。
+酒馆战棋联赛网站 — 排行榜、对局记录、报名队列、插件 API。
 
-## 技术栈
+配套 C# HDT 插件：[HDT_BGTracker](https://github.com/iceshoesss/HDT_BGTracker)
 
-- **后端**: Flask + PyMongo
-- **前端**: Jinja2 模板 + Tailwind CSS CDN + 原生 JS
-- **数据库**: MongoDB（与插件共用 `hearthstone` 库）
-- **部署**: gunicorn + gevent（Linux）/ Flask dev server（Windows 开发）
+## 项目结构
 
-## 快速开始
+```
+LeagueWeb/
+├── app.py              # Flask 后端 API + 页面路由 + 插件端点 + SSE 推送
+├── templates/          # Jinja2 模板（Tailwind CSS + ECharts CDN）
+├── Dockerfile
+├── docker-compose.yml  # Docker 部署（Flask + MongoDB）
+├── API.md              # 插件 API 文档
+├── gunicorn.conf.py    # Gunicorn 配置（gevent worker）
+├── manage_admins.py    # 管理员管理工具
+└── requirements.txt
+```
 
-### 本地开发（Windows）
+## 快速启动
 
 ```bash
-cd league
-pip install -r requirements.txt
-python app.py
-# 访问 http://localhost:5000
+docker build -t league-web:latest .
+docker compose up -d
 ```
 
-### 生产部署（Linux）
+访问 http://localhost:5000
+
+## 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `MONGO_URL` | `mongodb://mongo:27017` | MongoDB 连接地址 |
+| `DB_NAME` | `hearthstone` | 数据库名 |
+| `FLASK_SECRET_KEY` | 随机生成 | Session 签名密钥，生产环境建议固定设置 |
+| `SITE_NAME` | `酒馆战棋联赛` | 网站名称（导航栏 + 页面标题） |
+| `SITE_LOGO` | `🍺` | 网站 Logo，支持 emoji 或图片 URL |
+
+## 常用命令
 
 ```bash
-cd league
-pip install -r requirements.txt
-gunicorn -c gunicorn.conf.py app:app
+docker compose logs -f web     # 看日志
+docker compose down            # 停止
+docker compose restart web     # 重启
 ```
 
-### 配置
+## 版本号
 
-`app.py` 中修改 MongoDB 连接地址：
-```python
-MONGO_URL = "mongodb://YOUR_MONGO_HOST:27017"
-```
+当前版本：`v0.2.13`（定义在 `app.py` → `WEB_VERSION`）
 
-## 目录结构
+修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
-```
-league/
-├── app.py                  # Flask 主应用（路由 + API + SSE）
-├── gunicorn.conf.py        # gunicorn 配置
-├── requirements.txt        # Python 依赖
-├── mock-data/              # 早期 mock 数据（已废弃，数据从 MongoDB 读取）
-└── templates/
-    ├── base.html           # 基础模板（导航栏 + 样式）
-    ├── index.html          # 首页（排行榜 + 对局 + 队列 + SSE）
-    ├── player.html         # 选手详情页
-    ├── match.html          # 对局详情页
-    ├── match_edit.html     # 对局补录页（问题对局手动填排名）
-    ├── register.html       # 注册/登录页
-    └── problems.html       # 问题对局管理页
-```
+版本号规则：`主版本.次版本.修订号`
+- **修订号 +1** — 修 bug
+- **次版本 +1** — 加新功能
+- **主版本 +1** — 大改/重构/正式发布
 
-## 页面说明
+## 更新日志
 
-| 路由 | 功能 |
-|------|------|
-| `/` | 排行榜 + 最近对局 + 进行中对局 + 报名/等待队列 |
-| `/player/<battleTag>` | 选手详情：积分/胜率/历史对局/对手统计 |
-| `/match/<gameUuid>` | 对局详情：8 人排名/英雄/积分 |
-| `/match/<gameUuid>/edit` | 问题对局补录：手动填写缺失排名 |
-| `/register` | 注册/登录（BattleTag + 验证码） |
-| `/problems` | 问题对局列表（超时/掉线/数据缺失） |
+### v0.2.13 (2026-04-14)
+- 修复登录后导航到其他页面丢失登录状态的问题（Session cookie SameSite 配置）
+- 修复 player 页面历史对局时间显示错误（双重时区偏移）
+- 时间格式统一：所有 ISO 时间字符串带 Z 后缀，前端正确解析为 UTC
+- 新增 `WEB_VERSION` 常量，页面底部显示当前版本号
 
-## API
+### v0.2.12 及更早
+- 队列超时机制、SSE 推送、ECharts 图表、验证码系统等
+- 详见原仓库 [HDT_BGTracker](https://github.com/iceshoesss/HDT_BGTracker) 历史
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/players` | GET | 排行榜数据 |
-| `/api/active-games` | GET | 进行中的对局 |
-| `/api/matches` | GET | 最近对局 |
-| `/api/queue` | GET | 报名队列 |
-| `/api/waiting-queue` | GET | 等待队列 |
-| `/api/queue/join` | POST | 报名（需登录） |
-| `/api/queue/leave` | POST | 退出（需登录） |
-| `/api/register` | POST | 注册验证 |
-| `/api/login` | POST | 登录 |
-| `/api/events/active-games` | SSE | 进行中对局推送 |
-| `/api/events/queue` | SSE | 报名队列推送 |
-| `/api/events/waiting-queue` | SSE | 等待队列推送 |
+## API 文档
 
-## 数据流
-
-```
-C# 插件 → MongoDB:
-  bg_ratings (玩家分数 + 验证码)
-  league_matches (联赛对局 + players 数组)
-  league_waiting_queue (等待组)
-
-Flask ← MongoDB:
-  排行榜 = league_matches 聚合
-  对局详情 = league_matches 直查
-  队列 = league_queue + league_waiting_queue
-```
-
-## 已知问题
-
-- SSE 在低性能 NAS 上可能偶发延迟（连接管理已优化，120 秒自动重连）
-- Flask dev server 单线程不适合生产环境，Linux 部署务必用 gunicorn
+详见 [API.md](API.md)

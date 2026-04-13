@@ -1,0 +1,26 @@
+services:
+  web:
+    image: league-web:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - MONGO_URL=mongodb://mongo:27017
+      - DB_NAME=hearthstone
+      - FLASK_SECRET_KEY=changeme-in-production
+      - SITE_NAME=酒馆战棋联赛
+      - SITE_LOGO=🍺
+    depends_on:
+      mongo:
+        condition: service_started
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
