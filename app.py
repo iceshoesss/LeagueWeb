@@ -447,38 +447,15 @@ def cleanup_stale_queues():
         db.league_queue.delete_many({"name": {"$in": names}})
         print(f"报名队列踢出超时玩家: {names}")
 
-    # 2. 清理等待队列中超时的组
+    # 2. 清理等待队列中超时的组（直接解散，不回队列）
     waiting_cutoff = (now_dt - timedelta(minutes=WAITING_QUEUE_TIMEOUT_MINUTES)).isoformat() + "Z"
     expired_groups = list(db.league_waiting_queue.find({
         "createdAt": {"$lt": waiting_cutoff}
     }))
     for group in expired_groups:
-        # 组内活跃玩家（lastSeen 未超时）回报名队列
-        active_players = []
-        for p in group.get("players", []):
-            p_name = p.get("name", "")
-            player_doc = db.league_players.find_one({"battleTag": p_name})
-            last_seen = player_doc.get("lastSeen", "") if player_doc else ""
-            if last_seen and last_seen >= queue_cutoff:
-                active_players.append(p)
-
         db.league_waiting_queue.delete_one({"_id": group["_id"]})
-
-        # 活跃玩家放回报名队列
-        for p in active_players:
-            db.league_queue.update_one(
-                {"name": p["name"]},
-                {"$setOnInsert": {
-                    "name": p["name"],
-                    "joinedAt": now_dt.isoformat() + "Z",
-                    "lastSeen": now_dt.isoformat() + "Z",
-                }},
-                upsert=True,
-            )
-
         expired_names = [p.get("name", "") for p in group.get("players", [])]
-        active_names = [p["name"] for p in active_players]
-        print(f"等待组解散: {expired_names} (活跃玩家回队列: {active_names})")
+        print(f"等待组解散: {expired_names}")
 
 
 @app.before_request
