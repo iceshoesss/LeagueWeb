@@ -278,7 +278,7 @@ app.jinja_env.filters['cst'] = to_cst_str
 
 
 def get_players():
-    """从 league_matches 聚合 + bg_ratings 获取排行榜（带缓存）"""
+    """从 league_matches 聚合 + player_records 获取排行榜（带缓存）"""
     now = time.time()
     if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < LEADERBOARD_TTL:
         return _leaderboard_cache["data"]
@@ -501,7 +501,7 @@ def update_last_seen():
         pass  # 数据库不可用时不阻塞请求
 
 def get_player(battle_tag):
-    """从 league_matches + bg_ratings 聚合获取单个选手信息"""
+    """从 league_matches + player_records 聚合获取单个选手信息"""
     db = get_db()
     pipeline = [
         {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER, {"players.battleTag": battle_tag}]}},
@@ -1006,7 +1006,7 @@ def api_register():
     """
     用户在网站注册：
     1. 输入 battleTag + 验证码（从插件日志获取）
-    2. 后端从 bg_ratings 读取存储的 verificationCode
+    2. 后端从 player_records 读取存储的 verificationCode
     3. 比对一致则注册成功，写入 league_players
     """
     data = request.get_json() or {}
@@ -1020,8 +1020,8 @@ def api_register():
 
     db = get_db()
 
-    # 查 bg_ratings 获取 accountIdLo 和 verificationCode
-    rating = db.bg_ratings.find_one({"playerId": battle_tag})
+    # 查 player_records 获取 accountIdLo 和 verificationCode
+    rating = db.player_records.find_one({"playerId": battle_tag})
     if not rating:
         return jsonify({"error": f"未找到 {battle_tag} 的游戏记录，请先使用插件完成一局游戏"}), 404
 
@@ -1086,7 +1086,7 @@ def api_verify():
 @app.route("/api/login", methods=["POST"])
 def api_login():
     """
-    登录：BattleTag + 验证码 → 从 bg_ratings 比对 → 发 session
+    登录：BattleTag + 验证码 → 从 player_records 比对 → 发 session
     """
     data = request.get_json() or {}
     battle_tag = data.get("battleTag", "").strip()
@@ -1099,8 +1099,8 @@ def api_login():
 
     db = get_db()
 
-    # 查 bg_ratings 验证码
-    rating = db.bg_ratings.find_one({"playerId": battle_tag})
+    # 查 player_records 验证码
+    rating = db.player_records.find_one({"playerId": battle_tag})
     if not rating:
         return jsonify({"error": f"未找到 {battle_tag} 的游戏记录"}), 404
 
@@ -1286,7 +1286,7 @@ def _generate_verification_code(oid):
 
 def _ensure_verification_code(db, player_id, account_id_lo="", mode="solo", region="CN", timestamp=None):
     """
-    确保玩家在 bg_ratings 中有记录并返回验证码。
+    确保玩家在 player_records 中有记录并返回验证码。
     已有记录 → 返回现有验证码（可选更新 accountIdLo）。
     无记录 → 创建记录并生成新验证码。
     返回: verification_code (str) 或 None（player_id 无效时）。
@@ -1294,11 +1294,11 @@ def _ensure_verification_code(db, player_id, account_id_lo="", mode="solo", regi
     if not player_id or player_id == "unknown":
         return None
 
-    existing = db.bg_ratings.find_one({"playerId": player_id})
+    existing = db.player_records.find_one({"playerId": player_id})
     if existing:
         vc = existing.get("verificationCode")
         if account_id_lo and not existing.get("accountIdLo"):
-            db.bg_ratings.update_one(
+            db.player_records.update_one(
                 {"_id": existing["_id"]},
                 {"$set": {"accountIdLo": account_id_lo}},
             )
@@ -1312,9 +1312,9 @@ def _ensure_verification_code(db, player_id, account_id_lo="", mode="solo", regi
         "rating": 0, "lastRating": 0, "ratingChange": 0,
         "mode": mode, "region": region, "timestamp": timestamp, "gameCount": 0,
     }
-    result = db.bg_ratings.insert_one(doc)
+    result = db.player_records.insert_one(doc)
     vc = _generate_verification_code(result.inserted_id)
-    db.bg_ratings.update_one({"_id": result.inserted_id}, {"$set": {"verificationCode": vc}})
+    db.player_records.update_one({"_id": result.inserted_id}, {"$set": {"verificationCode": vc}})
     return vc
 
 
@@ -1351,7 +1351,7 @@ def api_plugin_upload_rating():
     now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     # 查找现有文档
-    existing = db.bg_ratings.find_one({"playerId": player_id})
+    existing = db.player_records.find_one({"playerId": player_id})
 
     if existing:
         set_doc = {
@@ -1365,7 +1365,7 @@ def api_plugin_upload_rating():
         }
         if account_id_lo:
             set_doc["accountIdLo"] = account_id_lo
-        db.bg_ratings.update_one({"_id": existing["_id"]}, {"$set": set_doc})
+        db.player_records.update_one({"_id": existing["_id"]}, {"$set": set_doc})
         verification_code = existing.get("verificationCode")
     else:
         # 首次上传
@@ -1380,9 +1380,9 @@ def api_plugin_upload_rating():
             "timestamp": now_str,
             "gameCount": 1,
         }
-        result = db.bg_ratings.insert_one(doc)
+        result = db.player_records.insert_one(doc)
         verification_code = _generate_verification_code(result.inserted_id)
-        db.bg_ratings.update_one(
+        db.player_records.update_one(
             {"_id": result.inserted_id},
             {"$set": {"verificationCode": verification_code}}
         )
