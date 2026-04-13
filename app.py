@@ -162,11 +162,6 @@ def inject_counts():
             ]
         })
         player_count = db.league_players.count_documents({"verified": True})
-        online_cutoff = (datetime.now(UTC) - timedelta(minutes=5)).isoformat() + "Z"
-        online_count = db.league_players.count_documents({
-            "verified": True,
-            "lastSeen": {"$gte": online_cutoff},
-        })
     except Exception as e:
         print(f"[inject_counts] 数据库查询失败: {e}")
         active_count = 0
@@ -181,7 +176,6 @@ def inject_counts():
     return {
         "active_game_count": active_count,
         "total_player_count": player_count,
-        "online_count": online_count,
         "current_user": current_user,
         "site_name": SITE_NAME,
         "site_logo": SITE_LOGO,
