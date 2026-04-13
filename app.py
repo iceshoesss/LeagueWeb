@@ -28,6 +28,10 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
 # 对局超时：超过此时间未结束的对局视为异常断线，自动标记结束
 GAME_TIMEOUT_MINUTES = 80
 
+# 队列超时
+QUEUE_TIMEOUT_MINUTES = 10        # 报名队列超时踢出
+WAITING_QUEUE_TIMEOUT_MINUTES = 20  # 等待队列超时解散
+
 # ── MongoDB 连接 ────────────────────────────────────
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
 DB_NAME = os.environ.get("DB_NAME", "hearthstone")
@@ -46,6 +50,7 @@ def is_admin(battle_tag):
 _client = None
 _db = None
 _last_cleanup_ts = 0
+_last_queue_cleanup_ts = 0
 
 # ── 排行榜缓存 ───────────────────────────────────────
 _leaderboard_cache = {"data": None, "ts": 0}
@@ -340,6 +345,7 @@ def get_active_games():
         _last_cleanup_ts = now
         cleanup_stale_games()
         cleanup_partial_matches()
+        cleanup_stale_queues()
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%S")
     query = {
         "$and": [
@@ -416,6 +422,86 @@ def cleanup_partial_matches():
     if count > 0:
         print(f"标记了 {count} 个部分掉线对局")
 
+
+def cleanup_stale_queues():
+    """清理过期的队列条目：
+    1. lastSeen 超过 QUEUE_TIMEOUT_MINUTES 的报名队列玩家 → 移除
+    2. lastSeen 超过 WAITING_QUEUE_TIMEOUT_MINUTES 的等待组 → 解散（组内活跃玩家回报名队列）
+    """
+    global _last_queue_cleanup_ts
+    now = time.time()
+    if now - _last_queue_cleanup_ts < 30:
+        return  # 30 秒内不重复清理
+    _last_queue_cleanup_ts = now
+
+    db = get_db()
+    now_dt = datetime.now(UTC)
+
+    # 1. 清理报名队列中超时的玩家
+    queue_cutoff = (now_dt - timedelta(minutes=QUEUE_TIMEOUT_MINUTES)).isoformat() + "Z"
+    expired_queue = list(db.league_queue.find({
+        "lastSeen": {"$lt": queue_cutoff}
+    }))
+    if expired_queue:
+        names = [p["name"] for p in expired_queue]
+        db.league_queue.delete_many({"name": {"$in": names}})
+        print(f"报名队列踢出超时玩家: {names}")
+
+    # 2. 清理等待队列中超时的组
+    waiting_cutoff = (now_dt - timedelta(minutes=WAITING_QUEUE_TIMEOUT_MINUTES)).isoformat() + "Z"
+    expired_groups = list(db.league_waiting_queue.find({
+        "createdAt": {"$lt": waiting_cutoff}
+    }))
+    for group in expired_groups:
+        # 组内活跃玩家（lastSeen 未超时）回报名队列
+        active_players = []
+        for p in group.get("players", []):
+            p_name = p.get("name", "")
+            player_doc = db.league_players.find_one({"battleTag": p_name})
+            last_seen = player_doc.get("lastSeen", "") if player_doc else ""
+            if last_seen and last_seen >= queue_cutoff:
+                active_players.append(p)
+
+        db.league_waiting_queue.delete_one({"_id": group["_id"]})
+
+        # 活跃玩家放回报名队列
+        for p in active_players:
+            db.league_queue.update_one(
+                {"name": p["name"]},
+                {"$setOnInsert": {
+                    "name": p["name"],
+                    "joinedAt": now_dt.isoformat() + "Z",
+                    "lastSeen": now_dt.isoformat() + "Z",
+                }},
+                upsert=True,
+            )
+
+        expired_names = [p.get("name", "") for p in group.get("players", [])]
+        active_names = [p["name"] for p in active_players]
+        print(f"等待组解散: {expired_names} (活跃玩家回队列: {active_names})")
+
+
+@app.before_request
+def update_last_seen():
+    """每次请求刷新登录用户的 lastSeen（选手记录 + 队列条目）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return
+    now_str = datetime.now(UTC).isoformat() + "Z"
+    try:
+        db = get_db()
+        # 刷新选手记录
+        db.league_players.update_one(
+            {"battleTag": battle_tag},
+            {"$set": {"lastSeen": now_str}},
+        )
+        # 刷新报名队列中的 lastSeen
+        db.league_queue.update_one(
+            {"name": battle_tag},
+            {"$set": {"lastSeen": now_str}},
+        )
+    except Exception:
+        pass  # 数据库不可用时不阻塞请求
 
 def get_player(battle_tag):
     """从 league_matches + bg_ratings 聚合获取单个选手信息"""
@@ -806,6 +892,7 @@ def api_queue():
     for q in queue:
         q["_id"] = str(q["_id"])
         q["joinedAt"] = to_iso_str(q.get("joinedAt"))
+        q["lastSeen"] = to_iso_str(q.get("lastSeen"))
     return jsonify(queue)
 
 
@@ -828,6 +915,10 @@ def api_queue_join():
         return jsonify({"error": "请先登录"}), 401
 
     db = get_db()
+    now_str = datetime.now(UTC).isoformat() + "Z"
+
+    # 先清理过期队列
+    cleanup_stale_queues()
 
     # 不能重复报名或已在等待组中
     if db.league_queue.find_one({"name": name}):
@@ -858,7 +949,8 @@ def api_queue_join():
     # 没有未满的组，加入报名队列
     db.league_queue.update_one(
         {"name": name},
-        {"$setOnInsert": {"name": name, "joinedAt": datetime.now(UTC).isoformat() + "Z"}},
+        {"$setOnInsert": {"name": name, "joinedAt": now_str},
+         "$set": {"lastSeen": now_str}},
         upsert=True,
     )
 
@@ -892,6 +984,8 @@ def api_queue_leave():
         return jsonify({"error": "请先登录"}), 401
 
     db = get_db()
+    # 先清理过期队列
+    cleanup_stale_queues()
     # 从报名队列移除
     db.league_queue.delete_one({"name": name})
     # 从等待组中移除（如果组内没人了则删除整个组）
@@ -1065,6 +1159,23 @@ def api_login():
 
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
+    """登出并自动退出所有队列"""
+    battle_tag = session.get("battleTag")
+    if battle_tag:
+        db = get_db()
+        # 从报名队列移除
+        db.league_queue.delete_one({"name": battle_tag})
+        # 从等待组中移除
+        group = db.league_waiting_queue.find_one({"players.name": battle_tag})
+        if group:
+            remaining = [p for p in group["players"] if p["name"] != battle_tag]
+            if remaining:
+                db.league_waiting_queue.update_one(
+                    {"_id": group["_id"]},
+                    {"$set": {"players": remaining}}
+                )
+            else:
+                db.league_waiting_queue.delete_one({"_id": group["_id"]})
     session.clear()
     return jsonify({"ok": True})
 
@@ -1285,6 +1396,9 @@ def api_plugin_check_league():
         return jsonify({"error": "accountIdLoList 必须包含 8 个玩家"}), 400
 
     db = get_db()
+
+    # 先清理过期等待组
+    cleanup_stale_queues()
 
     # 遍历等待组，找完全匹配
     waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
