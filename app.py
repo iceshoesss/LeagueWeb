@@ -53,6 +53,7 @@ DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
+WEB_VERSION = "0.2.13"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
@@ -193,6 +194,7 @@ def inject_counts():
         "current_user": current_user,
         "site_name": SITE_NAME,
         "site_logo": SITE_LOGO,
+        "web_version": WEB_VERSION,
     }
 
 
