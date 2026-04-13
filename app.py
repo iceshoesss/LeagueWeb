@@ -1401,10 +1401,6 @@ def api_plugin_check_league():
     if not GAME_UUID_RE.match(game_uuid):
         log.warning(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
         return jsonify({"error": "gameUuid 格式无效"}), 400
-    if len(account_ids) != 8:
-        log.warning(f"[check-league] 400: accountIdLoList 不足 8 人: {len(account_ids)}")
-        return jsonify({"error": "accountIdLoList 必须包含 8 个玩家"}), 400
-
     db = get_db()
 
     # 先清理过期等待组
