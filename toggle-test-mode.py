@@ -2,8 +2,8 @@
 """
 toggle-test-mode.py — 切换联赛网站测试/正常模式
 
-测试模式：所有对局都强制创建联赛对局（跳过等待组匹配）
-正常模式：未匹配到等待组的对局视为普通天梯局
+测试模式：等待组匹配失败时，按重叠人数判定（至少 MIN_MATCH_PLAYERS 人即算联赛）
+正常模式：精确匹配 8 人，不匹配则为普通天梯局
 
 用法：
   python toggle-test-mode.py          # 显示当前状态
@@ -45,63 +45,77 @@ FLASK_NORMAL = '''\
 FLASK_TEST = '''\
     # >>> BEGIN TEST_MODE
     if matched_group is None:
-        # [TESTING] 暂时跳过等待组匹配，直接用插件上报的玩家数据创建联赛对局
-        detailed_players = data.get("players", {})
-        account_ids_raw = data.get("accountIdLoList", [])
-        account_ids = sorted(account_ids_raw) if isinstance(account_ids_raw, list) else []
+        # 统计各等待组与本局玩家的重叠人数
+        best_overlap = 0
+        best_group = None
+        for group in waiting_groups:
+            queue_ids_check = set()
+            all_have_lo = True
+            for p in group.get("players", []):
+                lo = str(p.get("accountIdLo", ""))
+                if lo:
+                    queue_ids_check.add(lo)
+                else:
+                    all_have_lo = False
+                    break
+            if not all_have_lo:
+                continue
+            overlap = len(account_ids & queue_ids_check)
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_group = group
 
-        # [TESTING] 容错：不足 2 人时跳过
-        if len(account_ids) < 2:
-            log.warning(f"[check-league] [TESTING] accountIdLoList 过少({len(account_ids)})，跳过")
-            resp = {"isLeague": False}
+        if best_overlap >= MIN_MATCH_PLAYERS and best_group:
+            # 达到阈值，当作联赛处理
+            db.league_waiting_queue.delete_one({"_id": best_group["_id"]})
+            detailed_players = data.get("players", {})
+            players = []
+            for lo in account_ids:
+                detail = detailed_players.get(lo, {})
+                players.append({
+                    "accountIdLo": lo,
+                    "battleTag": detail.get("battleTag", ""),
+                    "displayName": detail.get("displayName", ""),
+                    "heroCardId": detail.get("heroCardId", ""),
+                    "heroName": detail.get("heroName", ""),
+                    "placement": None,
+                    "points": None,
+                })
+            mode = data.get("mode", "solo")
+            region = data.get("region", "CN")
+            started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+            db.league_matches.update_one(
+                {"gameUuid": game_uuid},
+                {"$setOnInsert": {
+                    "players": players,
+                    "region": region,
+                    "mode": mode,
+                    "startedAt": started_at,
+                    "endedAt": None,
+                }},
+                upsert=True,
+            )
+            resp = {"isLeague": True}
             vc = _ensure_verification_code(
                 db,
                 player_id=data.get("playerId", "").strip(),
                 account_id_lo=data.get("accountIdLo", "").strip(),
+                mode=mode, region=region, timestamp=started_at,
             )
             if vc:
                 resp["verificationCode"] = vc
+            log.info(f"[check-league] [TEST] 匹配 {best_overlap} 人（阈值 {MIN_MATCH_PLAYERS}），gameUuid={game_uuid}")
             return jsonify(resp)
 
-        while len(account_ids) < 8:
-            account_ids.append(f"unknown_{len(account_ids)}")
-
-        players = []
-        for lo in account_ids:
-            detail = detailed_players.get(lo, {})
-            players.append({
-                "accountIdLo": lo,
-                "battleTag": detail.get("battleTag", ""),
-                "displayName": detail.get("displayName", ""),
-                "heroCardId": detail.get("heroCardId", ""),
-                "heroName": detail.get("heroName", ""),
-                "placement": None,
-                "points": None,
-            })
-
-        mode = data.get("mode", "solo")
-        region = data.get("region", "CN")
-        started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"))
-
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$setOnInsert": {
-                "players": players,
-                "region": region,
-                "mode": mode,
-                "startedAt": started_at,
-                "endedAt": None,
-            }},
-            upsert=True,
-        )
-
-        # 验证码处理
-        resp = {"isLeague": True}
+        # 未达阈值，普通天梯局
+        log.info(f"[check-league] [TEST] 最多匹配 {best_overlap} 人（阈值 {MIN_MATCH_PLAYERS}），跳过")
+        resp = {"isLeague": False}
         vc = _ensure_verification_code(
             db,
             player_id=data.get("playerId", "").strip(),
             account_id_lo=data.get("accountIdLo", "").strip(),
-            mode=mode, region=region, timestamp=started_at,
+            mode=data.get("mode", "solo"),
+            region=data.get("region", "CN"),
         )
         if vc:
             resp["verificationCode"] = vc
