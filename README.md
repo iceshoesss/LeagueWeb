@@ -47,7 +47,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.2.13`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.3.0`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -57,6 +57,11 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.3.0 (2026-04-14)
+- **测试模式改为重叠人数匹配**：不再无脑判联赛，按等待组重叠人数判定（阈值 `MIN_MATCH_PLAYERS`，默认 3）
+- **报名队列阈值联动**：满 N 人移入等待组，N 跟随 `MIN_MATCH_PLAYERS`（test=3, normal=8）
+- `toggle-test-mode.py` 拆分为独立脚本，只管本仓库的 `app.py`
 
 ### v0.2.13 (2026-04-14)
 - 修复登录后导航到其他页面丢失登录状态的问题（Session cookie SameSite 配置）
