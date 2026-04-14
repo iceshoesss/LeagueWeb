@@ -63,7 +63,7 @@ PLUGIN_API_KEY = os.environ.get("PLUGIN_API_KEY", "")
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.3.1"
+WEB_VERSION = "0.4.0"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
@@ -918,6 +918,26 @@ def api_update_placement(game_uuid):
             return jsonify({"error": f"所有提交的玩家已有排名（已锁定 {skipped_locked} 人），无法修改"}), 400
         return jsonify({"error": "未匹配到任何玩家"}), 400
 
+    # ★ 重新读取最新数据，检查是否 7人提交 → 自动推算第8人
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if match:
+        players = match.get("players", [])
+        null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
+        if len(null_indices) == 1:
+            used = {p["placement"] for p in players if p.get("placement") is not None}
+            remaining = set(range(1, 9)) - used
+            if len(remaining) == 1:
+                auto_placement = remaining.pop()
+                auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
+                db.league_matches.update_one(
+                    {"gameUuid": game_uuid},
+                    {"$set": {
+                        f"players.{null_indices[0]}.placement": auto_placement,
+                        f"players.{null_indices[0]}.points": auto_points,
+                    }}
+                )
+                log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
+
     # 写入 endedAt（如果还没有）并去掉 status 标记
     db.league_matches.update_one(
         {"gameUuid": game_uuid},
@@ -1628,6 +1648,26 @@ def api_plugin_update_placement():
     # 检查是否所有 8 人都填完了（用刚更新后的内存数据）
     players[target_index]["placement"] = placement
     all_done = all(p.get("placement") is not None for p in players)
+
+    # ★ 7人提交 → 自动推算第8人排名（剩余的那个数字）
+    if not all_done:
+        null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
+        if len(null_indices) == 1:
+            used = {p["placement"] for p in players if p.get("placement") is not None}
+            remaining = set(range(1, 9)) - used
+            if len(remaining) == 1:
+                auto_placement = remaining.pop()
+                auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
+                db.league_matches.update_one(
+                    {"gameUuid": game_uuid},
+                    {"$set": {
+                        f"players.{null_indices[0]}.placement": auto_placement,
+                        f"players.{null_indices[0]}.points": auto_points,
+                    }}
+                )
+                log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
+                all_done = True
+
     finalized = False
     if all_done:
         db.league_matches.update_one(

@@ -461,7 +461,9 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 | 字段 | 说明 |
 |------|------|
-| `finalized` | `true` = 全部 8 人已提交，对局结束并写入 `endedAt` |
+| `finalized` | `true` = 全部 8 人已提交（含自动推算），对局结束并写入 `endedAt` |
+
+> 当 7 人提交后，第 8 人的排名会自动推算（剩余的唯一数字），`finalized` 直接返回 `true`。
 
 **错误：**
 - `400` 参数不完整或格式无效
