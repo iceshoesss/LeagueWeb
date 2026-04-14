@@ -63,7 +63,7 @@ PLUGIN_API_KEY = os.environ.get("PLUGIN_API_KEY", "")
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.4.0"
+WEB_VERSION = "0.3.2"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
