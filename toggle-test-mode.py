@@ -16,6 +16,7 @@ toggle-test-mode.py — 切换联赛网站测试/正常模式
 
 import sys
 import os
+import re
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)) or ".")
 
@@ -160,6 +161,14 @@ def replace_block(content: str, new_block: str) -> str:
     return content.replace(old_block, new_block, 1)
 
 
+MIN_MATCH_RE = re.compile(r"^(MIN_MATCH_PLAYERS\s*=\s*)\d+", re.MULTILINE)
+
+def replace_min_match(content: str, target: str) -> str:
+    """切换 MIN_MATCH_PLAYERS 的值：normal=8, test=3"""
+    val = "8" if target == "normal" else "3"
+    return MIN_MATCH_RE.sub(rf"\g<1>{val}", content, count=1)
+
+
 def main():
     if not os.path.exists(FLASK_PATH):
         print(f"⚠ 找不到 {FLASK_PATH}")
@@ -193,6 +202,7 @@ def main():
     print(f"[网站] 切换到: {target} 模式")
 
     new_content = replace_block(flask_content, FLASK_TEST if target == "test" else FLASK_NORMAL)
+    new_content = replace_min_match(new_content, target)
     with open(FLASK_PATH, "w", encoding="utf-8") as f:
         f.write(new_content)
 

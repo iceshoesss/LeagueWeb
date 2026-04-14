@@ -927,7 +927,7 @@ def api_queue_join():
     # 优先补入未满的等待组
     incomplete_group = None
     for g in db.league_waiting_queue.find().sort("createdAt", 1):
-        if len(g.get("players", [])) < 8:
+        if len(g.get("players", [])) < MIN_MATCH_PLAYERS:
             incomplete_group = g
             break
 
@@ -952,10 +952,10 @@ def api_queue_join():
         upsert=True,
     )
 
-    # 检查是否满N人
+    # 检查是否满 N 人（MIN_MATCH_PLAYERS 控制，normal 模式=8，test 模式可调）
     signup_count = db.league_queue.count_documents({})
-    if signup_count >= 8:
-        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(8))
+    if signup_count >= MIN_MATCH_PLAYERS:
+        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(MIN_MATCH_PLAYERS))
         players = []
         names = []
         for p in signup:
