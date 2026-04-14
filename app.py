@@ -317,13 +317,20 @@ def get_players():
         {"$sort": {"totalPoints": -1}},
     ]
 
+    # 读取 ELO
+    elo_map = {}
+    for lp in db.league_players.find({"elo": {"$exists": True}}, {"battleTag": 1, "elo": 1}):
+        elo_map[lp["battleTag"]] = lp.get("elo", 0)
+
     players = []
     for p in db.league_matches.aggregate(pipeline):
+        tag = p["_id"]
         players.append({
-            "_id": str(p["_id"]),
-            "battleTag": p["_id"],
+            "_id": str(tag),
+            "battleTag": tag,
             "displayName": p.get("displayName", ""),
             "accountIdLo": p.get("accountIdLo", ""),
+            "elo": elo_map.get(tag, 0),
             "totalPoints": p.get("totalPoints", 0),
             "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
