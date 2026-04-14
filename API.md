@@ -348,6 +348,9 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 以下端点供 C# HDT 插件调用，替代直连 MongoDB。
 
+**所有插件请求必须带 `X-HDT-Plugin` header，值为插件版本号（如 `0.5.5`）。**
+服务端通过 `MIN_PLUGIN_VERSION` 环境变量控制最低版本，低于此版本的插件将被拒绝（403）。
+
 ### `POST /api/plugin/upload-rating`
 
 插件上报分数并获取验证码。**无需认证。**

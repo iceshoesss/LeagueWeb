@@ -9,6 +9,7 @@ services:
       - FLASK_SECRET_KEY=changeme-in-production
       - SITE_NAME=酒馆战棋联赛
       - SITE_LOGO=🍺
+      - MIN_PLUGIN_VERSION=0.5.5
     depends_on:
       mongo:
         condition: service_started

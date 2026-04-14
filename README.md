@@ -36,6 +36,7 @@ docker compose up -d
 | `FLASK_SECRET_KEY` | 随机生成 | Session 签名密钥，生产环境建议固定设置 |
 | `SITE_NAME` | `酒馆战棋联赛` | 网站名称（导航栏 + 页面标题） |
 | `SITE_LOGO` | `🍺` | 网站 Logo，支持 emoji 或图片 URL |
+| `MIN_PLUGIN_VERSION` | `0.5.5` | 最低插件版本，低于此版本的插件请求将被拒绝（403） |
 
 ## 常用命令
 
@@ -47,7 +48,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.3.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.3.1`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -57,6 +58,11 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.3.1 (2026-04-14)
+- **插件版本强制更新**：所有 `/api/plugin/*` 端点检查 `X-HDT-Plugin` header，低于 `MIN_PLUGIN_VERSION` 的插件请求被拒绝（403）
+- `MIN_PLUGIN_VERSION` 支持环境变量配置，发新插件时改环境变量即可让旧插件失效
+- `X-HDT-Plugin` header 版本比较使用语义化版本号（支持 `0.5.10` 等多位数版本号）
 
 ### v0.3.0 (2026-04-14)
 - **测试模式改为重叠人数匹配**：不再无脑判联赛，按等待组重叠人数判定（阈值 `MIN_MATCH_PLAYERS`，默认 3）

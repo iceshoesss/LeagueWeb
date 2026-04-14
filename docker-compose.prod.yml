@@ -17,6 +17,7 @@ services:
       - DB_NAME=hearthstone
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-changeme-in-production}
       - SITE_NAME=我的战棋联赛
+      - MIN_PLUGIN_VERSION=0.5.5
     restart: unless-stopped
 
   nginx:
