@@ -21,7 +21,6 @@
                         <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
                             <th class="px-5 py-3 text-left w-12">#</th>
                             <th class="px-5 py-3 text-left">玩家</th>
-                            <th class="px-5 py-3 text-right sort-btn" data-sort="elo">ELO ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="totalPoints">积分 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="leagueGames">场次 ↕</th>
                             <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
@@ -129,7 +128,7 @@
 // 排行榜数据
 const players = {{ players | tojson }};
 
-let currentSort = 'elo';
+let currentSort = 'totalPoints';
 let currentOrder = 'desc';
 let currentPage = 1;
 const PAGE_SIZE = 20;
@@ -169,8 +168,7 @@ function renderLeaderboard() {
                     ${p.displayName}
                 </a>
             </td>
-            <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.elo}</td>
-            <td class="px-5 py-3 text-right font-mono font-bold">${p.totalPoints}</td>
+            <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.totalPoints}</td>
             <td class="px-5 py-3 text-right font-mono">${p.leagueGames}</td>
             <td class="px-5 py-3 text-right font-mono">${winRate}</td>
             <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
