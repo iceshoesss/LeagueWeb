@@ -37,6 +37,7 @@ docker compose up -d
 | `SITE_NAME` | `酒馆战棋联赛` | 网站名称（导航栏 + 页面标题） |
 | `SITE_LOGO` | `🍺` | 网站 Logo，支持 emoji 或图片 URL |
 | `MIN_PLUGIN_VERSION` | `0.5.5` | 最低插件版本，低于此版本的插件请求将被拒绝（403） |
+| `PLUGIN_API_KEY` | _(空)_ | 插件 API Key，配置后插件请求必须带 `Authorization: Bearer <key>`；为空则跳过校验 |
 
 ## 常用命令
 
@@ -60,9 +61,10 @@ docker compose restart web     # 重启
 ## 更新日志
 
 ### v0.3.1 (2026-04-14)
-- **插件版本强制更新**：所有 `/api/plugin/*` 端点检查 `X-HDT-Plugin` header，低于 `MIN_PLUGIN_VERSION` 的插件请求被拒绝（403）
-- `MIN_PLUGIN_VERSION` 支持环境变量配置，发新插件时改环境变量即可让旧插件失效
-- `X-HDT-Plugin` header 版本比较使用语义化版本号（支持 `0.5.10` 等多位数版本号）
+- **插件认证 + 版本强制更新**：所有 `/api/plugin/*` 端点双重校验
+  - API Key：配置 `PLUGIN_API_KEY` 后，插件请求必须带 `Authorization: Bearer <key>`，否则 403
+  - 版本检查：`X-HDT-Plugin` header 版本号低于 `MIN_PLUGIN_VERSION` 则 403
+  - 两个 env var 配合使用，发新插件时同步更换即可让旧插件失效
 
 ### v0.3.0 (2026-04-14)
 - **测试模式改为重叠人数匹配**：不再无脑判联赛，按等待组重叠人数判定（阈值 `MIN_MATCH_PLAYERS`，默认 3）

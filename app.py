@@ -56,6 +56,10 @@ DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 # 格式：主版本.次版本.修订号（如 0.5.5）
 MIN_PLUGIN_VERSION = os.environ.get("MIN_PLUGIN_VERSION", "0.5.5")
 
+# 插件 API Key — 插件请求必须带 Authorization: Bearer <key>
+# 发新插件时同步更换，与版本号绑定
+PLUGIN_API_KEY = os.environ.get("PLUGIN_API_KEY", "")
+
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
@@ -494,9 +498,19 @@ def _version_tuple(v):
 
 @app.before_request
 def check_plugin_version():
-    """插件端点版本检查：低于最低版本的插件直接拒绝"""
+    """插件端点认证 + 版本检查：API Key + 最低版本号双重校验"""
     if not request.path.startswith("/api/plugin/"):
         return
+
+    # API Key 校验（如果配置了 PLUGIN_API_KEY）
+    if PLUGIN_API_KEY:
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "缺少认证 token"}), 403
+        if auth_header[7:] != PLUGIN_API_KEY:
+            return jsonify({"error": "认证失败"}), 403
+
+    # 版本号校验
     plugin_version = request.headers.get("X-HDT-Plugin", "")
     if not plugin_version:
         return jsonify({"error": "缺少 X-HDT-Plugin header"}), 403
