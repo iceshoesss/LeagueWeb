@@ -907,7 +907,9 @@ def register_page():
 @app.route("/problems")
 def problems_page():
     matches = get_problem_matches()
-    return render_template("problems.html", matches=matches)
+    battle_tag = session.get("battleTag", "")
+    admin = is_admin(battle_tag) if battle_tag else False
+    return render_template("problems.html", matches=matches, is_admin=admin)
 
 
 @app.route("/guide")
@@ -936,6 +938,24 @@ def api_match(game_uuid):
     if not match:
         return jsonify({"error": "对局不存在"}), 404
     return jsonify(match)
+
+
+@app.route("/api/match/<game_uuid>", methods=["DELETE"])
+def api_delete_match(game_uuid):
+    """删除对局（仅管理员）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+    if not is_admin(battle_tag):
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    result = db.league_matches.delete_one({"gameUuid": game_uuid})
+    if result.deleted_count == 0:
+        return jsonify({"error": "对局不存在"}), 404
+
+    logging.info(f"管理员 {battle_tag} 删除对局 {game_uuid}")
+    return jsonify({"ok": True, "gameUuid": game_uuid})
 
 
 @app.route("/api/matches")

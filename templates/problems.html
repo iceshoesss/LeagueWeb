@@ -12,13 +12,13 @@
         {% if matches %}
         <div class="divide-y divide-hearth-border">
             {% for match in matches %}
-            <a href="/match/{{ match.gameUuid }}" class="block px-6 py-4 hover:bg-white/5 transition">
-                <!-- 头部：时间 + 状态 -->
+            <div class="block px-6 py-4 hover:bg-white/5 transition group">
+                <!-- 头部：时间 + 状态 + 删除按钮 -->
                 <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
+                    <a href="/match/{{ match.gameUuid }}" class="flex items-center gap-2 flex-1 min-w-0">
                         <span class="text-sm font-medium">{{ match.endedAt | cst }}</span>
                         <span class="text-xs font-mono text-hearth-dim bg-white/5 px-1.5 py-0.5 rounded">#{{ match.matchId }}</span>
-                    </div>
+                    </a>
                     <div class="flex items-center gap-2">
                         {% if match.status == 'timeout' %}
                         <span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>
@@ -27,10 +27,18 @@
                         {% else %}
                         <span class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-300">数据缺失</span>
                         {% endif %}
+                        {% if is_admin %}
+                        <button onclick="deleteMatch('{{ match.gameUuid }}', '{{ match.matchId }}')"
+                                class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 transition opacity-0 group-hover:opacity-100"
+                                title="删除此对局">
+                            🗑 删除
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
 
                 <!-- 玩家列表：2行 x 4列 -->
+                <a href="/match/{{ match.gameUuid }}" class="block">
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {% for p in match.players %}
                     <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg {% if p.hasPlacement %}bg-white/5{% else %}bg-red-500/5 border border-red-500/20{% endif %}">
@@ -60,7 +68,8 @@
                     </div>
                     {% endfor %}
                 </div>
-            </a>
+                </a>
+            </div>
             {% endfor %}
         </div>
         {% else %}
@@ -75,4 +84,23 @@
         <a href="/" class="text-sm text-hearth-gold hover:underline">← 返回排行榜</a>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function deleteMatch(gameUuid, matchId) {
+    if (!confirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销，对局数据将被永久删除。`)) return;
+    try {
+        const res = await fetch(`/api/match/${gameUuid}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert(data.error || '删除失败');
+        }
+    } catch (e) {
+        alert('网络错误：' + e.message);
+    }
+}
+</script>
 {% endblock %}
