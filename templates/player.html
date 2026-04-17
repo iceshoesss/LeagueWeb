@@ -9,9 +9,20 @@
 <div class="max-w-5xl mx-auto">
     <!-- 选手信息卡 -->
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-6">
-        <div class="px-6 py-5 border-b border-hearth-border pl-[6%]">
-            <h1 class="text-2xl font-bold text-hearth-gold">{{ player.displayName }}</h1>
-            <p class="text-hearth-dim text-sm">{{ player.battleTag }}</p>
+        <div class="px-6 py-5 border-b border-hearth-border pl-[6%] flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-hearth-gold">{{ player.displayName }}</h1>
+                <p class="text-hearth-dim text-sm">{{ player.battleTag }}</p>
+            </div>
+            {% if current_user and current_user.battleTag == player.battleTag %}
+            <div>
+                <button id="bindBtn" onclick="genBindCode()"
+                    class="px-4 py-2 rounded-lg text-sm font-medium bg-hearth-gold/15 text-hearth-gold hover:bg-hearth-gold/25 border border-hearth-gold/30 transition">
+                    绑定 QQ
+                </button>
+                <span id="bindCode" class="hidden ml-2 text-sm font-mono text-hearth-gold tracking-wider"></span>
+            </div>
+            {% endif %}
         </div>
         <div class="grid grid-cols-5 divide-x divide-hearth-border">
             <div class="px-5 py-4 text-center">
@@ -97,6 +108,35 @@
 const allMatches = {{ matches_json | tojson }};
 const PAGE_SIZE = 10;
 let currentPage = 1;
+
+// ── QQ 绑定 ────────────────────────────────────────
+async function genBindCode() {
+    const btn = document.getElementById('bindBtn');
+    const codeEl = document.getElementById('bindCode');
+    btn.disabled = true;
+    btn.textContent = '生成中...';
+    try {
+        const res = await fetch('/api/bind-code', { method: 'POST' });
+        const data = await res.json();
+        if (data.ok) {
+            codeEl.textContent = '验证码: ' + data.code;
+            codeEl.classList.remove('hidden');
+            btn.textContent = '已生成';
+            // 5 分钟后恢复
+            setTimeout(() => {
+                btn.textContent = '绑定 QQ';
+                btn.disabled = false;
+                codeEl.classList.add('hidden');
+            }, data.expireMinutes * 60 * 1000);
+        } else {
+            btn.textContent = data.error || '生成失败';
+            setTimeout(() => { btn.textContent = '绑定 QQ'; btn.disabled = false; }, 2000);
+        }
+    } catch (e) {
+        btn.textContent = '网络错误';
+        setTimeout(() => { btn.textContent = '绑定 QQ'; btn.disabled = false; }, 2000);
+    }
+}
 
 // ── 对局分析 ────────────────────────────────────────
 const placements = allMatches

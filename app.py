@@ -60,10 +60,15 @@ MIN_PLUGIN_VERSION = os.environ.get("MIN_PLUGIN_VERSION", "0.5.5")
 # 发新插件时同步更换，与版本号绑定
 PLUGIN_API_KEY = os.environ.get("PLUGIN_API_KEY", "")
 
+# ── QQ 机器人集成 ──────────────────────────────────
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL", "")      # 机器人接收通知的地址
+BOT_API_KEY = os.environ.get("BOT_API_KEY", "")       # 机器人调用 API 的认证 token
+BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分钟）
+
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.3.3"
+WEB_VERSION = "0.4.0"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
@@ -389,6 +394,7 @@ def get_active_games():
         cleanup_stale_games()
         cleanup_partial_matches()
         cleanup_stale_queues()
+        cleanup_expired_bind_codes()
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
@@ -404,22 +410,69 @@ def get_active_games():
     return games
 
 
-def cleanup_stale_games():
-    """将超过超时时间的未结束对局标记为超时结束"""
+def send_webhook(payload):
+    """发送通知到 QQ 机器人 webhook（失败不阻塞主流程）"""
+    if not WEBHOOK_URL:
+        return
+    try:
+        import threading
+        def _do_post():
+            import urllib.request
+            req = urllib.request.Request(
+                WEBHOOK_URL,
+                data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            try:
+                urllib.request.urlopen(req, timeout=5)
+            except Exception as e:
+                log.warning(f"webhook 发送失败: {e}")
+        threading.Thread(target=_do_post, daemon=True).start()
+    except Exception as e:
+        log.warning(f"webhook 启动失败: {e}")
+
+
+def cleanup_expired_bind_codes():
+    """清理过期的绑定码"""
     db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    result = db.league_players.update_many(
+        {"bindCodeExpire": {"$lt": now_str}},
+        {"$unset": {"bindCode": "", "bindCodeExpire": ""}}
+    )
+    if result.modified_count > 0:
+        log.info(f"清理了 {result.modified_count} 个过期绑定码")
+
+
+def cleanup_stale_games():
+    """将超过超时时间的未结束对局标记为超时结束，并发送 webhook 通知"""
+    db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
             {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$lt": cutoff_str}}
+            {"startedAt": {"$lt": cutoff_str}},
+            {"status": {"$exists": False}},
         ]
     }
+    matches = list(db.league_matches.find(query))
+    if not matches:
+        return
+
+    for m in matches:
+        players = [p.get("displayName", p.get("battleTag", "")) for p in m.get("players", [])]
+        send_webhook({
+            "type": "timeout",
+            "gameUuid": m.get("gameUuid", ""),
+            "players": players,
+            "startedAt": m.get("startedAt", ""),
+        })
+
     result = db.league_matches.update_many(
         query,
-        {"$set": {
-            "endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "status": "timeout"
-        }}
+        {"$set": {"endedAt": now_str, "status": "timeout"}}
     )
     if result.modified_count > 0:
         log.info(f"清理了 {result.modified_count} 个超时对局")
@@ -453,6 +506,14 @@ def cleanup_partial_matches():
             continue  # 纯超时局，由 cleanup_stale_games 处理
 
         # 有人填了但没全填 → 部分掉线
+        player_names = [p.get("displayName", p.get("battleTag", "")) for p in players]
+        send_webhook({
+            "type": "abandoned",
+            "gameUuid": m.get("gameUuid", ""),
+            "players": player_names,
+            "startedAt": m.get("startedAt", ""),
+        })
+
         db.league_matches.update_one(
             {"_id": m["_id"]},
             {"$set": {
@@ -1288,6 +1349,63 @@ def api_logout():
                 db.league_waiting_queue.delete_one({"_id": group["_id"]})
     session.clear()
     return jsonify({"ok": True})
+
+
+# ── QQ 绑定 API ──────────────────────────────────────
+
+@app.route("/api/bind-code", methods=["POST"])
+def api_bind_code():
+    """登录用户生成绑定码（5 分钟有效）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+
+    db = get_db()
+    cleanup_expired_bind_codes()
+
+    import secrets
+    code = secrets.token_hex(3).upper()  # 6 位十六进制
+    expire = (datetime.now(UTC) + timedelta(minutes=BIND_CODE_EXPIRE_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    db.league_players.update_one(
+        {"battleTag": battle_tag},
+        {"$set": {"bindCode": code, "bindCodeExpire": expire}},
+        upsert=True
+    )
+    return jsonify({"ok": True, "code": code, "expireMinutes": BIND_CODE_EXPIRE_MINUTES})
+
+
+@app.route("/api/bind-code/verify", methods=["POST"])
+def api_bind_code_verify():
+    """机器人验证绑定码（需 BOT_API_KEY）"""
+    data = request.get_json() or {}
+    bot_key = data.get("botKey", "")
+    code = data.get("code", "").strip().upper()
+
+    if not BOT_API_KEY:
+        return jsonify({"error": "绑定功能未启用"}), 503
+    if bot_key != BOT_API_KEY:
+        return jsonify({"error": "认证失败"}), 403
+    if not code:
+        return jsonify({"error": "绑定码不能为空"}), 400
+
+    db = get_db()
+    cleanup_expired_bind_codes()
+
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    player = db.league_players.find_one({
+        "bindCode": code,
+        "bindCodeExpire": {"$gt": now_str}
+    })
+    if not player:
+        return jsonify({"error": "绑定码无效或已过期"}), 404
+
+    # 用后即废
+    db.league_players.update_one(
+        {"_id": player["_id"]},
+        {"$unset": {"bindCode": "", "bindCodeExpire": ""}}
+    )
+    return jsonify({"ok": True, "battleTag": player["battleTag"], "displayName": player.get("displayName", "")})
 
 
 # ── SSE 端点（Server-Sent Events）──────────────────────
