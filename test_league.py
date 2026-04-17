@@ -13,6 +13,8 @@
   python3 test_league.py --skip-placement 3       # 跳过第4个玩家的排名提交，测试自动推算
   python3 test_league.py --with-errors            # 正常流程 + 错误场景测试
   python3 test_league.py --test-errors            # 仅运行错误场景测试
+  python3 test_league.py --demo                   # 演示模式，Step 5 每人间隔 3 秒（录视频用）
+  python3 test_league.py --interval 5             # 自定义 Step 5 间隔秒数
 """
 
 import argparse
@@ -235,11 +237,12 @@ def step_duplicate_test(base, game_uuid, player):
         print("  ✅ 重复提交正确拒绝 (HTTP 409)")
 
 
-def step_submit_placements(base, players, game_uuid, placements=None, skip_player=None):
+def step_submit_placements(base, players, game_uuid, placements=None, skip_player=None, interval=0.3):
     """
     Step 5: 提交排名
     placements: dict {accountIdLo: placement}，None 则自动分配 1-8
     skip_player: accountIdLo，跳过该玩家（测试自动推算）
+    interval: 每个玩家提交之间的间隔秒数
     """
     print("\n📊 Step 5: update-placement")
 
@@ -271,7 +274,7 @@ def step_submit_placements(base, players, game_uuid, placements=None, skip_playe
         if finalized:
             print("  ✅ 已 finalize，停止提交")
             break
-        time.sleep(0.3)
+        time.sleep(interval)
 
 
 def step_verify(base, game_uuid):
@@ -433,6 +436,10 @@ def main():
                         help="仅运行错误场景测试（不需要排队数据）")
     parser.add_argument("--with-errors", action="store_true",
                         help="正常流程跑完后加测错误场景")
+    parser.add_argument("--demo", action="store_true",
+                        help="演示模式，Step 5 每人间隔 3 秒，适合录制视频")
+    parser.add_argument("--interval", type=float, default=None,
+                        help="Step 5 每人间隔秒数（覆盖默认值）")
     args = parser.parse_args()
 
     base = args.base.rstrip("/")
@@ -457,6 +464,8 @@ def main():
     print(f"  玩家: {args.prefix}#{args.start_tag} ~ #{args.start_tag + 7}")
     if args.skip_placement is not None:
         print(f"  跳过: {players[args.skip_placement].battle_tag}（测试自动推算）")
+    if args.demo:
+        print(f"  🎬 演示模式（Step 5 间隔 3 秒）")
     print("=" * 60)
 
     codes = step_upload_rating(base, players)
@@ -480,7 +489,8 @@ def main():
         step_duplicate_test(base, game_uuid, dup_player)
 
     skip_lo = players[args.skip_placement].account_id_lo if args.skip_placement is not None else None
-    step_submit_placements(base, players, game_uuid, skip_player=skip_lo)
+    interval = args.interval if args.interval is not None else (3.0 if args.demo else 0.3)
+    step_submit_placements(base, players, game_uuid, skip_player=skip_lo, interval=interval)
 
     step_verify(base, game_uuid)
 
