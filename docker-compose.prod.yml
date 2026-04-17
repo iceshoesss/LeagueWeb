@@ -16,9 +16,15 @@ services:
       - MONGO_URL=mongodb://192.168.31.2:27017
       - DB_NAME=hearthstone
       - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-changeme-in-production}
-      - SITE_NAME=我的战棋联赛
       - MIN_PLUGIN_VERSION=0.5.5
       - PLUGIN_API_KEY=bgtracker-20260414
+      # 以下有默认值，按需取消注释
+      # - SITE_NAME=我的战棋联赛
+      # - SITE_LOGO=🍺
+      # - CLEANUP_INTERVAL=60
+      # QQ 机器人集成（部署 bot 后取消注释）
+      # - WEBHOOK_URL=http://bg-qqbot:8080/webhook/league
+      # - BOT_API_KEY=与bot的BOT_API_KEY一致
     restart: unless-stopped
 
   nginx:
