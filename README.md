@@ -71,6 +71,9 @@ docker compose restart web     # 重启
   - 版本检查：`X-HDT-Plugin` header 版本号低于 `MIN_PLUGIN_VERSION` 则 403
   - 两个 env var 配合使用，发新插件时同步更换即可让旧插件失效
 
+### v0.3.3 (2026-04-17)
+- **修复 player 页面 battleTag 不带 #tag**：不再依赖 `league_matches` 中插件上报的不完整数据，改为从 `league_players` 读取真实 battleTag；匹配逻辑也从 battleTag 改为 accountIdLo，兼容带/不带 #tag 的访问
+
 ### v0.3.0 (2026-04-14)
 - **测试模式改为重叠人数匹配**：不再无脑判联赛，按等待组重叠人数判定（阈值 `MIN_MATCH_PLAYERS`，默认 3）
 - **报名队列阈值联动**：满 N 人移入等待组，N 跟随 `MIN_MATCH_PLAYERS`（test=3, normal=8）
