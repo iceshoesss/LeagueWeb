@@ -303,6 +303,56 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 ---
 
+## 绑定码
+
+### `POST /api/bind-code`
+
+登录用户生成绑定码，用于 QQ 机器人关联游戏账号与 QQ 号。
+
+**认证：** 需登录（session）
+
+**请求体：** 无需传参
+
+**响应：**
+```json
+{ "ok": true, "code": "A3F8D2", "expireMinutes": 5 }
+```
+
+| 字段 | 说明 |
+|------|------|
+| `code` | 6 位绑定码，5 分钟内有效 |
+| `expireMinutes` | 有效期（分钟） |
+
+**错误：**
+- `401` 未登录
+- `503` `BOT_API_KEY` 未配置，绑定功能未启用
+
+### `POST /api/bind-code/verify`
+
+机器人验证绑定码，返回玩家身份。
+
+**认证：** 需 `BOT_API_KEY`（请求体中传入）
+
+**请求体：**
+```json
+{
+  "botKey": "你的BOT_API_KEY",
+  "code": "A3F8D2"
+}
+```
+
+**响应：**
+```json
+{ "ok": true, "battleTag": "南怀北瑾丨少头脑#5267", "displayName": "南怀北瑾丨少头脑" }
+```
+
+**错误：**
+- `403` botKey 认证失败
+- `400` 绑定码为空
+- `404` 绑定码不存在或已过期
+
+---
+
 ## 补录排名
 
 ### `POST /api/match/<gameUuid>/update-placement`
@@ -355,7 +405,7 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 ### `POST /api/plugin/upload-rating`
 
-插件上报分数并获取验证码。**无需认证。**
+插件上报分数并获取验证码。**无需登录认证（需插件版本号 header，配置 `PLUGIN_API_KEY` 后还需 Bearer token）。**
 
 **请求头：** `Content-Type: application/json`
 
@@ -390,7 +440,7 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 ### `POST /api/plugin/check-league`
 
-检查是否为联赛对局（STEP 13 时调用）。**无需认证。**
+检查是否为联赛对局（STEP 13 时调用）。**无需登录认证（需插件版本号 header，配置 `PLUGIN_API_KEY` 后还需 Bearer token）。**
 
 **请求体：**
 ```json
@@ -435,7 +485,7 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 
 ### `POST /api/plugin/update-placement`
 
-更新联赛对局排名（游戏结束时调用）。**无需认证。**
+更新联赛对局排名（游戏结束时调用）。**无需登录认证（需插件版本号 header，配置 `PLUGIN_API_KEY` 后还需 Bearer token）。**
 
 **请求体：**
 ```json
