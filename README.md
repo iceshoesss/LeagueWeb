@@ -52,7 +52,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.4.1`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.4.2`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -62,6 +62,10 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.4.2 (2026-04-17)
+- 新增玩家使用指南页面（`/guide`），含快速开始、积分规则、报名流程、QQ 机器人指令、FAQ
+- 管理员可在问题对局页面直接删除对局（`DELETE /api/match/<gameUuid>`）
 
 ### v0.4.1 (2026-04-17)
 - **后台独立清理线程**：超时/掉线检测不再依赖页面访问触发，改为后台定时执行（`CLEANUP_INTERVAL` 控制间隔）
