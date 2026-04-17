@@ -317,9 +317,9 @@ def get_players():
         {"$sort": {"totalPoints": -1}},
     ]
 
-    players = []
+    raw_players = []
     for p in db.league_matches.aggregate(pipeline):
-        players.append({
+        raw_players.append({
             "_id": str(p["_id"]),
             "battleTag": p["_id"],
             "displayName": p.get("displayName", ""),
@@ -334,9 +334,22 @@ def get_players():
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         })
 
-    _leaderboard_cache["data"] = players
+    # 从 league_players 获取真实 battleTag（带 #tag）
+    lo_ids = [p["accountIdLo"] for p in raw_players if p["accountIdLo"]]
+    if lo_ids:
+        tag_map = {}
+        for lp in db.league_players.find({"accountIdLo": {"$in": lo_ids}}, {"accountIdLo": 1, "battleTag": 1}):
+            if lp.get("accountIdLo") and lp.get("battleTag"):
+                tag_map[str(lp["accountIdLo"])] = lp["battleTag"]
+        for p in raw_players:
+            real_tag = tag_map.get(p["accountIdLo"])
+            if real_tag:
+                p["_id"] = real_tag
+                p["battleTag"] = real_tag
+
+    _leaderboard_cache["data"] = raw_players
     _leaderboard_cache["ts"] = now
-    return players
+    return raw_players
 
 
 def get_completed_matches(limit=10):
@@ -543,14 +556,33 @@ def update_last_seen():
         pass  # 数据库不可用时不阻塞请求
 
 def get_player(battle_tag):
-    """从 league_matches + player_records 聚合获取单个选手信息"""
+    """从 league_matches + league_players 聚合获取单个选手信息"""
     db = get_db()
+
+    # 先从 league_players 解析 accountIdLo（兼容带/不带 #tag 的 battleTag）
+    lp = db.league_players.find_one({"battleTag": battle_tag})
+    if not lp:
+        # 尝试不带 #tag 匹配
+        lp = db.league_players.find_one({"displayName": battle_tag})
+    real_battle_tag = lp.get("battleTag", battle_tag) if lp else battle_tag
+    account_id_lo = str(lp["accountIdLo"]) if lp and lp.get("accountIdLo") else None
+
+    # 用 accountIdLo 或 battleTag 匹配 league_matches
+    if account_id_lo:
+        match_cond = {"players.accountIdLo": account_id_lo}
+        inner_match = {"players.accountIdLo": account_id_lo, "players.points": {"$ne": None}}
+        group_id = "$players.accountIdLo"
+    else:
+        match_cond = {"players.battleTag": battle_tag}
+        inner_match = {"players.battleTag": battle_tag, "players.points": {"$ne": None}}
+        group_id = "$players.battleTag"
+
     pipeline = [
-        {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER, {"players.battleTag": battle_tag}]}},
+        {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER, match_cond]}},
         {"$unwind": "$players"},
-        {"$match": {"players.battleTag": battle_tag, "players.points": {"$ne": None}}},
+        {"$match": inner_match},
         {"$group": {
-            "_id": "$players.battleTag",
+            "_id": group_id,
             "displayName": {"$first": "$players.displayName"},
             "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
@@ -570,8 +602,8 @@ def get_player(battle_tag):
     if result:
         p = result[0]
         return {
-            "_id": str(p["_id"]),
-            "battleTag": p["_id"],
+            "_id": real_battle_tag,
+            "battleTag": real_battle_tag,
             "displayName": p.get("displayName", ""),
             "accountIdLo": p.get("accountIdLo", ""),
             "totalPoints": p.get("totalPoints", 0),
@@ -586,19 +618,23 @@ def get_player(battle_tag):
     return None
 
 
-def get_rival_stats(battle_tag):
+def get_rival_stats(battle_tag, account_id_lo=None):
     """用聚合管道计算最软的虾和最硬的鸭"""
     db = get_db()
+    # 用 accountIdLo 或 battleTag 匹配
+    match_key = "players.accountIdLo" if account_id_lo else "players.battleTag"
+    match_val = account_id_lo if account_id_lo else battle_tag
     pipeline = [
         {"$match": {
             "$and": [
-                {"players.battleTag": battle_tag},
+                {match_key: match_val},
                 {"endedAt": {"$ne": None}},
                 VALID_MATCH_FILTER,
             ]
         }},
         {"$project": {
             "players.battleTag": 1,
+            "players.accountIdLo": 1,
             "players.placement": 1,
             "players.displayName": 1
         }},
@@ -606,14 +642,14 @@ def get_rival_stats(battle_tag):
         {"$group": {
             "_id": "$_id",
             "myPlacement": {"$max": {"$cond": [
-                {"$eq": ["$players.battleTag", battle_tag]},
+                {"$eq": ["$players.accountIdLo" if account_id_lo else "$players.battleTag", match_val]},
                 "$players.placement",
                 None
             ]}},
             "opponents": {"$push": {
                 "name": "$players.displayName",
                 "placement": "$players.placement",
-                "isMe": {"$eq": ["$players.battleTag", battle_tag]}
+                "isMe": {"$eq": ["$players.accountIdLo" if account_id_lo else "$players.battleTag", match_val]}
             }}
         }},
         {"$project": {
@@ -656,20 +692,23 @@ def get_rival_stats(battle_tag):
     }
 
 
-def get_player_matches(battle_tag):
+def get_player_matches(battle_tag, account_id_lo=None):
     """获取某选手的所有对局记录（排除超时/中断等有问题的对局）"""
     db = get_db()
+    # 用 accountIdLo 或 battleTag 匹配
+    match_key = "players.accountIdLo" if account_id_lo else "players.battleTag"
+    match_val = account_id_lo if account_id_lo else battle_tag
     pipeline = [
         {"$match": {
             "$and": [
-                {"players.battleTag": battle_tag},
+                {match_key: match_val},
                 {"endedAt": {"$nin": [None]}},
                 VALID_MATCH_FILTER,
             ]
         }},
         {"$sort": {"endedAt": -1}},
         {"$unwind": "$players"},
-        {"$match": {"players.battleTag": battle_tag}},
+        {"$match": {match_key: match_val}},
         {"$project": {
             "gameUuid": 1,
             "endedAt": 1,
@@ -754,8 +793,9 @@ def player_page(battle_tag):
     if not player:
         return render_template("404.html", title="选手不存在", emoji="🔍",
             message=f"没有找到「{battle_tag}」的记录，可能还没有注册或打过联赛"), 404
-    player_matches = get_player_matches(battle_tag)
-    rival_stats = get_rival_stats(battle_tag)
+    account_id_lo = player.get("accountIdLo") or None
+    player_matches = get_player_matches(battle_tag, account_id_lo=account_id_lo)
+    rival_stats = get_rival_stats(battle_tag, account_id_lo=account_id_lo)
     return render_template("player.html", player=player, matches=player_matches, matches_json=player_matches, rival=rival_stats)
 
 
