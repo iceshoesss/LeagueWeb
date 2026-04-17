@@ -383,18 +383,23 @@ def get_completed_matches(limit=10):
     return matches
 
 
+CLEANUP_INTERVAL = int(os.environ.get("CLEANUP_INTERVAL", "60"))  # 秒，测试可用 15
+
+def _background_cleanup():
+    """后台定时清理：超时对局、掉线对局、过期队列、过期绑定码"""
+    while True:
+        try:
+            cleanup_stale_games()
+            cleanup_partial_matches()
+            cleanup_stale_queues()
+            cleanup_expired_bind_codes()
+        except Exception as e:
+            log.error(f"后台 cleanup 异常: {e}")
+        time.sleep(CLEANUP_INTERVAL)
+
 def get_active_games():
     """获取进行中的对局（endedAt 为 null 或字段不存在，且未超时）"""
-    global _last_cleanup_ts
     db = get_db()
-    # 每 60 秒清理一次，避免每 5 秒轮询都跑 cleanup
-    now = time.time()
-    if now - _last_cleanup_ts > 60:
-        _last_cleanup_ts = now
-        cleanup_stale_games()
-        cleanup_partial_matches()
-        cleanup_stale_queues()
-        cleanup_expired_bind_codes()
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
@@ -415,7 +420,6 @@ def send_webhook(payload):
     if not WEBHOOK_URL:
         return
     try:
-        import threading
         def _do_post():
             import urllib.request
             req = urllib.request.Request(
@@ -1858,6 +1862,11 @@ def api_plugin_update_placement():
 def page_not_found(e):
     return render_template("404.html"), 404
 
+
+import threading
+_cleanup_thread = threading.Thread(target=_background_cleanup, daemon=True)
+_cleanup_thread.start()
+log.info(f"后台 cleanup 已启动，间隔 {CLEANUP_INTERVAL} 秒")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
