@@ -31,14 +31,14 @@ PLUGIN_VER = "0.1.0"    # 替换为对应的插件版本，确保符合服务器
 
 # ─── 英雄数据（模拟用） ───
 HEROES = [
-    ("TB_BaconShop_HERO_56", "阿莱克丝塔萨"),
-    ("TB_BaconShop_HERO_01", "炎魔之王"),
-    ("TB_BaconShop_HERO_02", "布林顿"),
-    ("TB_BaconShop_HERO_03", "布鲁坎"),
-    ("TB_BaconShop_HERO_04", "大螺丝"),
-    ("TB_BaconShop_HERO_05", "芬利"),
-    ("TB_BaconShop_HERO_06", "馆长"),
-    ("TB_BaconShop_HERO_07", "凯尔萨斯"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
+    ("TB_BaconShop_HERO_14", "瓦托格尔女王"),
 ]
 
 # ─── 排名积分规则 ───
