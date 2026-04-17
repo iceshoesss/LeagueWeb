@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}使用指南 - {{ site_name }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+    <h1 class="text-3xl font-bold text-hearth-gold">📖 使用指南</h1>
+
+    <!-- 快速开始 -->
+    <section class="bg-hearth-card rounded-lg p-6 gold-border">
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">🚀 三步上手</h2>
+        <div class="space-y-4">
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">①</span>
+                <div>
+                    <h3 class="font-bold">安装插件</h3>
+                    <p class="text-hearth-dim text-sm">下载 HDT → 把插件 dll 放到插件目录 → 重启 HDT</p>
+                    <p class="text-hearth-dim text-sm">插件自动运行，不需要手动操作。</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">②</span>
+                <div>
+                    <h3 class="font-bold">注册账号</h3>
+                    <p class="text-hearth-dim text-sm">打一局普通战棋 → 网站点「登录」→ 输入 BattleTag + 验证码</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">③</span>
+                <div>
+                    <h3 class="font-bold">报名参赛</h3>
+                    <p class="text-hearth-dim text-sm">登录 → 加入队列 → 满 8 人自动匹配 → 正常开一局 → 自动计分</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 积分规则 -->
+    <section class="bg-hearth-card rounded-lg p-6 gold-border">
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">📊 积分规则</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-center text-sm">
+                <thead>
+                    <tr class="text-hearth-dim">
+                        <th class="py-2">排名</th>
+                        <th>1st</th><th>2nd</th><th>3rd</th><th>4th</th>
+                        <th>5th</th><th>6th</th><th>7th</th><th>8th</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="text-lg font-bold">
+                        <td class="py-2 text-hearth-dim text-sm">积分</td>
+                        <td class="text-yellow-400">9</td>
+                        <td class="text-gray-300">7</td>
+                        <td class="text-orange-400">6</td>
+                        <td>5</td>
+                        <td>4</td><td>3</td><td>2</td><td>1</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-hearth-dim text-sm mt-3">前四算「胜」，只有联赛对局才计分。</p>
+    </section>
+
+    <!-- 报名流程 -->
+    <section class="bg-hearth-card rounded-lg p-6 gold-border">
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">🎮 报名流程</h2>
+        <ol class="space-y-2 text-sm text-gray-300 list-decimal list-inside">
+            <li>登录后点击「加入队列」</li>
+            <li>等满 8 人，系统自动分配等待组</li>
+            <li>正常开一局战棋，插件自动识别联赛对局</li>
+            <li>打完自动上传排名和积分</li>
+        </ol>
+        <div class="mt-4 text-xs text-hearth-dim bg-black/20 rounded p-3">
+            <p>⏰ 报名队列 <strong>10 分钟</strong>无操作自动踢出</p>
+            <p>⏰ 等待组 <strong>20 分钟</strong>超时自动解散</p>
+        </div>
+    </section>
+
+    <!-- QQ 机器人 -->
+    <section class="bg-hearth-card rounded-lg p-6 gold-border">
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">🤖 QQ 机器人</h2>
+        <p class="text-hearth-dim text-sm mb-3">在联赛 QQ 群中发送以下指令：</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            {% set commands = [
+                ("帮助 / 菜单", "显示所有可用命令"),
+                ("排行榜", "查看 TOP 10"),
+                ("战绩 玩家名", "查询选手数据"),
+                ("队列", "查看排队状态"),
+                ("最近对局", "最近 10 场联赛"),
+                ("绑定 绑定码", "关联 QQ 与游戏账号"),
+                ("我的绑定", "查看绑定状态"),
+                ("解绑", "取消绑定"),
+            ] %}
+            {% for cmd, desc in commands %}
+            <div class="flex items-center gap-2 bg-black/20 rounded px-3 py-2">
+                <code class="text-hearth-gold font-mono text-xs">{{ cmd }}</code>
+                <span class="text-hearth-dim text-xs">— {{ desc }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="bg-hearth-card rounded-lg p-6 gold-border">
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">❓ 常见问题</h2>
+        <div class="space-y-3" id="faq-list">
+            <!-- FAQ 区域 — 根据玩家反馈持续补充 -->
+            {% set faqs = [
+                ("插件安装后没有反应？", "检查 HDT 插件目录是否正确，重启 HDT 后在「插件」页面确认 BGTracker 已启用。"),
+                ("验证码在哪里找？", "打完一局后插件会自动生成验证码，在 HDT 的插件设置页面可以查看。"),
+                ("非联赛对局会计分吗？", "不会。插件会自动判断是否为联赛对局，只有匹配到等待组的 8 人才会计分。"),
+                ("对局结束后排名没上传成功？", "检查网络连接，插件会自动重试 3 次。如果仍然失败，联系管理员手动补录。"),
+                ("报名后一直凑不满 8 个人？", "在 QQ 群喊人，或者等活跃时间段再来。队列 10 分钟无操作会自动踢出。"),
+                ("对局超时了怎么办？", "超时对局会自动标记，管理员可以在问题对局页面补录排名。"),
+                ("有人掉线导致对局没结束？", "掉线对局会自动标记为 abandoned，管理员补录缺失的排名即可。"),
+                ("QQ 绑定有什么用？", "绑定后对局出问题时机器人会在群里 @ 你，方便及时处理。不绑定也可以正常参加联赛。"),
+            ] %}
+            {% for q, a in faqs %}
+            <div class="border border-hearth-border rounded overflow-hidden">
+                <button onclick="this.parentElement.classList.toggle('open');this.nextElementSibling.classList.toggle('hidden')"
+                        class="w-full text-left px-4 py-3 text-sm font-medium hover:bg-black/20 transition flex justify-between items-center">
+                    <span>{{ q }}</span>
+                    <span class="text-hearth-dim text-xs">▼</span>
+                </button>
+                <div class="hidden px-4 pb-3 text-sm text-hearth-dim">{{ a }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

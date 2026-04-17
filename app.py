@@ -910,6 +910,11 @@ def problems_page():
     return render_template("problems.html", matches=matches)
 
 
+@app.route("/guide")
+def guide_page():
+    return render_template("guide.html")
+
+
 # ── API 路由 ──────────────────────────────────────────
 
 @app.route("/api/players")

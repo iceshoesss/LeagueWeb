@@ -51,6 +51,8 @@
                 <span class="text-hearth-dim">|</span>
                 <span class="text-hearth-dim">{{ total_player_count }} 名注册选手</span>
                 <span class="text-hearth-dim">|</span>
+                <a href="/guide" class="text-hearth-dim hover:text-hearth-gold transition">使用指南</a>
+                <span class="text-hearth-dim">|</span>
                 {% if current_user %}
                 <a href="/player/{{ current_user.battleTag|urlencode }}" class="text-hearth-gold font-medium hover:text-hearth-accent transition">{{ current_user.battleTag }}</a>
                 <button onclick="logout()" class="text-hearth-dim hover:text-red-400 transition text-xs">退出</button>
