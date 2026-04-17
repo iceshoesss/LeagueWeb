@@ -38,6 +38,9 @@ docker compose up -d
 | `SITE_LOGO` | `🍺` | 网站 Logo，支持 emoji 或图片 URL |
 | `MIN_PLUGIN_VERSION` | `0.5.5` | 最低插件版本，低于此版本的插件请求将被拒绝（403） |
 | `PLUGIN_API_KEY` | _(空)_ | 插件 API Key，配置后插件请求必须带 `Authorization: Bearer <key>`；为空则跳过校验 |
+| `WEBHOOK_URL` | _(空)_ | QQ 机器人 webhook 地址（如 `http://bg-qqbot:8080/webhook/league`）；为空则不发通知 |
+| `BOT_API_KEY` | _(空)_ | 机器人调用 API 的认证 token，需与 BG_QQBot 的 `BOT_API_KEY` 一致 |
+| `CLEANUP_INTERVAL` | `60` | 后台清理间隔（秒），控制超时/掉线检测频率；测试时可设 `15` |
 
 ## 常用命令
 
@@ -49,7 +52,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.4.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.4.1`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -59,6 +62,11 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.4.1 (2026-04-17)
+- **后台独立清理线程**：超时/掉线检测不再依赖页面访问触发，改为后台定时执行（`CLEANUP_INTERVAL` 控制间隔）
+- **abandoned 通知优化**：掉线对局 webhook 只通知未提交排名的玩家，不再发全部 8 人
+- 新增环境变量：`WEBHOOK_URL`、`BOT_API_KEY`、`CLEANUP_INTERVAL`
 
 ### v0.4.0 (2026-04-15)
 - **7人提交后自动推算第8人排名**：当 7 位玩家提交 placement 后，自动计算剩余玩家的排名（唯一剩余数字），立即写入 endedAt 结束对局

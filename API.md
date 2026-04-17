@@ -535,6 +535,39 @@ data: [{"gameUuid":"...","startedAtEpoch":1744231800,"players":[...]}]
 
 ---
 
+## Webhook 通知
+
+当问题对局发生时（超时、掉线），服务端会主动 POST 通知到配置的 `WEBHOOK_URL`。
+
+**触发条件：**
+- 超时对局：对局超过 80 分钟未结束，所有玩家均未提交排名 → 标记 `status: "timeout"`
+- 掉线对局：部分玩家已提交但超过 80 分钟仍未全部提交 → 标记 `status: "abandoned"`
+
+**请求格式：**
+```json
+{
+  "type": "timeout",
+  "gameUuid": "888fc109-...",
+  "players": ["南怀北瑾丨少头脑", "瓦莉拉"],
+  "startedAt": "2026-04-09T23:30:00Z"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | string | `"timeout"`（超时）或 `"abandoned"`（掉线） |
+| `gameUuid` | string | 对局 UUID |
+| `players` | array | 需要补录的玩家 displayName 列表 |
+| `startedAt` | string | 对局开始时间（UTC） |
+
+**说明：**
+- `timeout` 类型包含全部 8 位玩家（均未提交）
+- `abandoned` 类型仅包含 `placement` 为 null 的玩家（未提交排名的）
+- webhook 由后台清理线程触发（间隔由 `CLEANUP_INTERVAL` 控制，非页面访问触发）
+- 每局只会通知一次（标记后不再重复匹配）
+
+---
+
 ## 英雄头像
 
 拼接 `heroCardId` 获取头像：
