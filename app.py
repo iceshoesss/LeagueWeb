@@ -1092,6 +1092,17 @@ def api_queue_leave():
     if group:
         remaining = [p for p in group["players"] if p["name"] != name]
         if remaining:
+            # 从未满的等待组退出后，从报名队列自动补人
+            while len(remaining) < MIN_MATCH_PLAYERS:
+                filler = db.league_queue.find_one_and_delete(
+                    {}, sort=[("joinedAt", 1)]
+                )
+                if not filler:
+                    break
+                f_name = filler["name"]
+                f_info = db.league_players.find_one({"battleTag": f_name})
+                f_lo = str(f_info.get("accountIdLo", "")) if f_info else ""
+                remaining.append({"name": f_name, "accountIdLo": f_lo})
             db.league_waiting_queue.update_one(
                 {"_id": group["_id"]},
                 {"$set": {"players": remaining}}
@@ -1259,6 +1270,16 @@ def api_logout():
         if group:
             remaining = [p for p in group["players"] if p["name"] != battle_tag]
             if remaining:
+                while len(remaining) < MIN_MATCH_PLAYERS:
+                    filler = db.league_queue.find_one_and_delete(
+                        {}, sort=[("joinedAt", 1)]
+                    )
+                    if not filler:
+                        break
+                    f_name = filler["name"]
+                    f_info = db.league_players.find_one({"battleTag": f_name})
+                    f_lo = str(f_info.get("accountIdLo", "")) if f_info else ""
+                    remaining.append({"name": f_name, "accountIdLo": f_lo})
                 db.league_waiting_queue.update_one(
                     {"_id": group["_id"]},
                     {"$set": {"players": remaining}}
