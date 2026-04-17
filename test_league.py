@@ -1,459 +1,495 @@
 #!/usr/bin/env python3
 """
-联赛功能测试脚本 — 32人报名，自动组队，随机开赛
+炉石战棋联赛系统 — 全流程测试脚本
 
-用法:
-  python3 test_league.py           运行完整测试
-  python3 test_league.py --cleanup 清理测试数据
+模拟 8 个玩家完成一整局联赛：
+  upload-rating → register → login → queue/join → check-league → update-placement
+
+用法：
+  python3 test_league.py                          # 默认参数
+  python3 test_league.py --base https://xxx.com   # 指定 API 地址
+  python3 test_league.py --prefix 测试玩家         # 自定义玩家名前缀
+  python3 test_league.py --skip-queue             # 跳过排队，直接测 check-league
+  python3 test_league.py --skip-placement 3       # 跳过第4个玩家的排名提交，测试自动推算
+  python3 test_league.py --with-errors            # 正常流程 + 错误场景测试
+  python3 test_league.py --test-errors            # 仅运行错误场景测试
 """
 
-import os
+import argparse
+import json
 import sys
-import uuid
-import hashlib
 import time
-import random
-import threading
-from datetime import datetime, timedelta, UTC
-from pymongo import MongoClient
+import uuid
+from dataclasses import dataclass
+
+import requests
+
+# ─── 默认配置 ───
+DEFAULT_BASE = "http://localhost:5000"
+PLUGIN_KEY = "YOUR_PLUGIN_KEY_HERE"  # 替换为实际 API Key 
+PLUGIN_VER = "0.1.0"    # 替换为对应的插件版本，确保符合服务器要求
+
+# ─── 英雄数据（模拟用） ───
+HEROES = [
+    ("TB_BaconShop_HERO_56", "阿莱克丝塔萨"),
+    ("TB_BaconShop_HERO_01", "炎魔之王"),
+    ("TB_BaconShop_HERO_02", "布林顿"),
+    ("TB_BaconShop_HERO_03", "布鲁坎"),
+    ("TB_BaconShop_HERO_04", "大螺丝"),
+    ("TB_BaconShop_HERO_05", "芬利"),
+    ("TB_BaconShop_HERO_06", "馆长"),
+    ("TB_BaconShop_HERO_07", "凯尔萨斯"),
+]
+
+# ─── 排名积分规则 ───
+POINTS_TABLE = {1: 9, 2: 7, 3: 6, 4: 5, 5: 4, 6: 3, 7: 2, 8: 1}
 
 
-# ── 配置 ──────────────────────────────────────────
-MONGO_URL = os.environ.get("MONGO_URL", "YOUR_MONGO_URL_HERE")  # 替换为你的 MongoDB 连接字符串
-DB_NAME = os.environ.get("DB_NAME", "hearthstone")
-NUM_PLAYERS = 32
-PLAYERS_PER_GAME = 8
-UPLOAD_INTERVAL = 0.5  # 排名提交间隔（秒），测试加速
+@dataclass
+class Player:
+    index: int
+    battle_tag: str
+    display_name: str
+    account_id_lo: str
+    hero_card_id: str
+    hero_name: str
 
-# 生成 32 个模拟玩家
-def make_players(n):
-    heroes_pool = [
-        ("TB_BaconShop_HERO_56", "阿莱克丝塔萨"), ("BG20_HERO_202", "阮大师"),
-        ("TB_BaconShop_HERO_18", "穆克拉"), ("TB_BaconShop_HERO_55", "伊瑟拉"),
-        ("BG20_HERO_101", "沃金"), ("TB_BaconShop_HERO_52", "苔丝·格雷迈恩"),
-        ("TB_BaconShop_HERO_34", "奈法利安"), ("TB_BaconShop_HERO_28", "拉卡尼休"),
-        ("BG31_HERO_802", "阿塔尼斯"), ("TB_BaconShop_HERO_01", "奥妮克希亚"),
-        ("TB_BaconShop_HERO_11", "帕奇维克"), ("TB_BaconShop_HERO_40", "米尔豪斯"),
-        ("TB_BaconShop_HERO_22", "巴罗夫领主"), ("BG20_HERO_283", "艾萨拉"),
-        ("TB_BaconShop_HERO_39", "雷诺"), ("BG20_HERO_301", "希尔瓦娜斯"),
-    ]
+
+def plugin_headers():
+    return {
+        "Content-Type": "application/json",
+        "X-HDT-Plugin": PLUGIN_VER,
+        "Authorization": f"Bearer {PLUGIN_KEY}",
+    }
+
+
+def web_headers():
+    return {"Content-Type": "application/json"}
+
+
+def api(method, url, session=None, **kwargs):
+    """发送请求，统一错误处理"""
+    s = session or requests
+    r = s.request(method, url, timeout=15, **kwargs)
+    try:
+        data = r.json()
+    except Exception:
+        data = {"_raw": r.text[:200]}
+    return r.status_code, data
+
+
+def print_step(label, status, data):
+    status_str = f"✅ {status}" if 200 <= status < 300 else f"❌ HTTP {status}"
+    detail = json.dumps(data, ensure_ascii=False)
+    if len(detail) > 100:
+        detail = detail[:97] + "..."
+    print(f"  {label:24s} {status_str:12s} {detail}")
+
+
+def generate_players(prefix="衣锦夜行", start_tag=1000, start_lo=10000000):
+    """生成 8 个模拟玩家"""
     players = []
-    for i in range(n):
-        tag_num = 1000 + i
-        players.append({
-            "battleTag": f"测试玩家{i+1:02d}#{tag_num}",
-            "displayName": f"测试玩家{i+1:02d}",
-            "accountIdLo": str(3000000000 + i),
-            "rating": 5000 + random.randint(-500, 1500),
-            "hero": heroes_pool[i % len(heroes_pool)],
-        })
+    for i in range(8):
+        card_id, hero_name = HEROES[i]
+        players.append(Player(
+            index=i,
+            battle_tag=f"{prefix}#{start_tag + i}",
+            display_name=prefix,
+            account_id_lo=str(start_lo + i),
+            hero_card_id=card_id,
+            hero_name=hero_name,
+        ))
     return players
 
-FAKE_PLAYERS = make_players(NUM_PLAYERS)
 
-# 排名提交顺序: 第8名先传, 第1名最后传
-PLACEMENT_UPLOAD_ORDER = list(range(PLAYERS_PER_GAME, 0, -1))
+# ─── 测试流程 ───
 
-
-def calc_points(placement):
-    return 9 if placement == 1 else max(1, 9 - placement)
-
-
-def try_join_queue(db, player):
-    """
-    模拟一个玩家点击「参赛」按钮。
-    返回 (joined, waiting_group_count)，joined=False 表示已在队列/等待组中。
-    """
-    name = player["displayName"]
-
-    # 已在报名队列或等待组中
-    if db.league_queue.find_one({"name": name}):
-        return False, 0
-    if db.league_waiting_queue.find_one({"players.name": name}):
-        return False, 0
-
-    # 优先补入未满的等待组
-    incomplete = None
-    for g in db.league_waiting_queue.find().sort("createdAt", 1):
-        if len(g.get("players", [])) < PLAYERS_PER_GAME:
-            incomplete = g
-            break
-
-    if incomplete:
-        db.league_waiting_queue.update_one(
-            {"_id": incomplete["_id"]},
-            {"$push": {"players": {"name": name, "accountIdLo": player["accountIdLo"]}}}
-        )
-        count = len(incomplete["players"]) + 1
-        return True, count
-
-    # 加入报名队列
-    db.league_queue.update_one(
-        {"name": name},
-        {"$setOnInsert": {
-            "name": name,
-            "accountIdLo": player["accountIdLo"],
-            "joinedAt": datetime.now(UTC).isoformat() + "Z",
-        }},
-        upsert=True,
-    )
-
-    # 检查是否满员
-    count = db.league_queue.count_documents({})
-    if count >= PLAYERS_PER_GAME:
-        signup = list(db.league_queue.find().sort("joinedAt", 1).limit(PLAYERS_PER_GAME))
-        players = [{"name": s["name"], "accountIdLo": s.get("accountIdLo", "")} for s in signup]
-        names = [s["name"] for s in signup]
-        db.league_waiting_queue.insert_one({
-            "players": players,
-            "createdAt": datetime.now(UTC).isoformat() + "Z",
-        })
-        db.league_queue.delete_many({"name": {"$in": names}})
-        return True, PLAYERS_PER_GAME
-
-    return True, 0
+def step_upload_rating(base, players):
+    """Step 1: 每个玩家上报分数，确保 player_record 存在"""
+    print("\n📦 Step 1: upload-rating")
+    codes = {}
+    for p in players:
+        s, d = api("POST", f"{base}/api/plugin/upload-rating",
+                    json={
+                        "playerId": p.battle_tag,
+                        "accountIdLo": p.account_id_lo,
+                        "rating": 6000,
+                        "mode": "solo",
+                        "region": "CN",
+                    },
+                    headers=plugin_headers())
+        print_step(p.battle_tag, s, d)
+        if s == 200:
+            codes[p.battle_tag] = d.get("verificationCode", "123")
+        time.sleep(0.2)
+    return codes
 
 
-def run_game(db, game_players, game_num):
-    """
-    模拟一整局联赛：STEP 13 匹配 → 8人竞争创建match → 按随机顺序提交排名。
-    game_players: 8 个玩家的列表
-    """
+def step_login(base, players, codes):
+    """Step 2: 每个玩家登录，返回 session。先 register 再 login，确保 cookie 到手"""
+    print("\n🔑 Step 2: register + login")
+    sessions = {}
+    for p in players:
+        s = requests.Session()
+        code = codes.get(p.battle_tag, "123")
+
+        # register（可能已注册，忽略错误）
+        api("POST", f"{base}/api/register", session=s,
+            json={"battleTag": p.battle_tag, "verificationCode": code},
+            headers=web_headers())
+
+        # login（确保拿到 session cookie）
+        status, data = api("POST", f"{base}/api/login", session=s,
+                           json={"battleTag": p.battle_tag, "verificationCode": code},
+                           headers=web_headers())
+        print_step(p.battle_tag, status, data)
+
+        if status == 200:
+            sessions[p.battle_tag] = s
+        time.sleep(0.3)
+    return sessions
+
+
+def step_join_queue(base, players, sessions):
+    """Step 3: 每个玩家加入报名队列，满 8 人自动移入等待组"""
+    print("\n🎯 Step 3: queue/join")
+    for p in players:
+        s = sessions.get(p.battle_tag)
+        if not s:
+            print(f"  {p.battle_tag:24s} ⏭ 跳过（无 session）")
+            continue
+        status, data = api("POST", f"{base}/api/queue/join", session=s,
+                           json={}, headers=web_headers())
+        moved = data.get("moved", False)
+        label = f"{p.battle_tag} queue/join"
+        note = " → 移入等待组" if moved else ""
+        if note:
+            data = {**data, "_note": note}
+        print_step(label, status, data)
+        time.sleep(0.3)
+
+    # 查看队列状态
+    _, queue = api("GET", f"{base}/api/queue")
+    _, waiting = api("GET", f"{base}/api/waiting-queue")
+    print(f"\n  📋 报名队列: {len(queue)} 人 | 等待队列: {len(waiting)} 组")
+    return waiting
+
+
+def step_check_league(base, players):
+    """Step 4: check-league 创建联赛对局 + 竞争测试"""
+    print("\n🏁 Step 4: check-league")
+    p0 = players[0]
     game_uuid = str(uuid.uuid4())
-    started_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")
+    started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
-    print(f"\n  🎮 第 {game_num} 局开始 (gameUuid: {game_uuid[:8]}...)")
-    print(f"     玩家: {', '.join(p['displayName'] for p in game_players)}")
+    players_detail = {}
+    for p in players:
+        players_detail[p.account_id_lo] = {
+            "battleTag": p.battle_tag,
+            "displayName": p.display_name,
+            "heroCardId": p.hero_card_id,
+            "heroName": p.hero_name,
+        }
+    account_id_list = [p.account_id_lo for p in players]
 
-    # ── STEP 13: 匹配等待组（删除等待组）──
-    account_ids = {p["accountIdLo"] for p in game_players}
-    group = db.league_waiting_queue.find_one({
-        "players.accountIdLo": {"$in": list(account_ids)}
-    })
-    if group:
-        db.league_waiting_queue.delete_one({"_id": group["_id"]})
-    print(f"     🗑️  等待组已删除（匹配成功）")
+    # 第一个玩家发起
+    body = {
+        "playerId": p0.battle_tag,
+        "gameUuid": game_uuid,
+        "accountIdLo": p0.account_id_lo,
+        "accountIdLoList": account_id_list,
+        "players": players_detail,
+        "mode": "solo",
+        "region": "CN",
+        "startedAt": started_at,
+    }
+    status, data = api("POST", f"{base}/api/plugin/check-league",
+                       json=body, headers=plugin_headers())
+    print_step(p0.battle_tag, status, data)
 
-    # ── 8 个插件竞争创建 league_matches（随机延迟）──
-    lock = threading.Lock()
+    # 竞争测试：其他玩家也调用
+    print("\n  🔍 竞争测试（其他玩家 check-league）")
+    for p in players[1:]:
+        body_copy = {**body, "playerId": p.battle_tag, "accountIdLo": p.account_id_lo}
+        s, d = api("POST", f"{base}/api/plugin/check-league",
+                    json=body_copy, headers=plugin_headers())
+        print_step(f"  {p.battle_tag}", s, d)
+        time.sleep(0.1)
+
+    return game_uuid
+
+
+def step_duplicate_test(base, game_uuid, player):
+    """测试重复提交返回 409"""
+    print("\n🔒 重复提交测试")
+    status, data = api("POST", f"{base}/api/plugin/update-placement",
+                        json={
+                            "playerId": player.battle_tag,
+                            "gameUuid": game_uuid,
+                            "accountIdLo": player.account_id_lo,
+                            "placement": 1,
+                        },
+                        headers=plugin_headers())
+    print_step(player.battle_tag, status, data)
+    if status == 409:
+        print("  ✅ 重复提交正确拒绝 (HTTP 409)")
+
+
+def step_submit_placements(base, players, game_uuid, placements=None, skip_player=None):
+    """
+    Step 5: 提交排名
+    placements: dict {accountIdLo: placement}，None 则自动分配 1-8
+    skip_player: accountIdLo，跳过该玩家（测试自动推算）
+    """
+    print("\n📊 Step 5: update-placement")
+
+    if placements is None:
+        placements = {p.account_id_lo: i + 1 for i, p in enumerate(players)}
+
+    for p in players:
+        if skip_player and p.account_id_lo == skip_player:
+            print(f"  {p.battle_tag:24s} ⏭ 跳过（测试自动推算）")
+            continue
+        placement = placements.get(p.account_id_lo)
+        if placement is None:
+            continue
+
+        status, data = api("POST", f"{base}/api/plugin/update-placement",
+                           json={
+                               "playerId": p.battle_tag,
+                               "gameUuid": game_uuid,
+                               "accountIdLo": p.account_id_lo,
+                               "placement": placement,
+                           },
+                           headers=plugin_headers())
+        finalized = data.get("finalized", False)
+        label = f"{p.battle_tag} → 第{placement}名"
+        if finalized:
+            data = {**data, "_note": "🎉 对局结束!"}
+        print_step(label, status, data)
+
+        if finalized:
+            print("  ✅ 已 finalize，停止提交")
+            break
+        time.sleep(0.3)
+
+
+def step_verify(base, game_uuid):
+    """Step 6: 验证最终结果"""
+    print("\n✅ Step 6: 验证结果")
+
+    status, data = api("GET", f"{base}/api/match/{game_uuid}")
+    if status != 200:
+        print(f"  ❌ 获取对局失败: {data}")
+        return False
+
+    print(f"  gameUuid: {data.get('gameUuid')}")
+    print(f"  endedAt:  {data.get('endedAt')}")
+    print(f"  status:   {data.get('status', '正常')}")
+
+    players_sorted = sorted(data.get("players", []), key=lambda x: x.get("placement") or 99)
+    print(f"\n  {'排名':^4} {'玩家':^22} {'英雄':^10} {'积分':^4}")
+    print(f"  {'─'*4} {'─'*22} {'─'*10} {'─'*4}")
+    for p in players_sorted:
+        pl = p.get("placement", "?")
+        pt = p.get("points", "?")
+        print(f"  {pl:^4} {p['battleTag']:^22} {p.get('heroName','?'):^10} {pt:^4}")
+
+    # 验证积分
+    ok = True
+    for p in players_sorted:
+        pl, pt = p.get("placement"), p.get("points")
+        expected = POINTS_TABLE.get(pl)
+        if pt != expected:
+            print(f"\n  ⚠️ 积分异常: {p['battleTag']} 第{pl}名 积分{pt}，期望{expected}")
+            ok = False
+
+    if ok:
+        print(f"\n  🎉 全部积分验证通过!")
+
+    # 排行榜
+    print("\n  📈 排行榜:")
+    status, board = api("GET", f"{base}/api/players")
+    if status == 200:
+        for rank, p in enumerate(sorted(board, key=lambda x: -x.get("totalPoints", 0)), 1):
+            print(f"    {rank}. {p['battleTag']:22s} 积分:{p.get('totalPoints',0):>4}  "
+                  f"场次:{p.get('leagueGames',0)}  吃鸡:{p.get('chickens',0)}")
+    return ok
+
+
+def step_test_errors(base):
+    """Step 7: 测试错误场景（认证失败、参数错误等）"""
+    print("\n🛡️ Step 7: 错误场景测试")
     results = []
 
-    def upload_match(idx):
-        delay = random.uniform(0, 0.05)
-        time.sleep(delay)
-        p = game_players[idx]
+    def check(label, expect_status, actual_status, data):
+        ok = actual_status == expect_status
+        icon = "✅" if ok else "⚠️"
+        results.append(ok)
+        exp = f"期望{expect_status}"
+        detail = json.dumps(data, ensure_ascii=False)
+        if len(detail) > 80:
+            detail = detail[:77] + "..."
+        print(f"  {icon} {label:36s} {exp:8s} 实际{actual_status:3d}  {detail}")
 
-        players_array = []
-        for fp in game_players:
-            h_id, h_name = fp["hero"]
-            players_array.append({
-                "accountIdLo": fp["accountIdLo"],
-                "battleTag": fp["battleTag"],
-                "displayName": fp["displayName"],
-                "heroCardId": h_id,
-                "heroName": h_name,
-                "placement": None,
-                "points": None,
-            })
+    # ── 认证错误 ──
+    print("\n  ── 认证错误 ──")
 
-        r = db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$setOnInsert": {
-                "players": players_array,
-                "region": "TEST",
-                "mode": "solo",
-                "startedAt": started_at,
-                "endedAt": None,
-            }},
-            upsert=True,
-        )
-        with lock:
-            results.append((p["displayName"], r.upserted_id is not None))
+    # 错误 API Key
+    s, d = api("POST", f"{base}/api/plugin/upload-rating",
+               json={"playerId": "test#0001", "rating": 5000, "mode": "solo", "region": "CN"},
+               headers={"Content-Type": "application/json",
+                         "X-HDT-Plugin": PLUGIN_VER,
+                         "Authorization": "Bearer wrong-key-12345"})
+    check("错误 API Key → 403", 403, s, d)
 
-    threads = [threading.Thread(target=upload_match, args=(i,)) for i in range(PLAYERS_PER_GAME)]
-    for t in threads: t.start()
-    for t in threads: t.join()
+    # 缺少 Bearer token
+    s, d = api("POST", f"{base}/api/plugin/upload-rating",
+               json={"playerId": "test#0001", "rating": 5000, "mode": "solo", "region": "CN"},
+               headers={"Content-Type": "application/json",
+                         "X-HDT-Plugin": PLUGIN_VER})
+    check("缺少 Bearer token → 403", 403, s, d)
 
-    created = sum(1 for _, c in results if c)
-    print(f"     ⚔️  竞争写入: {created} 创建, {8 - created} 跳过")
+    # 错误插件版本号（低于最低版本）
+    s, d = api("POST", f"{base}/api/plugin/upload-rating",
+               json={"playerId": "test#0001", "rating": 5000, "mode": "solo", "region": "CN"},
+               headers={"Content-Type": "application/json",
+                         "X-HDT-Plugin": "0.0.1",
+                         "Authorization": f"Bearer {PLUGIN_KEY}"})
+    check("插件版本 0.0.1 → 403", 403, s, d)
 
-    # ── 随机排名 + 按 8→1 顺序提交 ──
-    placements = list(range(1, PLAYERS_PER_GAME + 1))
-    random.shuffle(placements)
-    # player_idx → placement
-    player_placements = {i: placements[i] for i in range(PLAYERS_PER_GAME)}
-    # 按 placement 从大到小排序（8先提交）
-    submit_order = sorted(range(PLAYERS_PER_GAME), key=lambda i: player_placements[i], reverse=True)
+    # 缺少 X-HDT-Plugin header
+    s, d = api("POST", f"{base}/api/plugin/upload-rating",
+               json={"playerId": "test#0001", "rating": 5000, "mode": "solo", "region": "CN"},
+               headers={"Content-Type": "application/json",
+                         "Authorization": f"Bearer {PLUGIN_KEY}"})
+    check("缺少 X-HDT-Plugin → 403", 403, s, d)
 
-    for step, player_idx in enumerate(submit_order):
-        p = game_players[player_idx]
-        placement = player_placements[player_idx]
-        points = calc_points(placement)
+    # ── 参数错误 ──
+    print("\n  ── 参数错误 ──")
 
-        # Update league_matches
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid, "players.accountIdLo": p["accountIdLo"]},
-            {"$set": {
-                "players.$.placement": placement,
-                "players.$.points": points,
-            }}
-        )
+    # gameUuid 格式无效
+    s, d = api("POST", f"{base}/api/plugin/check-league",
+               json={"gameUuid": "not-a-uuid", "accountIdLoList": ["123"]},
+               headers=plugin_headers())
+    check("gameUuid 格式无效 → 400", 400, s, d)
 
-        # Update bg_ratings（精简版，无数组）
-        old_rating = p["rating"]
-        rating_change = random.randint(10, 50) if placement <= 4 else -random.randint(10, 50)
-        new_rating = old_rating + rating_change
-        db.bg_ratings.update_one(
-            {"playerId": p["battleTag"]},
-            {"$set": {
-                "rating": new_rating,
-                "lastRating": old_rating,
-                "ratingChange": rating_change,
-                "mode": "solo",
-                "region": "TEST",
-                "timestamp": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S"),
-            },
-            "$inc": {"gameCount": 1}},
-            upsert=True,
-        )
+    # check-league 缺少 accountIdLoList
+    s, d = api("POST", f"{base}/api/plugin/check-league",
+               json={"gameUuid": str(uuid.uuid4())},
+               headers=plugin_headers())
+    check("check-league 缺少 accountIdLoList → 400", 400, s, d)
 
-        # 更新玩家 rating 供后续对局使用
-        p["rating"] = new_rating
+    # update-placement 缺少必填字段
+    s, d = api("POST", f"{base}/api/plugin/update-placement",
+               json={"gameUuid": str(uuid.uuid4())},
+               headers=plugin_headers())
+    check("update-placement 缺少 accountIdLo → 400", 400, s, d)
 
-        if step < len(submit_order) - 1:
-            time.sleep(UPLOAD_INTERVAL)
+    # update-placement 对局不存在
+    fake_uuid = str(uuid.uuid4())
+    s, d = api("POST", f"{base}/api/plugin/update-placement",
+               json={"gameUuid": fake_uuid, "accountIdLo": "9999", "placement": 1},
+               headers=plugin_headers())
+    check("update-placement 对局不存在 → 404", 404, s, d)
 
-    # ── 所有排名提交完成后，统一 finalize ──
-    # 不在循环内检查，避免最后一个玩家提交后 find_one 读到旧状态导致 endedAt 写不进去
-    doc = db.league_matches.find_one({"gameUuid": game_uuid})
-    if doc:
-        all_placed = all(pl.get("placement") is not None for pl in doc.get("players", []))
-        if all_placed and doc.get("endedAt") is None:
-            db.league_matches.update_one(
-                {"gameUuid": game_uuid},
-                {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S")}}
-            )
-            print(f"     ✅ endedAt 已写入")
+    # upload-rating 缺少 playerId
+    s, d = api("POST", f"{base}/api/plugin/upload-rating",
+               json={"rating": 5000},
+               headers=plugin_headers())
+    check("upload-rating 缺少 playerId → 400", 400, s, d)
 
-    # 打印本局结果
-    match_doc = db.league_matches.find_one({"gameUuid": game_uuid})
-    sorted_players = sorted(match_doc["players"], key=lambda x: x["placement"])
-    rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
-    for sp in sorted_players:
-        print(f"     {rank_emoji[sp['placement']-1]} {sp['displayName']:>12}  第{sp['placement']}名  {sp['points']}分")
+    # register 缺少 battleTag
+    s, d = api("POST", f"{base}/api/register",
+               json={"verificationCode": "123"},
+               headers=web_headers())
+    check("register 缺少 battleTag → 400", 400, s, d)
 
-    return match_doc
+    # register 验证码错误
+    s, d = api("POST", f"{base}/api/register",
+               json={"battleTag": "不存在的玩家#0000", "verificationCode": "WRONG"},
+               headers=web_headers())
+    check("register 无记录/验证码错误 → 404/400", 404 if s == 404 else 400, s, d)
 
+    # ── 汇总 ──
+    passed = sum(results)
+    total = len(results)
+    print(f"\n  📊 错误场景测试: {passed}/{total} 通过")
+    return all(results)
+
+
+# ─── 主流程 ───
 
 def main():
-    cleanup_only = "--cleanup" in sys.argv
+    parser = argparse.ArgumentParser(description="炉石战棋联赛全流程测试")
+    parser.add_argument("--base", default=DEFAULT_BASE, help="API 地址")
+    parser.add_argument("--prefix", default="衣锦夜行", help="玩家名前缀")
+    parser.add_argument("--start-tag", type=int, default=1000, help="起始 #tag 编号")
+    parser.add_argument("--start-lo", type=int, default=10000000, help="起始 accountIdLo")
+    parser.add_argument("--skip-queue", action="store_true", help="跳过排队")
+    parser.add_argument("--skip-placement", type=int, default=None,
+                        help="跳过第 N 个玩家(0-7)的排名提交，测试自动推算")
+    parser.add_argument("--test-errors", action="store_true",
+                        help="仅运行错误场景测试（不需要排队数据）")
+    parser.add_argument("--with-errors", action="store_true",
+                        help="正常流程跑完后加测错误场景")
+    args = parser.parse_args()
 
-    client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=5000)
-    db = client[DB_NAME]
+    base = args.base.rstrip("/")
 
-    if cleanup_only:
-        print("🧹 清理测试数据...")
-        for p in FAKE_PLAYERS:
-            db.league_players.delete_many({"battleTag": p["battleTag"]})
-            db.bg_ratings.delete_many({"playerId": p["battleTag"]})
-        db.league_queue.delete_many({})
-        db.league_waiting_queue.delete_many({})
-        db.league_matches.delete_many({"region": "TEST"})
-        print("✅ 清理完成")
+    # 纯错误测试模式
+    if args.test_errors:
+        print("=" * 60)
+        print(f"  炉石战棋联赛 — 错误场景测试")
+        print(f"  API: {base}")
+        print("=" * 60)
+        step_test_errors(base)
+        print("\n" + "=" * 60)
+        print("  测试完成!")
+        print("=" * 60)
         return
 
+    players = generate_players(args.prefix, args.start_tag, args.start_lo)
+
     print("=" * 60)
-    print(f"🧪 酒馆战棋联赛功能测试 — {NUM_PLAYERS}人报名")
-    print("=" * 60)
-    print(f"MongoDB: {MONGO_URL}/{DB_NAME}")
-    print()
-
-    # ── 清理旧测试数据 ──
-    for p in FAKE_PLAYERS:
-        db.league_players.delete_many({"battleTag": p["battleTag"]})
-        db.bg_ratings.delete_many({"playerId": p["battleTag"]})
-    db.league_queue.delete_many({})
-    db.league_waiting_queue.delete_many({})
-    db.league_matches.delete_many({"region": "TEST"})
-
-    # ── 注册所有玩家为已验证选手 ──
-    print(f"📋 注册 {NUM_PLAYERS} 个已验证选手")
-    for p in FAKE_PLAYERS:
-        db.league_players.update_one(
-            {"battleTag": p["battleTag"]},
-            {"$set": {
-                "battleTag": p["battleTag"],
-                "accountIdLo": p["accountIdLo"],
-                "displayName": p["displayName"],
-                "verified": True,
-                "verifiedAt": datetime.now(UTC).isoformat() + "Z",
-            },
-            "$setOnInsert": {
-                "totalPoints": 0,
-                "totalGames": 0,
-                "wins": 0,
-                "chickens": 0,
-                "avgPlacement": 0,
-                "createdAt": datetime.now(UTC).isoformat() + "Z",
-            }},
-            upsert=True,
-        )
-        # bg_ratings 初始数据
-        db.bg_ratings.update_one(
-            {"playerId": p["battleTag"]},
-            {"$set": {
-                "playerId": p["battleTag"],
-                "accountIdLo": p["accountIdLo"],
-                "rating": p["rating"],
-                "region": "TEST",
-            },
-            "$setOnInsert": {"gameCount": 0}},
-            upsert=True,
-        )
-    print(f"  ✅ 全部注册完成")
-    print()
-
-    # ── 随机顺序报名 ──
-    print(f"📋 {NUM_PLAYERS} 人随机顺序点击「参赛」按钮")
-    print("-" * 50)
-
-    order = list(range(NUM_PLAYERS))
-    random.shuffle(order)
-
-    # ── 异步开赛：等待组满人就立即开打 ──
-    game_threads = []       # [(thread, dict_ref)]  dict_ref 里放 match_doc
-    game_counter = [0]      # 用 list 包装，闭包可修改
-
-    def start_game_async(game_players, game_label):
-        """在新线程中运行一局比赛，结果写入 match_ref["doc"]"""
-        def _run():
-            md = run_game(db, game_players, game_label)
-            match_ref["doc"] = md
-        match_ref = {"doc": None}
-        t = threading.Thread(target=_run, daemon=True)
-        t.start()
-        game_threads.append((t, match_ref))
-        return match_ref
-
-    def try_launch_game(db):
-        """检查是否有满员的等待组，有的话立即开赛"""
-        group = db.league_waiting_queue.find_one(
-            {"$expr": {"$gte": [{"$size": "$players"}, PLAYERS_PER_GAME]}}
-        )
-        if not group:
-            return False
-        group_names = [gp["name"] for gp in group.get("players", [])]
-        game_players = [fp for fp in FAKE_PLAYERS if fp["displayName"] in group_names]
-        game_players.sort(key=lambda x: group_names.index(x["displayName"]))
-        db.league_waiting_queue.delete_one({"_id": group["_id"]})
-        game_counter[0] += 1
-        start_game_async(game_players, game_counter[0])
-        return True
-
-    for idx in order:
-        p = FAKE_PLAYERS[idx]
-        joined, group_count = try_join_queue(db, p)
-
-        # 每次有人入队后都检查是否可以开赛
-        launched = try_launch_game(db)
-
-        if launched:
-            print(f"  🎉 {p['displayName']:>12} 排队 → 等待组满 {PLAYERS_PER_GAME} 人！开赛！")
-        elif joined:
-            if group_count > 0:
-                print(f"  📝 {p['displayName']:>12} 排队 → 补入等待组 ({group_count}/{PLAYERS_PER_GAME})")
-            else:
-                q_count = db.league_queue.count_documents({})
-                print(f"  📝 {p['displayName']:>12} 排队 → 报名队列 ({q_count}人)")
-        else:
-            print(f"  ⚠️  {p['displayName']:>12} 已在队列中，跳过")
-
-    # 报名结束后再检查一次（可能报名队列凑够了人）
-    while try_launch_game(db):
-        pass
-
-    # 检查是否还有剩余的人在等待组（不足8人的）
-    remaining_waiting = list(db.league_waiting_queue.find())
-    remaining_queue = db.league_queue.count_documents({})
-
-    print(f"\n  📊 报名结束:")
-    print(f"     进行中/已完成场次: {len(game_threads)}")
-    print(f"     等待组中: {sum(len(g.get('players', [])) for g in remaining_waiting)} 人")
-    print(f"     报名队列: {remaining_queue} 人")
-
-    # ── 等待所有比赛线程结束 ──
-    print(f"\n⏳ 等待 {len(game_threads)} 场比赛全部结束...")
-    for t, _ in game_threads:
-        t.join()
-
-    match_docs = [ref["doc"] for _, ref in game_threads if ref["doc"]]
-    print(f"  ✅ 全部比赛结束，共 {len(match_docs)} 场")
-
-    # ── 全部验证 ──
-    print("=" * 60)
-    print("📊 全局验证")
+    print(f"  炉石战棋联赛 — 全流程测试")
+    print(f"  API: {base}")
+    print(f"  玩家: {args.prefix}#{args.start_tag} ~ #{args.start_tag + 7}")
+    if args.skip_placement is not None:
+        print(f"  跳过: {players[args.skip_placement].battle_tag}（测试自动推算）")
     print("=" * 60)
 
-    all_correct = True
-    rank_emoji = ["🥇", "🥈", "🥉", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]
+    codes = step_upload_rating(base, players)
+    sessions = step_login(base, players, codes)
 
-    for gi, md in enumerate(match_docs, 1):
-        print(f"\n  第 {gi} 局 (gameUuid: {md['gameUuid'][:8]}...):")
-
-        # endedAt
-        if md.get("endedAt"):
-            print(f"    ✅ endedAt: {md['endedAt']}")
-        else:
-            print(f"    ❌ endedAt 为 null！")
-            all_correct = False
-
-        # 排名和积分
-        total_points = 0
-        for sp in sorted(md["players"], key=lambda x: x["placement"]):
-            expected = calc_points(sp["placement"])
-            ok = sp["points"] == expected
-            if not ok:
-                all_correct = False
-            mark = "✅" if ok else "❌"
-            total_points += sp["points"]
-            print(f"    {mark} {rank_emoji[sp['placement']-1]} {sp['displayName']:>12}  "
-                  f"第{sp['placement']}名  {sp['points']}分")
-
-        expected_total = sum(calc_points(i) for i in range(1, 9))
-        if total_points == expected_total:
-            print(f"    ✅ 积分总和: {total_points}")
-        else:
-            print(f"    ❌ 积分总和: {total_points} (预期 {expected_total})")
-            all_correct = False
-
-    # bg_ratings 验证
-    print(f"\n  bg_ratings 验证 (抽查):")
-    sample = random.sample(FAKE_PLAYERS, min(8, len(FAKE_PLAYERS)))
-    for p in sample:
-        doc = db.bg_ratings.find_one({"playerId": p["battleTag"]})
-        if doc and doc.get("rating") is not None:
-            print(f"    ✅ {p['displayName']:>12}  分数={doc['rating']}  变化={doc.get('ratingChange', '?')}  "
-                  f"局数={doc.get('gameCount', '?')}")
-        else:
-            print(f"    ❌ {p['displayName']:>12}  未找到记录")
-            all_correct = False
-
-    # 等待组/队列应为空
-    wq = db.league_waiting_queue.count_documents({})
-    q = db.league_queue.count_documents({})
-    if wq == 0 and q == 0:
-        print(f"\n  ✅ 等待组和报名队列已清空")
+    if not args.skip_queue:
+        step_join_queue(base, players, sessions)
     else:
-        print(f"\n  ⚠️  等待组: {wq}, 报名队列: {q}（可能有不足{PLAYERS_PER_GAME}人的剩余）")
+        print("\n⏭ 跳过排队步骤")
 
-    if all_correct:
-        print("\n  🎉 所有测试通过！")
-    else:
-        print("\n  ⚠️  有测试未通过")
+    game_uuid = step_check_league(base, players)
 
-    print(f"\n  💡 清理: python3 {sys.argv[0]} --cleanup")
-    for gi, md in enumerate(match_docs, 1):
-        print(f"  🌐 第{gi}局: http://localhost:5000/match/{md['gameUuid']}")
+    # 选第一个有 session 的玩家做重复提交测试
+    dup_player = None
+    for p in players:
+        skip_lo = players[args.skip_placement].account_id_lo if args.skip_placement is not None else None
+        if p.account_id_lo != skip_lo:
+            dup_player = p
+            break
+    if dup_player:
+        step_duplicate_test(base, game_uuid, dup_player)
+
+    skip_lo = players[args.skip_placement].account_id_lo if args.skip_placement is not None else None
+    step_submit_placements(base, players, game_uuid, skip_player=skip_lo)
+
+    step_verify(base, game_uuid)
+
+    if args.with_errors:
+        step_test_errors(base)
+
+    print("\n" + "=" * 60)
+    print("  测试完成!")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
