@@ -509,8 +509,8 @@ def cleanup_partial_matches():
         if not has_any_placement:
             continue  # 纯超时局，由 cleanup_stale_games 处理
 
-        # 有人填了但没全填 → 部分掉线
-        player_names = [p.get("displayName", p.get("battleTag", "")) for p in players]
+        # 有人填了但没全填 → 部分掉线，只通知未提交的玩家
+        player_names = [p.get("displayName", p.get("battleTag", "")) for p in players if p.get("placement") is None]
         send_webhook({
             "type": "abandoned",
             "gameUuid": m.get("gameUuid", ""),
