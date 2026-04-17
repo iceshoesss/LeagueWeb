@@ -12,7 +12,7 @@
         {% if matches %}
         <div class="divide-y divide-hearth-border">
             {% for match in matches %}
-            <div class="block px-6 py-4 hover:bg-white/5 transition group">
+            <div class="block px-6 py-4 hover:bg-white/5 transition">
                 <!-- 头部：时间 + 状态 + 删除按钮 -->
                 <div class="flex items-center justify-between mb-3">
                     <a href="/match/{{ match.gameUuid }}" class="flex items-center gap-2 flex-1 min-w-0">
@@ -29,7 +29,7 @@
                         {% endif %}
                         {% if is_admin %}
                         <button onclick="deleteMatch('{{ match.gameUuid }}', '{{ match.matchId }}')"
-                                class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 transition opacity-0 group-hover:opacity-100"
+                                class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/40 transition"
                                 title="删除此对局">
                             🗑 删除
                         </button>
