@@ -1702,8 +1702,14 @@ def api_plugin_check_league():
                 has_all_ids = False
                 break
 
-        # 只匹配有完整 accountIdLo 的组（新数据）
-        if has_all_ids and len(account_ids) == len(queue_ids) and account_ids == queue_ids:
+        if not has_all_ids:
+            continue
+
+        # 容忍 Lo=0：HearthMirror 始终有一个玩家的 AccountId.Lo=0（内存布局限制）
+        # 去掉双方的 "0" 后比较非零 ID 集合
+        client_non_zero = account_ids - {"0"}
+        queue_non_zero = queue_ids - {"0"}
+        if len(client_non_zero) > 0 and client_non_zero == queue_non_zero:
             matched_group = group
             break
 
