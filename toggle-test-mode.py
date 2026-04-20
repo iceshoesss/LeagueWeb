@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """
-toggle-test-mode.py — 切换联赛网站测试/正常/无认证模式
+toggle-test-mode.py — 切换联赛网站测试/正常模式
 
-测试模式（test）：等待组匹配失败时，按重叠人数判定（至少 MIN_MATCH_PLAYERS 人即算联赛）
-无认证模式（noauth）：所有对局都强制标记为联赛对局（跳过一切匹配和认证）
-正常模式（normal）：精确匹配 8 人，不匹配则为普通天梯局
+测试模式：等待组匹配失败时，按重叠人数判定（至少 MIN_MATCH_PLAYERS 人即算联赛）
+正常模式：精确匹配 8 人，不匹配则为普通天梯局
 
 用法：
-  python toggle-test-mode.py              # 显示当前状态
-  python toggle-test-mode.py test         # 切换到测试模式
-  python toggle-test-mode.py noauth       # 切换到无认证模式
-  python toggle-test-mode.py normal       # 切换到正常模式
-  python toggle-test-mode.py flip          # 翻转（normal↔test）
+  python toggle-test-mode.py          # 显示当前状态
+  python toggle-test-mode.py test     # 切换到测试模式
+  python toggle-test-mode.py normal   # 切换到正常模式
+  python toggle-test-mode.py flip     # 翻转
 
 工作原理：基于代码中的 BEGIN/END TEST_MODE 标记进行整块替换。
 """
@@ -139,50 +137,6 @@ def find_marker_block(content: str) -> str | None:
     return content[block_start:end_line_end]
 
 
-FLASK_NOAUTH = '''\
-    # >>> BEGIN TEST_MODE
-    if matched_group is None:
-        # [NOAUTH] 跳过所有匹配和认证，所有对局强制为联赛
-        detailed_players = data.get("players", {})
-        players = []
-        for lo in account_ids:
-            detail = detailed_players.get(lo, {})
-            players.append({
-                "accountIdLo": lo,
-                "battleTag": detail.get("battleTag", ""),
-                "displayName": detail.get("displayName", ""),
-                "heroCardId": detail.get("heroCardId", ""),
-                "heroName": detail.get("heroName", ""),
-                "placement": None,
-                "points": None,
-            })
-        mode = data.get("mode", "solo")
-        region = data.get("region", "CN")
-        started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$setOnInsert": {
-                "players": players,
-                "region": region,
-                "mode": mode,
-                "startedAt": started_at,
-                "endedAt": None,
-            }},
-            upsert=True,
-        )
-        resp = {"isLeague": True}
-        vc = _ensure_verification_code(
-            db,
-            player_id=data.get("playerId", "").strip(),
-            account_id_lo=data.get("accountIdLo", "").strip(),
-            mode=mode, region=region, timestamp=started_at,
-        )
-        if vc:
-            resp["verificationCode"] = vc
-        log.info(f"[check-league] [NOAUTH] 强制联赛，gameUuid={game_uuid}")
-        return jsonify(resp)
-    # <<< END TEST_MODE'''
-
 def detect_mode(content: str) -> str | None:
     block = find_marker_block(content)
     if block is None:
@@ -197,8 +151,6 @@ def detect_mode(content: str) -> str | None:
         return "normal"
     if block_core == strip_markers(FLASK_TEST):
         return "test"
-    if block_core == strip_markers(FLASK_NOAUTH):
-        return "noauth"
     return None
 
 
@@ -239,8 +191,8 @@ def main():
     target = args[0]
     if target == "flip":
         target = "test" if mode == "normal" else "normal"
-    if target not in ("test", "normal", "noauth"):
-        print(f"用法: {sys.argv[0]} [test|normal|noauth|flip]")
+    if target not in ("test", "normal"):
+        print(f"用法: {sys.argv[0]} [test|normal|flip]")
         sys.exit(1)
 
     if target == mode:
@@ -249,8 +201,7 @@ def main():
 
     print(f"[网站] 切换到: {target} 模式")
 
-    new_block = {"normal": FLASK_NORMAL, "test": FLASK_TEST, "noauth": FLASK_NOAUTH}[target]
-    new_content = replace_block(flask_content, new_block)
+    new_content = replace_block(flask_content, FLASK_TEST if target == "test" else FLASK_NORMAL)
     new_content = replace_min_match(new_content, target)
     with open(FLASK_PATH, "w", encoding="utf-8") as f:
         f.write(new_content)
