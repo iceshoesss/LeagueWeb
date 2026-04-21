@@ -28,17 +28,18 @@
   .round-title.collapsible:hover { border-color: rgba(226,183,20,0.5); color: #e2b714; }
   .round-title.collapsible::after { content: ' ▾'; font-size: 10px; opacity: 0.6; }
 
-  /* ── 折叠指示条（极细竖条）── */
-  .collapsed-strip {
+  /* ── 折叠指示（.. 标签）── */
+  .collapsed-dot {
     position: absolute;
-    width: 6px;
-    background: rgba(226,183,20,0.15);
-    border-radius: 3px;
+    font-size: 16px; font-weight: 700; letter-spacing: 2px;
+    color: rgba(226,183,20,0.45);
     cursor: pointer;
     z-index: 2;
-    transition: background 0.2s;
+    user-select: none;
+    transition: color 0.2s;
+    transform: translateX(-50%);
   }
-  .collapsed-strip:hover { background: rgba(226,183,20,0.35); }
+  .collapsed-dot:hover { color: #e2b714; }
 
   /* ── 小组卡片 ── */
   .group-card {
@@ -112,7 +113,7 @@ const DATA = {{ data_json | safe }};
 const HEADER_H = 34, ROW_H = 38, CARD_W = 200;
 const CARD_H = HEADER_H + 8 * ROW_H;      // 338
 const COL_GAP = 60, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
-const COLLAPSED_W = 6;                       // 折叠指示条宽度
+const COLLAPSED_W = 24;                       // 折叠指示条宽度
 
 /* ── 赛事状态 ── */
 const tournaments = [];
@@ -234,8 +235,8 @@ function render(tIdx) {
     const canCollapse = allDone && !isLast;
 
     if (collapsed.has(ri)) {
-      // ── 折叠指示条（极细竖条）──
-      html += `<div class="collapsed-strip" style="left:${cx}px;top:${PAD_TOP}px;height:${areaH - PAD_TOP - PAD_BOT}px" data-ri="${ri}" title="${round.label}（${round.groups.length} 组）— 点击展开"></div>`;
+      // ── 折叠指示（.. 标签）──
+      html += `<div class="collapsed-dot" style="left:${cx + COLLAPSED_W / 2}px;top:${areaH / 2 - 10}px" data-ri="${ri}" title="${round.label}（${round.groups.length} 组）— 点击展开">..</div>`;
     } else {
       // ── 轮次标题 ──
       html += `<div class="round-title${isLast ? ' gold' : ''}${canCollapse ? ' collapsible' : ''}" style="left:${cx + CARD_W / 2}px;top:12px"${canCollapse ? ` data-ri="${ri}"` : ''}>${round.label}</div>`;
