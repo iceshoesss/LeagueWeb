@@ -55,6 +55,53 @@
 - `league_players` — 注册选手，不变
 - `league_admins` — 管理员，不变
 
+## BO N 赛制设计
+
+### 概念
+
+每组不一定是单局定胜负，可以打 N 局（BO3/BO5/BO7），按 N 局总分排名。
+
+- `boN`：本组打几局（由管理员创建赛事时指定，可每轮不同）
+- `gamesPlayed`：已完成局数
+- `players[].totalPoints`：N 局累计积分
+- `players[].games[]`：每局得分明细，如 `[7, 5, 9]`
+
+### 流程
+
+```
+管理员创建赛事 → R1 boN=3, R2 boN=3, R3 boN=5, R4 boN=5
+R1 A 组第 1 局 → gamesPlayed=1, status=waiting
+R1 A 组第 2 局 → gamesPlayed=2, status=waiting
+R1 A 组第 3 局 → gamesPlayed=3, status=done → 晋级判定
+```
+
+### 匹配逻辑
+
+BO 系列赛**不走 league_waiting_queue**，直接在 tournament_groups 内部匹配：
+- `check-league` 先查 `tournament_groups`（status=waiting + gamesPlayed < boN + Lo 集合匹配）
+- 匹配到 → 创建 league_matches（带 tournamentGroupId），累加积分
+- 没匹配到 → 走现有 waiting_queue 逻辑（积分赛）
+
+### 晋级
+
+- 每轮所有组的 boN 局全部打完（status=done）
+- 每组按 totalPoints 排名，前 4 名晋级
+- 自动创建下一轮分组
+
+### 每轮 boN 可配置
+
+创建赛事时每轮独立指定：
+```json
+{
+  "rounds": [
+    {"round": 1, "boN": 3, "groups": [...]},
+    {"round": 2, "boN": 3, "groups": [...]},
+    {"round": 3, "boN": 5, "groups": [...]},
+    {"round": 4, "boN": 5, "groups": [...]}
+  ]
+}
+```
+
 ## API 接口
 
 ### 新增
@@ -96,9 +143,9 @@
 - [x] 对阵图模板集成到 Flask（数据驱动布局 + 折叠 + 连线）
 
 ### Phase 2 — 匹配改造
-- [ ] 改造 check-league：按组匹配
-- [ ] 改造 update-placement：组级别结算
-- [ ] 自动晋级逻辑：两组完成 → 创建下一轮组
+- [x] 改造 check-league：按 tournament_groups 组匹配（Lo 集合匹配）
+- [x] 改造 update-placement：BO 累计积分 + 组级别结算
+- [x] 自动晋级逻辑：同轮全部 done → 创建下一轮分组
 
 ### Phase 3 — 管理后台
 - [ ] 创建赛事表单（64 人分组）

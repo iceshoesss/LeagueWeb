@@ -227,6 +227,92 @@ def inject_counts():
     }
 
 
+def _try_advance_round(db, current_round, tournament_name):
+    """检查当前轮次是否全部完成，如果是则创建下一轮分组"""
+    # 查当前轮所有组
+    round_groups = list(db.tournament_groups.find({
+        "round": current_round,
+        "tournamentName": tournament_name,
+    }))
+
+    if not round_groups:
+        return
+
+    # 检查是否全部 done
+    if not all(g.get("status") == "done" for g in round_groups):
+        return
+
+    # 检查下一轮是否已存在
+    next_round = current_round + 1
+    existing = db.tournament_groups.count_documents({
+        "round": next_round,
+        "tournamentName": tournament_name,
+    })
+    if existing > 0:
+        return  # 下一轮已创建，跳过
+
+    # 收集每组前 4 名，按 nextRoundGroupId 分桶
+    buckets = {}
+    for g in sorted(round_groups, key=lambda x: x.get("groupIndex", 0)):
+        nrg = g.get("nextRoundGroupId")
+        if nrg is None:
+            continue
+        quals = []
+        # 按 totalPoints 降序取前 4
+        sorted_players = sorted(g.get("players", []), key=lambda p: p.get("totalPoints", 0), reverse=True)
+        for p in sorted_players[:4]:
+            quals.append({
+                "battleTag": p.get("battleTag", ""),
+                "accountIdLo": p.get("accountIdLo", ""),
+                "displayName": p.get("displayName", ""),
+                "heroCardId": p.get("heroCardId", ""),
+                "heroName": p.get("heroName", ""),
+                "totalPoints": 0,
+                "games": [],
+                "placement": None,
+                "points": None,
+                "qualified": False,
+                "eliminated": False,
+                "empty": False,
+            })
+        buckets.setdefault(nrg, []).extend(quals)
+
+    # 创建下一轮分组
+    for gid in sorted(buckets.keys()):
+        players = buckets[gid]
+        # 补空位到 8 人
+        while len(players) < 8:
+            players.append({
+                "battleTag": None, "accountIdLo": None, "displayName": "待定",
+                "heroCardId": None, "heroName": None,
+                "totalPoints": 0, "games": [],
+                "placement": None, "points": None,
+                "qualified": False, "eliminated": False, "empty": True,
+            })
+
+        # 下一轮的 nextRoundGroupId
+        total_buckets = len(buckets)
+        next_nrg = (gid - 1) // 2 + 1 if total_buckets > 1 else None
+
+        # 从当前轮的组继承 boN（可改为管理员配置）
+        src_bo_n = round_groups[0].get("boN", 1)
+
+        db.tournament_groups.insert_one({
+            "tournamentName": tournament_name,
+            "round": next_round,
+            "groupIndex": gid,
+            "status": "waiting",
+            "boN": src_bo_n,
+            "gamesPlayed": 0,
+            "players": players,
+            "nextRoundGroupId": next_nrg,
+            "startedAt": None,
+            "endedAt": None,
+        })
+
+    log.info(f"[advance] 第 {current_round} 轮全部完成，已创建第 {next_round} 轮分组 ({len(buckets)} 组)")
+
+
 def get_db():
     global _client, _db
     if _db is None:
@@ -883,157 +969,218 @@ def index():
 
 
 def _build_bracket_data():
-    """构建对阵图 mock 数据（Phase 1），Phase 2 改为从 tournament_groups 读取
-
-    数据结构对齐 KNOCKOUT_PLAN.md 的 tournament_groups 集合：
-    - round / groupIndex / status（waiting/active/done）/ players / nextRoundGroupId
-    - players: battleTag / accountIdLo / displayName / heroCardId / heroName / placement / points / qualified
-    - 前端展示用的 label 由 round+groupIndex 计算
-    """
-    PLAYERS = [
-        {'displayName': '衣锦夜行', 'battleTag': '衣锦夜行#1001', 'accountIdLo': 1000001, 'heroCardId': 'TB_BaconShop_HERO_56', 'heroName': '阿莱克丝塔萨'},
-        {'displayName': '瓦莉拉',   'battleTag': '瓦莉拉#1002',   'accountIdLo': 1000002, 'heroCardId': 'TB_BaconShop_HERO_02', 'heroName': '帕奇维克'},
-        {'displayName': '雷克萨',   'battleTag': '雷克萨#1003',   'accountIdLo': 1000003, 'heroCardId': 'TB_BaconShop_HERO_22', 'heroName': '巫妖王'},
-        {'displayName': '古尔丹',   'battleTag': '古尔丹#1004',   'accountIdLo': 1000004, 'heroCardId': 'TB_BaconShop_HERO_19', 'heroName': '米尔豪斯'},
-        {'displayName': '吉安娜',   'battleTag': '吉安娜#1005',   'accountIdLo': 1000005, 'heroCardId': 'TB_BaconShop_HERO_01', 'heroName': '鼠王'},
-        {'displayName': '萨尔',     'battleTag': '萨尔#1006',     'accountIdLo': 1000006, 'heroCardId': 'TB_BaconShop_HERO_08', 'heroName': '尤格-萨隆'},
-        {'displayName': '乌瑟尔',   'battleTag': '乌瑟尔#1007',   'accountIdLo': 1000007, 'heroCardId': 'TB_BaconShop_HERO_13', 'heroName': '伊瑟拉'},
-        {'displayName': '玛法里奥', 'battleTag': '玛法里奥#1008', 'accountIdLo': 1000008, 'heroCardId': 'TB_BaconShop_HERO_36', 'heroName': '拉卡尼休'},
-    ]
-    GROUP_LABELS = 'ABCDEFGH'
+    """从 tournament_groups 集合读取对阵图数据"""
+    db = get_db()
+    GROUP_LABELS = "ABCDEFGH"
 
     def _round_label(r):
-        """根据 round 编号生成轮次显示名"""
-        return {1: '小组赛', 2: '第二轮', 3: '半决赛', 4: '决赛'}.get(r, f'第 {r} 轮')
+        return {1: "小组赛", 2: "第二轮", 3: "半决赛", 4: "决赛"}.get(r, f"第 {r} 轮")
 
     def _group_label(r, gi, total):
-        """生成组名：第1轮用字母+序号，后续用序号，决赛特殊"""
         if r >= 4 and total == 1:
-            return '决赛'
+            return "决赛"
         if r == 1:
-            return f'{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组' if total > 8 else f'{GROUP_LABELS[gi]} 组'
-        return f'{gi + 1} 组'
+            return f"{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组" if total > 8 else f"{GROUP_LABELS[gi]} 组"
+        return f"{gi + 1} 组"
 
-    def mk_players(qual_count=0, done=False):
-        players = []
-        for i, bp in enumerate(PLAYERS):
-            qual = done and i < qual_count
-            players.append({
-                **bp,
-                'placement': (i + 1) if done else None,
-                'points': (9 if i == 0 else max(1, 9 - i)) if done else None,
-                'qualified': qual,
-                'eliminated': done and not qual,
-                'empty': False,
-            })
-        return players
+    groups = list(db.tournament_groups.find().sort([("round", 1), ("groupIndex", 1)]))
+    if not groups:
+        return {"tournaments": []}
 
-    def empty_players():
-        return [{'displayName': '待定', 'battleTag': None, 'accountIdLo': None,
-                 'heroCardId': None, 'heroName': None,
-                 'placement': None, 'points': None,
-                 'qualified': False, 'eliminated': False, 'empty': True}] * 8
+    # 按赛事分组（用 tournamentName 字段，没有则默认）
+    tournaments_map = {}
+    for g in groups:
+        tname = g.get("tournamentName", "赛事")
+        tournaments_map.setdefault(tname, []).append(g)
 
-    def mk_group(round_num, gi, total, status, next_round_gid=None, players=None):
-        """构建单个 tournament_group（对齐数据库结构）"""
-        g = {
-            'round': round_num,
-            'groupIndex': gi + 1,                        # 1-based
-            'label': _group_label(round_num, gi, total),
-            'status': status,                             # waiting / active / done
-            'players': players or empty_players(),
-            'startedAt': '2026-04-21T20:00:00Z' if status != 'waiting' else None,
-            'endedAt': '2026-04-21T20:45:00Z' if status == 'done' else None,
-        }
-        if next_round_gid is not None:
-            g['nextRoundGroupId'] = next_round_gid       # 下一轮目标组的 groupIndex（1-based）
-        return g
+    result = []
+    for tname, tgroups in tournaments_map.items():
+        # 按轮次分组
+        rounds_map = {}
+        for g in tgroups:
+            r = g.get("round", 1)
+            rounds_map.setdefault(r, []).append(g)
 
-    # ── 赛事 1：8 组标准赛，4 轮淘汰 ──
+        # 计算下一轮晋级目标
+        rounds_data = []
+        sorted_rounds = sorted(rounds_map.keys())
 
-    # R1: 8 组，前 4 组已结束、5-6 进行中、7-8 等待
-    r1_groups = [
-        mk_group(1, 0, 8, 'done', 1, mk_players(4, True)),
-        mk_group(1, 1, 8, 'done', 1, mk_players(4, True)),
-        mk_group(1, 2, 8, 'done', 2, mk_players(4, True)),
-        mk_group(1, 3, 8, 'done', 2, mk_players(4, True)),
-        mk_group(1, 4, 8, 'done', 3, mk_players(4, True)),
-        mk_group(1, 5, 8, 'done', 3, mk_players(4, True)),
-        mk_group(1, 6, 8, 'done', 4, mk_players(4, True)),
-        mk_group(1, 7, 8, 'done', 4, mk_players(4, True)),
-    ]
+        # 为每组计算 qualified / eliminated
+        for r in sorted_rounds:
+            for g in rounds_map[r]:
+                bo_n = g.get("boN", 1)
+                games_played = g.get("gamesPlayed", 0)
+                is_done = g.get("status") == "done" or (games_played >= bo_n and bo_n > 0)
 
-    # R2: 4 组，由 R1 的 nextRoundGroupId 分组
-    def build_round(prev_groups, round_num):
-        """根据上一组的 nextRoundGroupId 自动构建下一轮"""
-        buckets = {}
-        for g in prev_groups:
-            nrg = g.get('nextRoundGroupId')
-            if nrg is None:
-                continue
-            buckets.setdefault(nrg, []).append(g)
+                for p in g.get("players", []):
+                    total_pts = p.get("totalPoints", 0)
+                    # 晋级判定：done 状态下前 4 名
+                    if is_done:
+                        all_pts = sorted(
+                            [(pp.get("totalPoints", 0), i) for i, pp in enumerate(g.get("players", []))],
+                            key=lambda x: -x[0]
+                        )
+                        rank = next(i for i, (pts, _) in enumerate(all_pts) if pts == total_pts)
+                        p["qualified"] = rank < 4
+                        p["eliminated"] = rank >= 4
+                        p["placement"] = rank + 1
+                        p["points"] = total_pts
+                    else:
+                        p["qualified"] = False
+                        p["eliminated"] = False
+                        p["placement"] = None
+                        p["points"] = total_pts if total_pts > 0 else None
+                    p["empty"] = False
 
-        groups = []
-        for gid in sorted(buckets.keys()):
-            srcs = buckets[gid]
-            total = len(buckets)
-            # 晋级人数 = 上一组每组前4名之和
-            all_done = all(s['status'] == 'done' for s in srcs)
-            if all_done:
-                quals = []
-                for s in srcs:
-                    for p in s['players']:
-                        if p.get('qualified'):
-                            quals.append({**p, 'placement': None, 'points': None,
-                                          'qualified': False, 'eliminated': False})
-                while len(quals) < 8:
-                    quals.append({'displayName': '待定', 'battleTag': None, 'accountIdLo': None,
-                                  'heroCardId': None, 'heroName': None,
-                                  'placement': None, 'points': None,
-                                  'qualified': False, 'eliminated': False, 'empty': True})
-                # 下一轮：2 组合一组
-                nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, quals))
-            else:
-                nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg))
-        return groups
+        for r in sorted_rounds:
+            rgroups = sorted(rounds_map[r], key=lambda g: g.get("groupIndex", 0))
+            total = len(rgroups)
+            groups_data = []
+            for g in rgroups:
+                gi = g.get("groupIndex", 1) - 1  # 0-based
+                bo_n = g.get("boN", 1)
+                games_played = g.get("gamesPlayed", 0)
+                status = g.get("status", "waiting")
+                if status == "waiting" and games_played > 0 and games_played < bo_n:
+                    status = "active"  # BO 进行中
 
-    r2_groups = build_round(r1_groups, 2)
-    # 让 R2 全部 4 组已结束（补上排名数据）
-    for gi in range(len(r2_groups)):
-        g = r2_groups[gi]
-        g['status'] = 'done'
-        g['endedAt'] = '2026-04-21T21:00:00Z'
-        for i, p in enumerate(g['players']):
-            if not p.get('empty'):
-                p['placement'] = i + 1
-                p['points'] = 9 if i == 0 else max(1, 9 - i)
-                p['qualified'] = i < 4
-    r3_groups = build_round(r2_groups, 3)
-    final_groups = build_round(r3_groups, 4)
-    # 决赛组不指向下一轮
-    for g in final_groups:
-        g.pop('nextRoundGroupId', None)
+                gd = {
+                    "round": r,
+                    "groupIndex": gi + 1,
+                    "label": _group_label(r, gi, total),
+                    "status": status,
+                    "boN": bo_n,
+                    "gamesPlayed": games_played,
+                    "players": g.get("players", []),
+                    "startedAt": g.get("startedAt"),
+                    "endedAt": g.get("endedAt"),
+                }
+                if g.get("nextRoundGroupId"):
+                    gd["nextRoundGroupId"] = g["nextRoundGroupId"]
+                groups_data.append(gd)
 
-    # 组装 rounds
-    tournament = {
-        'name': '2026 春季赛',
-        'rounds': [
-            {'label': _round_label(1), 'groups': r1_groups},
-            {'label': _round_label(2), 'groups': r2_groups},
-            {'label': _round_label(3), 'groups': r3_groups},
-            {'label': _round_label(4), 'groups': final_groups},
-        ]
-    }
+            rounds_data.append({"label": _round_label(r), "groups": groups_data})
 
-    return {'tournaments': [tournament]}
+        result.append({"name": tname, "rounds": rounds_data})
 
+    return {"tournaments": result}
 
 @app.route("/bracket")
 def bracket_page():
     data = _build_bracket_data()
     return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
+
+
+@app.route("/api/bracket")
+def api_bracket():
+    """返回对阵图数据（JSON）"""
+    return jsonify(_build_bracket_data())
+
+
+@app.route("/api/tournament/create", methods=["POST"])
+def api_tournament_create():
+    """管理员创建赛事并分配分组
+
+    请求体: {
+        "tournamentName": "2026 春季赛",
+        "rounds": [
+            {
+                "round": 1,
+                "boN": 3,
+                "groups": [
+                    {
+                        "groupIndex": 1,
+                        "players": [
+                            {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."},
+                            ...
+                        ],
+                        "nextRoundGroupId": 1
+                    }
+                ]
+            }
+        ]
+    }
+    """
+    battle_tag = session.get("battleTag")
+    if not is_admin(battle_tag):
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    tname = data.get("tournamentName", "").strip()
+    rounds = data.get("rounds", [])
+
+    if not tname or not rounds:
+        return jsonify({"error": "tournamentName 和 rounds 不能为空"}), 400
+
+    db = get_db()
+    groups_to_insert = []
+
+    for rd in rounds:
+        r = rd.get("round", 1)
+        bo_n = rd.get("boN", 1)
+        for g in rd.get("groups", []):
+            players = []
+            for p in g.get("players", []):
+                players.append({
+                    "battleTag": p.get("battleTag", ""),
+                    "accountIdLo": str(p.get("accountIdLo", "")),
+                    "displayName": p.get("displayName", ""),
+                    "heroCardId": p.get("heroCardId", ""),
+                    "heroName": p.get("heroName", ""),
+                    "totalPoints": 0,
+                    "games": [],
+                    "placement": None,
+                    "points": None,
+                    "qualified": False,
+                    "eliminated": False,
+                    "empty": False,
+                })
+            # 补空位
+            while len(players) < 8:
+                players.append({
+                    "battleTag": None, "accountIdLo": None, "displayName": "待定",
+                    "heroCardId": None, "heroName": None,
+                    "totalPoints": 0, "games": [],
+                    "placement": None, "points": None,
+                    "qualified": False, "eliminated": False, "empty": True,
+                })
+
+            groups_to_insert.append({
+                "tournamentName": tname,
+                "round": r,
+                "groupIndex": g.get("groupIndex", 1),
+                "status": "waiting",
+                "boN": bo_n,
+                "gamesPlayed": 0,
+                "players": players,
+                "nextRoundGroupId": g.get("nextRoundGroupId"),
+                "startedAt": None,
+                "endedAt": None,
+            })
+
+    if groups_to_insert:
+        db.tournament_groups.insert_many(groups_to_insert)
+
+    log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组")
+    return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert)})
+
+
+@app.route("/api/tournament/group/<group_id>")
+def api_tournament_group(group_id):
+    """获取单个分组详情"""
+    from bson import ObjectId
+    db = get_db()
+    try:
+        group = db.tournament_groups.find_one({"_id": ObjectId(group_id)})
+    except Exception:
+        return jsonify({"error": "无效的 group ID"}), 400
+
+    if not group:
+        return jsonify({"error": "分组不存在"}), 404
+
+    # 序列化 ObjectId
+    group["_id"] = str(group["_id"])
+    return jsonify(group)
 
 
 @app.route("/player/<path:battle_tag>")
@@ -2240,6 +2387,83 @@ def api_plugin_check_league():
     # 先清理过期等待组
     cleanup_stale_queues()
 
+    # ── 淘汰赛 BO 系列赛匹配 ──
+    # 查找进行中的 tournament_group（gamesPlayed < boN），按 accountIdLo 集合匹配
+    active_tournament_groups = list(db.tournament_groups.find({
+        "status": {"$in": ["waiting", "active"]},
+        "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
+    }))
+    matched_tournament_group = None
+    for tg in active_tournament_groups:
+        tg_los = set()
+        valid = True
+        for p in tg.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            if lo and lo != "0":
+                tg_los.add(lo)
+            else:
+                valid = False
+                break
+        if valid and len(account_ids) == len(tg_los) and account_ids == tg_los:
+            matched_tournament_group = tg
+            break
+
+    if matched_tournament_group:
+        # 淘汰赛匹配成功
+        db.league_waiting_queue.delete_one({"_id": matched_group["_id"]}) if False else None  # 不走 waiting_queue
+
+        detailed_players = data.get("players", {})
+        players = []
+        for p in matched_tournament_group.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            detail = detailed_players.get(lo, {})
+            players.append({
+                "accountIdLo": lo,
+                "battleTag": detail.get("battleTag", p.get("battleTag", "")),
+                "displayName": detail.get("displayName", p.get("displayName", "")),
+                "heroCardId": detail.get("heroCardId", ""),
+                "heroName": detail.get("heroName", ""),
+                "placement": None,
+                "points": None,
+            })
+
+        mode = data.get("mode", "solo")
+        region = data.get("region", "CN")
+        started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+        db.league_matches.update_one(
+            {"gameUuid": game_uuid},
+            {"$setOnInsert": {
+                "players": players,
+                "region": region,
+                "mode": mode,
+                "startedAt": started_at,
+                "endedAt": None,
+                "tournamentGroupId": matched_tournament_group["_id"],
+                "tournamentRound": matched_tournament_group.get("round"),
+            }},
+            upsert=True,
+        )
+
+        # 更新 tournament_group 状态
+        game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
+        db.tournament_groups.update_one(
+            {"_id": matched_tournament_group["_id"]},
+            {"$set": {"status": "active", "startedAt": started_at}}
+        )
+        log.info(f"[check-league] 淘汰赛匹配: group={matched_tournament_group.get('groupIndex')} round={matched_tournament_group.get('round')} 第{game_num}局 gameUuid={game_uuid}")
+
+        resp = {"isLeague": True}
+        vc = _ensure_verification_code(
+            db,
+            player_id=data.get("playerId", "").strip(),
+            account_id_lo=data.get("accountIdLo", "").strip(),
+            mode=mode, region=region, timestamp=started_at,
+        )
+        if vc:
+            resp["verificationCode"] = vc
+        return jsonify(resp)
+
     # 遍历等待组，找完全匹配
     waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
     matched_group = None
@@ -2430,6 +2654,39 @@ def api_plugin_update_placement():
         )
         finalized = True
         log.info(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
+
+        # ── 淘汰赛 BO 累计 ──
+        tg_id = match.get("tournamentGroupId")
+        if tg_id:
+            tg = db.tournament_groups.find_one({"_id": tg_id})
+            if tg:
+                bo_n = tg.get("boN", 1)
+                games_played = tg.get("gamesPlayed", 0) + 1
+
+                # 累加每个玩家的本局积分到 totalPoints
+                for mp in players:
+                    lo = str(mp.get("accountIdLo", ""))
+                    pts = mp.get("points", 0) or 0
+                    db.tournament_groups.update_one(
+                        {"_id": tg_id, "players.accountIdLo": lo},
+                        {"$inc": {"players.$.totalPoints": pts},
+                         "$push": {"players.$.games": pts}}
+                    )
+
+                update_fields = {"gamesPlayed": games_played}
+                if games_played >= bo_n:
+                    # BO 全部打完 → 标记 done，触发晋级
+                    update_fields["status"] = "done"
+                    update_fields["endedAt"] = now_str
+                    log.info(f"[update-placement] BO 完成: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n}")
+                    # 晋级逻辑：检查同轮所有组是否都完成
+                    _try_advance_round(db, tg.get("round"), tg.get("tournamentName", "赛事"))
+                else:
+                    # 还有下一局 → 回到 waiting
+                    update_fields["status"] = "waiting"
+                    log.info(f"[update-placement] BO 进度: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n}")
+
+                db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
 
     return jsonify({"ok": True, "finalized": finalized})
 
