@@ -52,7 +52,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.5.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.5.1`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -62,6 +62,12 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.5.1 (2026-04-21)
+- **超级管理员**：`league_admins.isSuperAdmin` 字段，管理面板新增「管理员」Tab（仅超级管理员可见），支持添加/移除普通管理员
+- `manage_admins.py` 支持 `--super`、`promote`、`demote` 命令
+- 修复选手管理页 Invalid Date：`to_iso_str` 增强容错 + 前端 `fmtDate` 安全解析
+- 使用指南 bg_tool 部分简化为开箱即用，移除 config.json 配置说明
 
 ### v0.5.0 (2026-04-21)
 - **管理员面板**（`/admin`）：总览/对局管理/选手管理/队列管理，4 个 Tab
