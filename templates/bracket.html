@@ -29,17 +29,6 @@
   .round-title.collapsible::after { content: ' ▾'; font-size: 10px; opacity: 0.6; }
 
   /* ── 折叠指示（.. 标签）── */
-  .collapsed-dot {
-    position: absolute;
-    font-size: 16px; font-weight: 700; letter-spacing: 2px;
-    color: rgba(226,183,20,0.45);
-    cursor: pointer;
-    z-index: 2;
-    user-select: none;
-    transition: color 0.2s;
-    transform: translateX(-50%);
-  }
-  .collapsed-dot:hover { color: #e2b714; }
 
   /* ── 小组卡片 ── */
   .group-card {
@@ -236,7 +225,7 @@ function render(tIdx) {
 
     if (collapsed.has(ri)) {
       // ── 折叠指示（.. 标签）──
-      html += `<div class="collapsed-dot" style="left:${cx + COLLAPSED_W / 2}px;top:${areaH / 2 - 10}px" data-ri="${ri}" title="${round.label}（${round.groups.length} 组）— 点击展开">..</div>`;
+      html += `<div class="round-title" style="left:${cx + COLLAPSED_W / 2}px;top:12px;cursor:pointer" data-ri="${ri}" title="${round.label}（${round.groups.length} 组）— 点击展开">..</div>`;
     } else {
       // ── 轮次标题 ──
       html += `<div class="round-title${isLast ? ' gold' : ''}${canCollapse ? ' collapsible' : ''}" style="left:${cx + CARD_W / 2}px;top:12px"${canCollapse ? ` data-ri="${ri}"` : ''}>${round.label}</div>`;
