@@ -5,11 +5,8 @@
 {% block head %}
 <style>
   .bracket-scroll { overflow-x: auto; padding-bottom: 12px; }
+  .bracket-area { position: relative; margin: 0 auto; }
 
-  .bracket-area {
-    position: relative;
-    margin: 0 auto;
-  }
   .svg-layer {
     position: absolute; top: 0; left: 0;
     pointer-events: none; z-index: 0;
@@ -17,6 +14,7 @@
   .svg-layer path { stroke: rgba(42,42,74,0.6); stroke-width: 2; fill: none; }
   .svg-layer path.on { stroke: #e2b714; stroke-width: 2.5; filter: drop-shadow(0 0 3px rgba(226,183,20,0.15)); }
 
+  /* ── 轮次标题 ── */
   .round-title {
     position: absolute;
     font-size: 12px; font-weight: 700; color: #8b8b9e;
@@ -26,15 +24,44 @@
     z-index: 2; transform: translateX(-50%);
   }
   .round-title.gold { color: #e2b714; border-color: rgba(226,183,20,0.4); }
+  .round-title.collapsible { cursor: pointer; }
+  .round-title.collapsible:hover { border-color: rgba(226,183,20,0.5); color: #e2b714; }
+  .round-title.collapsible::after { content: ' ▾'; font-size: 10px; opacity: 0.6; }
 
-  .group-card {
+  /* ── 折叠条 ── */
+  .collapsed-strip {
     position: absolute;
-    z-index: 1;
+    width: 36px;
+    background: #16213e;
+    border: 1px solid rgba(226,183,20,0.2);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s;
+  }
+  .collapsed-strip:hover { border-color: rgba(226,183,20,0.5); }
+  .collapsed-strip .strip-label {
+    writing-mode: vertical-rl;
+    font-size: 11px; font-weight: 600;
+    color: #8b8b9e;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .collapsed-strip .strip-label .strip-count {
+    color: #c9a84c;
+    font-size: 10px;
+    margin-top: 4px;
+  }
+
+  /* ── 小组卡片 ── */
+  .group-card {
+    position: absolute; z-index: 1;
     background: #16213e;
     border: 1px solid rgba(226,183,20,0.3);
     border-radius: 0.75rem;
     overflow: hidden;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, opacity 0.3s;
   }
   .group-card:hover { border-color: rgba(226,183,20,0.6); }
   .group-card.active { border-color: rgba(52,211,153,0.5); box-shadow: 0 0 12px rgba(52,211,153,0.08); }
@@ -55,7 +82,7 @@
   .g-head .name { color: #e2b714; }
 
   .badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
-  .badge.active   { background: rgba(52,211,153,0.14); color: #34d399; }
+  .badge.active  { background: rgba(52,211,153,0.14); color: #34d399; }
   .badge.done    { background: rgba(139,139,158,0.1); color: #8b8b9e; }
   .badge.waiting { background: rgba(226,183,20,0.1);  color: #c9a84c; }
 
@@ -69,10 +96,7 @@
   .p-row .pos.g { color: #ffd700; }
   .p-row .pos.s { color: #c0c0c0; }
   .p-row .pos.b { color: #cd7f32; }
-  .p-row .nm {
-    flex: 1; margin-left: 5px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .p-row .nm { flex: 1; margin-left: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .p-row .nm.empty { color: #8b8b9e; font-style: italic; }
   .p-row .pts { font-size: 11px; font-weight: 700; color: #e2b714; margin-left: 4px; flex-shrink: 0; }
   .p-row.q .pos { color: #34d399; }
@@ -84,15 +108,13 @@
 {% block content %}
 <div class="text-center mb-4">
   <h1 class="text-2xl font-bold text-hearth-gold tracking-wide">🍺 {{ site_name }} · 淘汰赛对阵图</h1>
-  <p class="text-hearth-dim text-sm mt-1">单淘赛制 — 每组前 4 名晋级</p>
+  <p class="text-hearth-dim text-sm mt-1">单淘赛制 — 每组前 4 名晋级 · 已完成的轮次可点击收起</p>
 </div>
-
 <div class="flex justify-center gap-5 mb-4 text-xs text-hearth-dim">
   <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#34d399"></i> 进行中</span>
   <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#4e505a"></i> 已结束</span>
   <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
 </div>
-
 <div id="brackets-container"></div>
 {% endblock %}
 
@@ -100,87 +122,158 @@
 <script>
 const DATA = {{ data_json | safe }};
 
-/* ── 布局常量 ── */
-const HEADER_H = 34;
-const ROW_H = 38;
-const PLAYER_ROWS = 8;
-const CARD_W = 200;
-const CARD_H = HEADER_H + PLAYER_ROWS * ROW_H;   // 338
-const COL_GAP = 60;
-const PAD_TOP = 50;
-const PAD_LEFT = 30;
-const PAD_BOT = 30;
+/* ── 常量 ── */
+const HEADER_H = 34, ROW_H = 38, CARD_W = 200;
+const CARD_H = HEADER_H + 8 * ROW_H;      // 338
+const COL_GAP = 60, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
+const COLLAPSED_W = 36;                     // 折叠条宽度
 
-/* ── 渲染单个赛事，返回 { html, flat } ── */
-function buildTournament(t) {
-  const rounds = t.rounds;
+/* ── 赛事状态 ── */
+const tournaments = [];
+
+/* ══════════════════════════════════════════
+   构建 flat 数据 + 初始布局
+   ══════════════════════════════════════════ */
+function buildFlat(rounds) {
   const nR = rounds.length;
-  if (!nR) return { html: '', flat: [] };
+  if (!nR) return [];
 
   const r1Count = rounds[0].groups.length;
-
-  // 区域高度：R1 均匀分布，间距至少 20px
   const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
-  const AREA_H = Math.max(minH, 600);
-  const r1Gap = r1Count > 1 ? (AREA_H - PAD_TOP - PAD_BOT - r1Count * CARD_H) / (r1Count - 1) : 0;
+  const areaH = Math.max(minH, 600);
+  const r1Gap = r1Count > 1 ? (areaH - PAD_TOP - PAD_BOT - r1Count * CARD_H) / (r1Count - 1) : 0;
 
-  const AREA_W = PAD_LEFT + nR * CARD_W + (nR - 1) * COL_GAP + 50;
-  function colX(ri) { return PAD_LEFT + ri * (CARD_W + COL_GAP); }
-
-  /* flat[ri][gi] = group + 坐标 */
   const flat = [];
-
   // R1 均匀分布
   flat[0] = rounds[0].groups.map((g, i) => ({
     ...g,
     top: PAD_TOP + i * (CARD_H + r1Gap),
-    cy:  PAD_TOP + i * (CARD_H + r1Gap) + CARD_H / 2,
-    cx:  colX(0) + CARD_W,
-    lx:  colX(0)
+    cy:  PAD_TOP + i * (CARD_H + r1Gap) + CARD_H / 2
   }));
-
   // R2+：根据 nextRoundGroupId 定位到父组中点
   for (let ri = 1; ri < nR; ri++) {
     flat[ri] = rounds[ri].groups.map((g, gi) => {
       const parents = flat[ri - 1].filter(p => p.nextRoundGroupId === gi + 1);
       let cy;
-      if (parents.length >= 2) {
-        cy = (parents[0].cy + parents[parents.length - 1].cy) / 2;
-      } else if (parents.length === 1) {
-        cy = parents[0].cy;
-      } else {
-        cy = PAD_TOP + gi * (CARD_H + r1Gap) + CARD_H / 2;
-      }
-      return {
-        ...g,
-        top: cy - CARD_H / 2, cy,
-        cx: colX(ri) + CARD_W, lx: colX(ri)
-      };
+      if (parents.length >= 2) cy = (parents[0].cy + parents[parents.length - 1].cy) / 2;
+      else if (parents.length === 1) cy = parents[0].cy;
+      else cy = PAD_TOP + gi * (CARD_H + r1Gap) + CARD_H / 2;
+      return { ...g, top: cy - CARD_H / 2, cy };
     });
   }
+  return flat;
+}
 
-  /* HTML */
-  let html = `<div class="bracket-scroll"><div class="bracket-area" style="width:${AREA_W}px;height:${AREA_H}px">`;
+/* ══════════════════════════════════════════
+   渲染（支持折叠）
+   ══════════════════════════════════════════ */
+function render(tIdx) {
+  const t = tournaments[tIdx];
+  const { rounds, flat, collapsed, areaEl, svgEl } = t;
+  const nR = rounds.length;
 
-  // SVG（必须显式设宽高，否则浏览器默认 300×150）
-  html += `<svg class="svg-layer" width="${AREA_W}" height="${AREA_H}" viewBox="0 0 ${AREA_W} ${AREA_H}"></svg>`;
-
-  // 轮次标题
+  // ── 计算列 x 坐标（折叠的轮次变窄）──
+  const colXs = [];
+  let x = PAD_LEFT;
   for (let ri = 0; ri < nR; ri++) {
+    colXs[ri] = x;
+    x += collapsed.has(ri) ? COLLAPSED_W + 8 : CARD_W + COL_GAP;
+  }
+  const areaW = x + 50;
+
+  // 找出"哪些相邻轮次都是可见的"——用于画线
+  // 可见轮次列表
+  const vis = [];
+  for (let ri = 0; ri < nR; ri++) { if (!collapsed.has(ri)) vis.push(ri); }
+
+  // ── 设置区域尺寸 ──
+  const areaH = parseInt(areaEl.style.height);
+  areaEl.style.width = areaW + 'px';
+  svgEl.setAttribute('width', areaW);
+  svgEl.setAttribute('height', areaH);
+  svgEl.setAttribute('viewBox', `0 0 ${areaW} ${areaH}`);
+
+  // ── 生成 HTML ── */
+  let html = '';
+
+  for (let ri = 0; ri < nR; ri++) {
+    const round = rounds[ri];
+    const cx = colXs[ri];
     const isLast = ri === nR - 1;
-    html += `<div class="round-title${isLast ? ' gold' : ''}" style="left:${colX(ri) + CARD_W / 2}px;top:12px">${rounds[ri].label}</div>`;
+    const allDone = round.groups.every(g => g.status === 'done');
+    const canCollapse = allDone && !isLast;
+
+    if (collapsed.has(ri)) {
+      // ── 折叠条 ──
+      html += `<div class="collapsed-strip" style="left:${cx}px;top:${PAD_TOP}px;height:${areaH - PAD_TOP - PAD_BOT}px" data-ri="${ri}" title="点击展开「${round.label}」">`;
+      html += `<span class="strip-label">${round.label}<span class="strip-count">${round.groups.length} 组</span></span>`;
+      html += `</div>`;
+    } else {
+      // ── 轮次标题 ──
+      html += `<div class="round-title${isLast ? ' gold' : ''}${canCollapse ? ' collapsible' : ''}" style="left:${cx + CARD_W / 2}px;top:12px"${canCollapse ? ` data-ri="${ri}"` : ''}>${round.label}</div>`;
+
+      // ── 卡片 ──
+      flat[ri].forEach(g => {
+        const isFinal = ri === nR - 1;
+        html += renderCard(g, cx, g.top, isFinal);
+      });
+    }
   }
 
-  // 卡片
-  for (let ri = 0; ri < nR; ri++) {
-    const isFinalRound = ri === nR - 1;
-    flat[ri].forEach(g => {
-      html += renderCard(g, colX(ri), g.top, isFinalRound);
+  areaEl.innerHTML = '';
+  areaEl.insertAdjacentHTML('beforeend', html);
+  areaEl.prepend(svgEl);   // SVG 始终在最底层
+
+  // ── SVG 连线（跨折叠轮次）──
+  let paths = '';
+  for (let vi = 0; vi < vis.length - 1; vi++) {
+    const srcRi = vis[vi];
+    const dstRi = vis[vi + 1];
+    const srcX = colXs[srcRi] + CARD_W;
+    const dstX = colXs[dstRi];
+
+    // 遍历源轮每个组，追踪到目标轮
+    flat[srcRi].forEach((src, si) => {
+      const dests = traceDest(flat, srcRi, si, dstRi);
+      if (!dests.length) return;
+
+      const topDst = dests[0];
+      const botDst = dests[dests.length - 1];
+      const mx = (srcX + dstX) / 2;
+      const on = src.status === 'done';
+
+      // 上连线（到第一个目标）
+      paths += `<path class="${on ? 'on' : ''}" d="M${srcX},${src.cy} H${mx} V${topDst.cy} H${dstX}"/>`;
+      // 下连线（到最后一个目标，只有多个目标时）
+      if (dests.length > 1) {
+        paths += `<path class="${on ? 'on' : ''}" d="M${srcX},${src.cy} H${mx} V${botDst.cy} H${dstX}"/>`;
+      }
     });
   }
+  svgEl.innerHTML = paths;
 
-  html += `</div></div>`;
-  return { html, flat, areaW: AREA_W, areaH: AREA_H };
+  // ── 绑定折叠/展开事件 ──
+  areaEl.querySelectorAll('[data-ri]').forEach(el => {
+    el.onclick = () => toggleRound(tIdx, parseInt(el.dataset.ri));
+  });
+}
+
+/* ── 追踪：源组在 srcRi 的 si 位置，最终到达 dstRi 的哪些组 ── */
+function traceDest(flat, srcRi, si, dstRi) {
+  let cursors = [{ ri: srcRi, gi: si }];
+  for (let ri = srcRi + 1; ri <= dstRi; ri++) {
+    const next = [];
+    for (const c of cursors) {
+      const nrg = flat[c.ri][c.gi].nextRoundGroupId;
+      if (nrg != null) {
+        // nextRoundGroupId 是 1-based
+        const tIdx = nrg - 1;
+        if (flat[ri][tIdx]) next.push({ ri, gi: tIdx });
+      }
+    }
+    cursors = next.length ? next : cursors;  // 没找到就保持原位
+  }
+  return cursors.map(c => flat[c.ri][c.gi]);
 }
 
 /* ── 卡片 HTML ── */
@@ -202,52 +295,53 @@ function renderCard(g, x, y, isFinal) {
   return h + `</div>`;
 }
 
-/* ── SVG 连线 ── */
-function drawBracketLines(svgEl, flat) {
-  let paths = '';
-  for (let ri = 0; ri < flat.length - 1; ri++) {
-    const cur = flat[ri];
-    const nxt = flat[ri + 1];
-
-    // 按 nextRoundGroupId（1-based）配对
-    const pairs = {};
-    cur.forEach(c => {
-      const nrg = c.nextRoundGroupId;
-      if (nrg == null) return;
-      (pairs[nrg] = pairs[nrg] || []).push(c);
-    });
-
-    for (const nrgId of Object.keys(pairs)) {
-      const srcs = pairs[nrgId];
-      const tgtIdx = parseInt(nrgId) - 1;           // 1-based → 0-based
-      const tgt = nxt[tgtIdx];
-      if (!tgt || srcs.length < 2) continue;
-
-      const a = srcs[0];
-      const b = srcs[srcs.length - 1];
-      const mx = (a.cx + tgt.lx) / 2;          // 水平中点
-      const on = a.status === 'done' && b.status === 'done';
-
-      // L 形：右边缘 → 中点垂线 → 目标左边缘
-      paths += `<path class="${on ? 'on' : ''}" d="M${a.cx},${a.cy} H${mx} V${tgt.cy} H${tgt.lx}"/>`;
-      paths += `<path class="${on ? 'on' : ''}" d="M${b.cx},${b.cy} H${mx} V${tgt.cy} H${tgt.lx}"/>`;
-    }
+/* ══════════════════════════════════════════
+   折叠 / 展开
+   ══════════════════════════════════════════ */
+function toggleRound(tIdx, ri) {
+  const t = tournaments[tIdx];
+  if (t.collapsed.has(ri)) {
+    t.collapsed.delete(ri);
+  } else {
+    // 安全检查：所有组必须 done
+    if (!t.rounds[ri].groups.every(g => g.status === 'done')) return;
+    t.collapsed.add(ri);
   }
-  svgEl.innerHTML = paths;
+  render(tIdx);
 }
 
-/* ── 主渲染 ── */
+/* ══════════════════════════════════════════
+   主入口
+   ══════════════════════════════════════════ */
 const container = document.getElementById('brackets-container');
-const built = DATA.tournaments.map(buildTournament);
-container.innerHTML = built.map(b => b.html).join('');
 
-// 画线（DOM 就绪后）
-requestAnimationFrame(() => {
-  const areas = container.querySelectorAll('.bracket-area');
-  areas.forEach((area, i) => {
-    const svg = area.querySelector('.svg-layer');
-    if (svg && built[i]) drawBracketLines(svg, built[i].flat);
+DATA.tournaments.forEach((t, tIdx) => {
+  const flat = buildFlat(t.rounds);
+  const r1Count = t.rounds[0].groups.length;
+  const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
+  const areaH = Math.max(minH, 600);
+
+  // 创建 DOM
+  const scroll = document.createElement('div');
+  scroll.className = 'bracket-scroll';
+  const area = document.createElement('div');
+  area.className = 'bracket-area';
+  area.style.height = areaH + 'px';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('svg-layer');
+  area.appendChild(svg);
+  scroll.appendChild(area);
+  container.appendChild(scroll);
+
+  tournaments.push({
+    rounds: t.rounds,
+    flat,
+    collapsed: new Set(),
+    areaEl: area,
+    svgEl: svg,
   });
+
+  render(tIdx);
 });
 </script>
 {% endblock %}
