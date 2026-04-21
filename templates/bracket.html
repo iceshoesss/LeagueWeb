@@ -16,65 +16,75 @@
     width: 100%; height: 100%;
     pointer-events: none; z-index: 0;
   }
-  .svg-layer path { stroke: #2a2f40; stroke-width: 1.5; fill: none; }
-  .svg-layer path.on { stroke: #7a6520; stroke-width: 2; filter: drop-shadow(0 0 2px rgba(240,180,41,0.12)); }
+  .svg-layer path { stroke: rgba(42,42,74,0.6); stroke-width: 1.5; fill: none; }
+  .svg-layer path.on { stroke: #e2b714; stroke-width: 2; filter: drop-shadow(0 0 3px rgba(226,183,20,0.15)); }
 
   .round-title {
     position: absolute;
-    font-size: 11px; font-weight: 700; color: #4e505a;
+    font-size: 11px; font-weight: 700; color: #8b8b9e;
     letter-spacing: 1.5px; text-transform: uppercase;
-    background: #151821; border: 1px solid #252a38;
+    background: #1a1a2e; border: 1px solid #2a2a4a;
     border-radius: 5px; padding: 3px 12px; white-space: nowrap;
     z-index: 2; transform: translateX(-50%);
   }
-  .round-title.gold { color: #f0b429; border-color: #9a7420; }
+  .round-title.gold { color: #e2b714; border-color: rgba(226,183,20,0.4); }
 
+  /* ── 小组卡片：复用站点主题 ── */
   .group-card {
     position: absolute;
-    background: #151821; border: 1px solid #252a38;
-    border-radius: 7px; overflow: hidden; width: 178px; z-index: 1;
+    width: 178px; z-index: 1;
+    /* 与"正在进行"一致：bg-hearth-card + gold-border */
+    background: #16213e;
+    border: 1px solid rgba(226,183,20,0.3);
+    border-radius: 0.75rem;           /* rounded-xl */
+    overflow: hidden;
     transition: border-color 0.2s;
   }
-  .group-card:hover { border-color: #3a4058; }
-  .group-card.done { border-left: 2.5px solid #4e505a; }
-  .group-card.live { border-left: 2.5px solid #34d399; box-shadow: 0 0 10px rgba(52,211,153,0.10); }
-  .group-card.waiting { border-left: 2.5px solid #9a7420; }
+  .group-card:hover { border-color: rgba(226,183,20,0.6); }
+  .group-card.live  { border-color: rgba(52,211,153,0.5); box-shadow: 0 0 12px rgba(52,211,153,0.08); }
+  .group-card.done  { border-color: rgba(42,42,74,0.5); }
   .group-card.final {
-    border: 1.5px solid #9a7420;
-    background: linear-gradient(160deg, #1a1608, #151821);
-    box-shadow: 0 0 16px rgba(240,180,41,0.06);
+    border-color: rgba(226,183,20,0.5);
+    background: linear-gradient(160deg, #1e1a0e, #16213e);
+    box-shadow: 0 0 18px rgba(226,183,20,0.06);
   }
 
+  /* ── 组头：复用站点 header 样式 ── */
   .g-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 5px 10px; background: #1a1e2a;
-    border-bottom: 1px solid #252a38; font-size: 11px; font-weight: 600;
+    padding: 6px 10px;
+    background: rgba(0,0,0,0.15);
+    border-bottom: 1px solid #2a2a4a;
+    font-size: 11px; font-weight: 600;
   }
-  .g-head .name { color: #8a8c94; }
-  .badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
-  .badge.live { background: rgba(52,211,153,0.14); color: #34d399; }
-  .badge.done { background: rgba(138,140,148,0.1); color: #8a8c94; }
-  .badge.waiting { background: rgba(240,180,41,0.1); color: #9a7420; }
+  .g-head .name { color: #e2b714; }
 
+  /* ── 状态标签 ── */
+  .badge { font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+  .badge.live    { background: rgba(52,211,153,0.14); color: #34d399; }
+  .badge.done    { background: rgba(139,139,158,0.1); color: #8b8b9e; }
+  .badge.waiting { background: rgba(226,183,20,0.1);  color: #c9a84c; }
+
+  /* ── 玩家行：复用站点 divide-y ── */
   .p-row {
     display: flex; align-items: center;
-    padding: 0 8px; height: 28px; font-size: 11.5px;
-    border-bottom: 1px solid #252a38;
+    padding: 0 8px; height: 28px; font-size: 11.5px; color: #d1d5db;
+    border-bottom: 1px solid rgba(42,42,74,0.4);
   }
   .p-row:last-child { border-bottom: none; }
-  .p-row .pos { width: 16px; font-weight: 700; font-size: 10px; color: #4e505a; text-align: center; flex-shrink: 0; }
-  .p-row .pos.g { color: #f0b429; }
-  .p-row .pos.s { color: #aaa; }
+  .p-row .pos { width: 16px; font-weight: 700; font-size: 10px; color: #8b8b9e; text-align: center; flex-shrink: 0; }
+  .p-row .pos.g { color: #ffd700; }
+  .p-row .pos.s { color: #c0c0c0; }
   .p-row .pos.b { color: #cd7f32; }
   .p-row .nm {
     flex: 1; margin-left: 5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .p-row .nm.empty { color: #4e505a; font-style: italic; }
-  .p-row .pts { font-size: 10px; font-weight: 700; color: #8a8c94; margin-left: 3px; flex-shrink: 0; }
+  .p-row .nm.empty { color: #8b8b9e; font-style: italic; }
+  .p-row .pts { font-size: 10px; font-weight: 700; color: #e2b714; margin-left: 3px; flex-shrink: 0; }
   .p-row.q .pos { color: #34d399; }
-  .p-row.q .nm { color: #34d399; }
-  .p-row.el .nm { color: #4e505a; }
+  .p-row.q .nm  { color: #34d399; }
+  .p-row.el .nm { color: #8b8b9e; }
 </style>
 {% endblock %}
 
@@ -124,12 +134,17 @@ const $area = document.getElementById('bracketArea');
 function renderGroup(g, x, y, isFinal) {
   const st = { live: '进行中', done: '已结束', waiting: '等待中' };
   let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px" data-cx="${x+CARD_W}" data-cy="${y+CARD_H/2}" data-lx="${x}" data-ly="${y+CARD_H/2}">`;
-  h += `<div class="g-head"><span class="name">${g.label}组</span><span class="badge ${g.status}">${st[g.status]}</span></div>`;
+  h += `<div class="g-head"><span class="name">${g.label}${g.label.includes('决赛') ? '' : '组'}</span><span class="badge ${g.status}">${st[g.status]}</span></div>`;
   g.players.forEach((p, i) => {
     let cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
     const pc = i===0?'g':i===1?'s':i===2?'b':'';
+    // 英雄头像（与"正在进行"一致的圆形裁剪）
+    const img = (!p.empty && p.heroCardId)
+      ? `<div class="w-5 h-5 rounded-full overflow-hidden flex-shrink-0 bg-black/30 flex-shrink-0"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+      : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${p.placement || (i+1)}</span>`;
-    h += `<span class="nm${p.empty ? ' empty' : ''}">${p.empty ? '待定' : p.name}</span>`;
+    h += img;
+    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:4px"' : ''}>${p.empty ? '待定' : p.name}</span>`;
     if (p.points !== null) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });

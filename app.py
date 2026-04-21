@@ -885,6 +885,9 @@ def index():
 def _build_bracket_data():
     """构建对阵图 mock 数据（Phase 1），Phase 2 改为从 tournament_groups 读取"""
     names = ['衣锦夜行','瓦莉拉','雷克萨','古尔丹','吉安娜','萨尔','乌瑟尔','玛法里奥']
+    hero_ids = ['TB_BaconShop_HERO_56','TB_BaconShop_HERO_02','TB_BaconShop_HERO_22',
+                'TB_BaconShop_HERO_19','TB_BaconShop_HERO_01','TB_BaconShop_HERO_08',
+                'TB_BaconShop_HERO_13','TB_BaconShop_HERO_36']
 
     def mk_group(label, status, qual_count=0):
         players = []
@@ -893,6 +896,8 @@ def _build_bracket_data():
             qual = done and i < qual_count
             players.append({
                 'name': nm,
+                'heroCardId': hero_ids[i],
+                'heroName': '',
                 'placement': (i + 1) if done else None,
                 'points': (9 if i == 0 else max(1, 9 - i)) if done else None,
                 'qualified': qual,
@@ -904,7 +909,8 @@ def _build_bracket_data():
     def empty_group(label):
         return {
             'label': label, 'status': 'waiting',
-            'players': [{'name': '待定', 'placement': None, 'points': None,
+            'players': [{'name': '待定', 'heroCardId': None, 'heroName': '',
+                         'placement': None, 'points': None,
                          'qualified': False, 'eliminated': False, 'empty': True}] * 8
         }
 
@@ -924,7 +930,8 @@ def _build_bracket_data():
         quals = [dict(p, placement=None, points=None, qualified=False, eliminated=False)
                  for p in a['players'] + b['players'] if p['qualified']]
         while len(quals) < 8:
-            quals.append({'name': '待定', 'placement': None, 'points': None,
+            quals.append({'name': '待定', 'heroCardId': None, 'heroName': '',
+                          'placement': None, 'points': None,
                           'qualified': False, 'eliminated': False, 'empty': True})
         return {'label': str(idx + 1), 'status': 'waiting', 'players': quals}
 
