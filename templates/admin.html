@@ -404,8 +404,8 @@ async function loadPlayers() {
                 <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.battleTag}</a></td>
                 <td class="px-4 py-3 font-mono text-xs text-hearth-dim">${p.accountIdLo || '-'}</td>
                 <td class="px-4 py-3 font-mono text-xs ${p.verificationCode ? 'text-blue-400' : 'text-hearth-dim'}">${vc}</td>
-                <td class="px-4 py-3 text-xs text-hearth-dim">${fmtDate(p.createdAt)}</td>
-                <td class="px-4 py-3 text-xs text-hearth-dim">${fmtDate(p.verifiedAt)}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${p.createdAt || '-'}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${p.verifiedAt || '-'}</td>
             </tr>`;
         }).join('');
 

@@ -68,7 +68,7 @@ BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.5.1"
+WEB_VERSION = "0.5.2"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员（含超级管理员）"""
@@ -1079,8 +1079,8 @@ def get_admin_players(page=1, per_page=50, search=""):
 
     for p in players:
         p["_id"] = str(p["_id"])
-        p["verifiedAt"] = to_iso_str(p.get("verifiedAt"))
-        p["createdAt"] = to_iso_str(p.get("createdAt"))
+        p["verifiedAt"] = to_cst_str(p.get("verifiedAt")) or ""
+        p["createdAt"] = to_cst_str(p.get("createdAt")) or ""
         p["verificationCode"] = records.get(p.get("battleTag", ""), "")
 
     total_pages = max(1, (total + per_page - 1) // per_page)

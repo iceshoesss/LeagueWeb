@@ -52,7 +52,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.5.1`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.5.2`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -62,6 +62,9 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.5.2 (2026-04-21)
+- 修复选手管理页日期显示为 "-"：日期格式化改用服务端 `to_cst_str`，前端直接展示字符串
 
 ### v0.5.1 (2026-04-21)
 - **超级管理员**：`league_admins.isSuperAdmin` 字段，管理面板新增「管理员」Tab（仅超级管理员可见），支持添加/移除普通管理员
@@ -112,6 +115,11 @@ docker compose restart web     # 重启
 ### v0.2.12 及更早
 - 队列超时机制、SSE 推送、ECharts 图表、验证码系统等
 - 详见原仓库 [HDT_BGTracker](https://github.com/iceshoesss/HDT_BGTracker) 历史
+
+## 待办
+
+- [ ] CSRF 防护（表单提交缺少 CSRF token，当前风险较低，用户量增长后需加）
+- [ ] HTTPS（通过 Cloudflare Tunnel 实现）
 
 ## API 文档
 
