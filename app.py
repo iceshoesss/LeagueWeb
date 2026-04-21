@@ -68,7 +68,7 @@ BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.4.2"
+WEB_VERSION = "0.5.0"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员"""
@@ -1031,7 +1031,7 @@ def get_admin_matches(page=1, per_page=20, status_filter="all"):
 
 
 def get_admin_players(page=1, per_page=50, search=""):
-    """管理员选手列表"""
+    """管理员选手列表（关联 player_records 获取验证码）"""
     db = get_db()
     query = {}
     if search:
@@ -1043,10 +1043,18 @@ def get_admin_players(page=1, per_page=50, search=""):
                    .skip((page - 1) * per_page)
                    .limit(per_page))
 
+    # 批量查询验证码
+    battle_tags = [p.get("battleTag", "") for p in players if p.get("battleTag")]
+    records = {}
+    if battle_tags:
+        for rec in db.player_records.find({"playerId": {"$in": battle_tags}}, {"playerId": 1, "verificationCode": 1}):
+            records[rec["playerId"]] = rec.get("verificationCode", "")
+
     for p in players:
         p["_id"] = str(p["_id"])
         p["verifiedAt"] = to_iso_str(p.get("verifiedAt"))
         p["createdAt"] = to_iso_str(p.get("createdAt"))
+        p["verificationCode"] = records.get(p.get("battleTag", ""), "")
 
     total_pages = max(1, (total + per_page - 1) // per_page)
     return players, total, total_pages

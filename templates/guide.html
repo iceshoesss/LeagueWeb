@@ -6,29 +6,49 @@
 
     <!-- 快速开始 -->
     <section class="bg-hearth-card rounded-lg p-6 gold-border">
-        <h2 class="text-xl font-bold text-hearth-gold mb-4">🚀 三步上手</h2>
-        <div class="space-y-4">
-            <div class="flex gap-4">
-                <span class="text-2xl font-bold text-hearth-gold">①</span>
-                <div>
-                    <h3 class="font-bold">安装插件</h3>
-                    <p class="text-hearth-dim text-sm">下载 HDT → 把插件 dll 放到插件目录 → 重启 HDT</p>
-                    <p class="text-hearth-dim text-sm">插件自动运行，不需要手动操作。</p>
-                </div>
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">🚀 快速开始</h2>
+        <p class="text-hearth-dim text-sm mb-4">我们提供两种参赛方式，任选其一即可：</p>
+
+        <!-- 方式一：bg_tool（推荐） -->
+        <div class="border border-hearth-border rounded-lg p-4 mb-4">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="bg-hearth-gold/20 text-hearth-gold text-xs font-bold px-2 py-0.5 rounded">推荐</span>
+                <h3 class="font-bold text-hearth-gold">方式一：bg_tool 独立工具</h3>
             </div>
-            <div class="flex gap-4">
-                <span class="text-2xl font-bold text-hearth-gold">②</span>
-                <div>
-                    <h3 class="font-bold">注册账号</h3>
-                    <p class="text-hearth-dim text-sm">打一局普通战棋 → 网站点「登录」→ 输入 BattleTag + 验证码</p>
-                </div>
+            <p class="text-hearth-dim text-sm mb-3">不需要安装 HDT，一个独立的桌面小工具就能参赛。</p>
+            <ol class="space-y-2 text-sm text-gray-300 list-decimal list-inside">
+                <li>下载 <code class="text-hearth-gold bg-black/20 px-1 rounded">bg_tool.exe</code> + <code class="text-hearth-gold bg-black/20 px-1 rounded">config.json</code></li>
+                <li>编辑 <code class="text-hearth-gold bg-black/20 px-1 rounded">config.json</code>，填入服务器地址和区域</li>
+                <li>启动 <code class="text-hearth-gold bg-black/20 px-1 rounded">bg_tool.exe</code>，保持运行</li>
+                <li>正常打一局战棋 → 工具自动检测对局并上传</li>
+                <li>在工具界面或日志中查看验证码 → 用验证码注册/登录网站</li>
+            </ol>
+            <div class="mt-3 text-xs text-hearth-dim bg-black/20 rounded p-3 space-y-1">
+                <p>📌 <strong>config.json 示例：</strong></p>
+                <pre class="text-hearth-gold/80 font-mono">{
+  "apiBaseUrl": "https://你的服务器地址",
+  "region": "CN",
+  "mode": "solo"
+}</pre>
+                <p class="mt-2">📌 支持的功能：自动查找游戏日志、断线重连检测、最近战绩统计、验证码复制</p>
+                <p>📌 需要 Windows 系统，保持工具运行即可，打完自动上传</p>
             </div>
-            <div class="flex gap-4">
-                <span class="text-2xl font-bold text-hearth-gold">③</span>
-                <div>
-                    <h3 class="font-bold">报名参赛</h3>
-                    <p class="text-hearth-dim text-sm">登录 → 加入队列 → 满 8 人自动匹配 → 正常开一局 → 自动计分</p>
-                </div>
+        </div>
+
+        <!-- 方式二：HDT 插件 -->
+        <div class="border border-hearth-border rounded-lg p-4">
+            <h3 class="font-bold text-hearth-gold mb-3">方式二：HDT 插件</h3>
+            <p class="text-hearth-dim text-sm mb-3">如果你已经在用 HDT（Hearthstone Deck Tracker），可以装插件。</p>
+            <ol class="space-y-2 text-sm text-gray-300 list-decimal list-inside">
+                <li>安装 <a href="https://hsdecktracker.net" target="_blank" class="text-hearth-gold hover:underline">HDT</a></li>
+                <li>下载插件 <code class="text-hearth-gold bg-black/20 px-1 rounded">HDT_BGTracker.dll</code>，放到 HDT 插件目录</li>
+                <li>重启 HDT → 在「插件」页面确认 BGTracker 已启用</li>
+                <li>正常打一局战棋 → 插件自动检测并上传</li>
+                <li>在 HDT 插件设置页查看验证码 → 用验证码注册/登录网站</li>
+            </ol>
+            <div class="mt-3 text-xs text-hearth-dim bg-black/20 rounded p-3">
+                <p>📌 插件目录通常在 <code class="text-hearth-gold/80">%AppData%\HearthstoneDeckTracker\Plugins\</code></p>
+                <p>📌 插件自动运行，不需要手动操作</p>
             </div>
         </div>
     </section>
@@ -60,18 +80,31 @@
         <p class="text-hearth-dim text-sm mt-3">前四算「胜」，只有联赛对局才计分。</p>
     </section>
 
-    <!-- 报名流程 -->
+    <!-- 注册与报名 -->
     <section class="bg-hearth-card rounded-lg p-6 gold-border">
-        <h2 class="text-xl font-bold text-hearth-gold mb-4">🎮 报名流程</h2>
-        <ol class="space-y-2 text-sm text-gray-300 list-decimal list-inside">
-            <li>登录后点击「加入队列」</li>
-            <li>等满 8 人，系统自动分配等待组</li>
-            <li>正常开一局战棋，插件自动识别联赛对局</li>
-            <li>打完自动上传排名和积分</li>
-        </ol>
-        <div class="mt-4 text-xs text-hearth-dim bg-black/20 rounded p-3">
-            <p>⏰ 报名队列 <strong>10 分钟</strong>无操作自动踢出</p>
-            <p>⏰ 等待组 <strong>20 分钟</strong>超时自动解散</p>
+        <h2 class="text-xl font-bold text-hearth-gold mb-4">📋 注册与报名</h2>
+        <div class="space-y-4">
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">①</span>
+                <div>
+                    <h3 class="font-bold">获取验证码</h3>
+                    <p class="text-hearth-dim text-sm">用 bg_tool 或 HDT 插件打一局战棋，工具会自动获取验证码。验证码也会显示在工具界面中。</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">②</span>
+                <div>
+                    <h3 class="font-bold">注册 / 登录</h3>
+                    <p class="text-hearth-dim text-sm">在网站点「登录」→ 输入完整的 BattleTag（含 #tag）+ 验证码 → 自动注册并登录。</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <span class="text-2xl font-bold text-hearth-gold">③</span>
+                <div>
+                    <h3 class="font-bold">报名参赛</h3>
+                    <p class="text-hearth-dim text-sm">登录后在首页点击「报名参加」→ 满 8 人自动匹配 → 正常开一局战棋 → 工具自动上传排名和积分。</p>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -105,8 +138,9 @@
         <div class="space-y-3" id="faq-list">
             <!-- FAQ 区域 — 根据玩家反馈持续补充 -->
             {% set faqs = [
-                ("插件安装后没有反应？", "检查 HDT 插件目录是否正确，重启 HDT 后在「插件」页面确认 BGTracker 已启用。"),
-                ("验证码在哪里找？", "打完一局后插件会自动生成验证码，在 HDT 的插件设置页面可以查看。"),
+                ("bg_tool 启动后没有反应？", "确保游戏正在运行，bg_tool 会自动查找游戏日志。检查 config.json 中的服务器地址是否正确。"),
+                ("HDT 插件安装后没有反应？", "检查 HDT 插件目录是否正确，重启 HDT 后在「插件」页面确认 BGTracker 已启用。"),
+                ("验证码在哪里找？", "打完一局后，bg_tool 界面上会直接显示验证码（蓝底白字区域，支持一键复制）。HDT 插件用户在插件设置页查看。日志中也会打印验证码。"),
                 ("非联赛对局会计分吗？", "不会。插件会自动判断是否为联赛对局，只有匹配到等待组的 8 人才会计分。"),
                 ("对局结束后排名没上传成功？", "检查网络连接，插件会自动重试 3 次。如果仍然失败，联系管理员手动补录。"),
                 ("报名后一直凑不满 8 个人？", "在 QQ 群喊人，或者等活跃时间段再来。队列 10 分钟无操作会自动踢出。"),

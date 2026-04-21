@@ -127,6 +127,7 @@
                         <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
                             <th class="px-4 py-3 text-left">BattleTag</th>
                             <th class="px-4 py-3 text-left">accountIdLo</th>
+                            <th class="px-4 py-3 text-left">验证码</th>
                             <th class="px-4 py-3 text-left">注册时间</th>
                             <th class="px-4 py-3 text-left">最近活跃</th>
                         </tr>
@@ -340,9 +341,11 @@ async function loadPlayers() {
         }
 
         tbody.innerHTML = data.players.map(p => {
+            const vc = p.verificationCode || '-';
             return `<tr class="hover:bg-white/5 transition">
-                <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.displayName || p.battleTag}</a></td>
+                <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.battleTag}</a></td>
                 <td class="px-4 py-3 font-mono text-xs text-hearth-dim">${p.accountIdLo || '-'}</td>
+                <td class="px-4 py-3 font-mono text-xs ${p.verificationCode ? 'text-blue-400' : 'text-hearth-dim'}">${vc}</td>
                 <td class="px-4 py-3 text-xs text-hearth-dim">${p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
                 <td class="px-4 py-3 text-xs text-hearth-dim">${p.verifiedAt ? new Date(p.verifiedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
             </tr>`;
