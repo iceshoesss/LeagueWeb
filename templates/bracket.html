@@ -28,31 +28,17 @@
   .round-title.collapsible:hover { border-color: rgba(226,183,20,0.5); color: #e2b714; }
   .round-title.collapsible::after { content: ' ▾'; font-size: 10px; opacity: 0.6; }
 
-  /* ── 折叠条 ── */
+  /* ── 折叠指示条（极细竖条）── */
   .collapsed-strip {
     position: absolute;
-    width: 36px;
-    background: #16213e;
-    border: 1px solid rgba(226,183,20,0.2);
-    border-radius: 0.5rem;
+    width: 6px;
+    background: rgba(226,183,20,0.15);
+    border-radius: 3px;
     cursor: pointer;
     z-index: 2;
-    display: flex; align-items: center; justify-content: center;
-    transition: border-color 0.2s;
+    transition: background 0.2s;
   }
-  .collapsed-strip:hover { border-color: rgba(226,183,20,0.5); }
-  .collapsed-strip .strip-label {
-    writing-mode: vertical-rl;
-    font-size: 11px; font-weight: 600;
-    color: #8b8b9e;
-    letter-spacing: 1px;
-    white-space: nowrap;
-  }
-  .collapsed-strip .strip-label .strip-count {
-    color: #c9a84c;
-    font-size: 10px;
-    margin-top: 4px;
-  }
+  .collapsed-strip:hover { background: rgba(226,183,20,0.35); }
 
   /* ── 小组卡片 ── */
   .group-card {
@@ -126,7 +112,7 @@ const DATA = {{ data_json | safe }};
 const HEADER_H = 34, ROW_H = 38, CARD_W = 200;
 const CARD_H = HEADER_H + 8 * ROW_H;      // 338
 const COL_GAP = 60, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
-const COLLAPSED_W = 36;                     // 折叠条宽度
+const COLLAPSED_W = 6;                       // 折叠指示条宽度
 
 /* ── 赛事状态 ── */
 const tournaments = [];
@@ -248,10 +234,8 @@ function render(tIdx) {
     const canCollapse = allDone && !isLast;
 
     if (collapsed.has(ri)) {
-      // ── 折叠条 ──
-      html += `<div class="collapsed-strip" style="left:${cx}px;top:${PAD_TOP}px;height:${areaH - PAD_TOP - PAD_BOT}px" data-ri="${ri}" title="点击展开「${round.label}」">`;
-      html += `<span class="strip-label">${round.label}<span class="strip-count">${round.groups.length} 组</span></span>`;
-      html += `</div>`;
+      // ── 折叠指示条（极细竖条）──
+      html += `<div class="collapsed-strip" style="left:${cx}px;top:${PAD_TOP}px;height:${areaH - PAD_TOP - PAD_BOT}px" data-ri="${ri}" title="${round.label}（${round.groups.length} 组）— 点击展开"></div>`;
     } else {
       // ── 轮次标题 ──
       html += `<div class="round-title${isLast ? ' gold' : ''}${canCollapse ? ' collapsible' : ''}" style="left:${cx + CARD_W / 2}px;top:12px"${canCollapse ? ` data-ri="${ri}"` : ''}>${round.label}</div>`;
