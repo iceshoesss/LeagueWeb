@@ -632,3 +632,64 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 ```
 
 > 注意：这是 256×256 正方形图，原图可能是横条（tiles 格式），用于头像需要 CSS 裁剪聚焦脸部。
+
+
+---
+
+## 淘汰赛 API
+
+### `GET /api/bracket`
+
+返回对阵图数据（从 tournament_groups 集合读取）。
+
+**响应：** 同 `_build_bracket_data()` 结构，包含 tournaments → rounds → groups → players。
+
+---
+
+### `POST /api/tournament/create`
+
+管理员创建赛事并分配分组。
+
+**认证：** 需管理员登录（session）
+
+**请求体：**
+```json
+{
+  "tournamentName": "2026 春季赛",
+  "rounds": [
+    {
+      "round": 1,
+      "boN": 3,
+      "groups": [
+        {
+          "groupIndex": 1,
+          "players": [
+            {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."},
+            ...
+          ],
+          "nextRoundGroupId": 1
+        }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `tournamentName` | 赛事名称 |
+| `rounds[].round` | 轮次编号 |
+| `rounds[].boN` | 本轮局数（BO3=3, BO5=5） |
+| `rounds[].groups[].groupIndex` | 组号（1-based） |
+| `rounds[].groups[].players` | 8 个玩家（不足 8 人自动补空位） |
+| `rounds[].groups[].nextRoundGroupId` | 晋级目标组号 |
+
+**响应：** `{"ok": true, "tournamentName": "...", "groupsCreated": N}`
+
+---
+
+### `GET /api/tournament/group/<group_id>`
+
+获取单个分组详情。
+
+**响应：** tournament_groups 文档完整数据（含 boN、gamesPlayed、players.totalPoints、players.games[]）。
