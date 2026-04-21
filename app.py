@@ -71,11 +71,19 @@ SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
 WEB_VERSION = "0.5.0"
 
 def is_admin(battle_tag):
-    """从数据库查询是否为管理员"""
+    """从数据库查询是否为管理员（含超级管理员）"""
     if not battle_tag:
         return False
     db = get_db()
     return db.league_admins.count_documents({"battleTag": battle_tag}) > 0
+
+
+def is_super_admin(battle_tag):
+    """从数据库查询是否为超级管理员"""
+    if not battle_tag:
+        return False
+    db = get_db()
+    return db.league_admins.count_documents({"battleTag": battle_tag, "isSuperAdmin": True}) > 0
 
 _client = None
 _db = None
@@ -200,16 +208,19 @@ def inject_counts():
     # 当前登录用户 + 管理员标识
     current_user = None
     is_admin_user = False
+    is_super_admin_user = False
     battle_tag = session.get("battleTag")
     if battle_tag:
         current_user = {"battleTag": battle_tag, "displayName": session.get("displayName", battle_tag)}
         is_admin_user = is_admin(battle_tag)
+        is_super_admin_user = is_super_admin(battle_tag)
 
     return {
         "active_game_count": active_count,
         "total_player_count": player_count,
         "current_user": current_user,
         "is_admin_user": is_admin_user,
+        "is_super_admin": is_super_admin_user,
         "site_name": SITE_NAME,
         "site_logo": SITE_LOGO,
         "web_version": WEB_VERSION,
@@ -261,12 +272,28 @@ def to_iso_str(dt_val):
     if dt_val is None:
         return ""
     if isinstance(dt_val, (datetime, bson_datetime.datetime)):
+        # 确保输出严格的 ISO 8601 格式：2026-04-21T05:00:00Z
         return dt_val.strftime("%Y-%m-%dT%H:%M:%SZ")
-    s = str(dt_val)
-    # 补齐时区标记，方便前端 new Date() 正确解析为 UTC
-    if s and not s.endswith("Z") and "+" not in s and s.count("-") <= 2:
-        s += "Z"
-    return s
+    s = str(dt_val).strip()
+    if not s:
+        return ""
+    # 已经是正确格式
+    if s.endswith("Z"):
+        return s
+    # 带时区偏移的格式（如 +08:00），转换为 UTC Z 格式
+    if "+" in s or (s.count("-") > 2):
+        try:
+            dt = datetime.fromisoformat(s)
+            from datetime import timezone as tz
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=tz.utc)
+            return dt.astimezone(tz.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        except Exception:
+            return ""
+    # 无时区标记，视为 UTC，补 Z
+    # 处理 "2026-04-21 05:00:00"（空格分隔）→ "2026-04-21T05:00:00Z"
+    s = s.replace(" ", "T")
+    return s + "Z"
 
 
 def to_cst_str(dt_val):
@@ -1067,7 +1094,8 @@ def admin_page():
         return render_template("404.html", title="无权限", emoji="🔒", message="需要管理员权限"), 403
 
     stats = get_admin_stats()
-    return render_template("admin.html", stats=stats, admin_tag=admin_tag)
+    super_admin = is_super_admin(admin_tag)
+    return render_template("admin.html", stats=stats, admin_tag=admin_tag, is_super_admin=super_admin)
 
 
 # ── 管理员 API ────────────────────────────────────────
@@ -1216,6 +1244,75 @@ def api_admin_reset_match(game_uuid):
         {"$unset": {"endedAt": "", "status": ""}}
     )
     log.info(f"管理员 {admin_tag} 重置对局状态 {game_uuid}")
+    return jsonify({"ok": True})
+
+
+# ── 超级管理员 API ───────────────────────────────────
+
+@app.route("/api/admin/admins")
+def api_admin_admins():
+    """获取管理员列表（仅超级管理员）"""
+    admin_tag = _admin_required()
+    if not admin_tag or not is_super_admin(admin_tag):
+        return jsonify({"error": "需要超级管理员权限"}), 403
+
+    db = get_db()
+    admins = list(db.league_admins.find().sort("addedAt", 1))
+    for a in admins:
+        a["_id"] = str(a["_id"])
+        a["addedAt"] = to_iso_str(a.get("addedAt"))
+    return jsonify(admins)
+
+
+@app.route("/api/admin/admins/add", methods=["POST"])
+def api_admin_admins_add():
+    """添加管理员（仅超级管理员）"""
+    admin_tag = _admin_required()
+    if not admin_tag or not is_super_admin(admin_tag):
+        return jsonify({"error": "需要超级管理员权限"}), 403
+
+    data = request.get_json() or {}
+    battle_tag = data.get("battleTag", "").strip()
+    if not battle_tag:
+        return jsonify({"error": "BattleTag 不能为空"}), 400
+
+    db = get_db()
+    if db.league_admins.count_documents({"battleTag": battle_tag}) > 0:
+        return jsonify({"error": f"{battle_tag} 已是管理员"}), 400
+
+    db.league_admins.insert_one({
+        "battleTag": battle_tag,
+        "addedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "addedBy": admin_tag,
+        "isSuperAdmin": False,
+    })
+    log.info(f"超级管理员 {admin_tag} 添加管理员: {battle_tag}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/admins/remove", methods=["POST"])
+def api_admin_admins_remove():
+    """移除管理员（仅超级管理员，不能移除自己或其他超级管理员）"""
+    admin_tag = _admin_required()
+    if not admin_tag or not is_super_admin(admin_tag):
+        return jsonify({"error": "需要超级管理员权限"}), 403
+
+    data = request.get_json() or {}
+    battle_tag = data.get("battleTag", "").strip()
+    if not battle_tag:
+        return jsonify({"error": "BattleTag 不能为空"}), 400
+    if battle_tag == admin_tag:
+        return jsonify({"error": "不能移除自己"}), 400
+
+    db = get_db()
+    target = db.league_admins.find_one({"battleTag": battle_tag})
+    if not target:
+        return jsonify({"error": f"{battle_tag} 不是管理员"}), 404
+    if target.get("isSuperAdmin"):
+        return jsonify({"error": "不能移除超级管理员"}), 403
+
+    db.league_admins.delete_one({"battleTag": battle_tag})
+    log.info(f"超级管理员 {admin_tag} 移除管理员: {battle_tag}")
     return jsonify({"ok": True})
 
 

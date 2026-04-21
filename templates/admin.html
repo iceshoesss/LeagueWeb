@@ -14,6 +14,9 @@
         <button onclick="switchTab('matches')" data-tab="matches" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">对局管理</button>
         <button onclick="switchTab('players')" data-tab="players" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">选手管理</button>
         <button onclick="switchTab('queue')" data-tab="queue" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">队列管理</button>
+        {% if is_super_admin %}
+        <button onclick="switchTab('admins')" data-tab="admins" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">管理员</button>
+        {% endif %}
     </div>
 
     <!-- ═══════════════════════════════════════════ -->
@@ -166,6 +169,49 @@
             </div>
         </div>
     </div>
+
+    {% if is_super_admin %}
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  管理员管理（仅超级管理员）                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-admins" class="tab-panel hidden">
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                <h3 class="text-sm font-bold text-hearth-gold">👑 管理员列表</h3>
+                <button onclick="showAddAdmin()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 添加管理员</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
+                            <th class="px-4 py-3 text-left">BattleTag</th>
+                            <th class="px-4 py-3 text-left">角色</th>
+                            <th class="px-4 py-3 text-left">添加者</th>
+                            <th class="px-4 py-3 text-left">添加时间</th>
+                            <th class="px-4 py-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admins-tbody" class="divide-y divide-hearth-border/50">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 添加管理员弹窗 -->
+        <div id="add-admin-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+            <div class="bg-hearth-card rounded-xl gold-border p-6 w-96">
+                <h3 class="text-lg font-bold text-hearth-gold mb-4">添加管理员</h3>
+                <input type="text" id="add-admin-input" placeholder="输入完整 BattleTag（含 #tag）"
+                    class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 mb-4">
+                <div class="flex gap-2 justify-end">
+                    <button onclick="document.getElementById('add-admin-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-hearth-dim hover:text-white transition">取消</button>
+                    <button onclick="addAdmin()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">确认添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
 
@@ -173,6 +219,15 @@
 <script>
 // ── Tab 切换 ──────────────────────────────────────
 let currentTab = 'dashboard';
+
+function fmtDate(s) {
+    if (!s) return '-';
+    try {
+        const d = new Date(s);
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' });
+    } catch (e) { return '-'; }
+}
 function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
@@ -187,6 +242,9 @@ function switchTab(tab) {
     if (tab === 'matches' && !matchesLoaded) loadMatches();
     if (tab === 'players' && !playersLoaded) loadPlayers();
     if (tab === 'queue' && !queueLoaded) loadQueue();
+    {% if is_super_admin %}
+    if (tab === 'admins' && !adminsLoaded) loadAdmins();
+    {% endif %}
 }
 switchTab('dashboard');
 
@@ -202,7 +260,7 @@ async function loadDashboard() {
                 <a href="/match/${m.gameUuid}/edit" class="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition">
                     <div>
                         <span class="text-xs text-hearth-dim">#${m.matchId}</span>
-                        <span class="text-xs ml-2">${m.startedAt ? new Date(m.startedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : ''}</span>
+                        <span class="text-xs ml-2">${fmtDate(m.startedAt)}</span>
                     </div>
                     <span class="text-xs px-2 py-0.5 rounded ${m.statusLabel === '超时' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-orange-500/20 text-orange-300'}">${m.statusLabel}</span>
                 </a>
@@ -307,7 +365,7 @@ async function loadMatches() {
 
             return `<tr class="hover:bg-white/5 transition">
                 <td class="px-4 py-3 font-mono text-xs text-hearth-dim">#${m.matchId}</td>
-                <td class="px-4 py-3 text-xs whitespace-nowrap">${m.startedAt ? new Date(m.startedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
+                <td class="px-4 py-3 text-xs whitespace-nowrap">${fmtDate(m.startedAt)}</td>
                 <td class="px-4 py-3">${statusBadge}</td>
                 <td class="px-4 py-3 text-xs truncate max-w-xs">${playerNames}</td>
                 <td class="px-4 py-3 text-right whitespace-nowrap">${actions}</td>
@@ -346,8 +404,8 @@ async function loadPlayers() {
                 <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.battleTag}</a></td>
                 <td class="px-4 py-3 font-mono text-xs text-hearth-dim">${p.accountIdLo || '-'}</td>
                 <td class="px-4 py-3 font-mono text-xs ${p.verificationCode ? 'text-blue-400' : 'text-hearth-dim'}">${vc}</td>
-                <td class="px-4 py-3 text-xs text-hearth-dim">${p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
-                <td class="px-4 py-3 text-xs text-hearth-dim">${p.verifiedAt ? new Date(p.verifiedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${fmtDate(p.createdAt)}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${fmtDate(p.verifiedAt)}</td>
             </tr>`;
         }).join('');
 
@@ -531,6 +589,82 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) { queueEs?.close(); waitingEs?.close(); }
     else if (currentTab === 'queue') { connectAdminQueue(); connectAdminWaiting(); }
 });
+
+{% if is_super_admin %}
+// ── 管理员管理 ──────────────────────────────────────
+let adminsLoaded = false;
+
+async function loadAdmins() {
+    adminsLoaded = true;
+    try {
+        const res = await fetch('/api/admin/admins');
+        const data = await res.json();
+        const tbody = document.getElementById('admins-tbody');
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-6 text-center text-hearth-dim">无数据</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(a => {
+            const isSuper = a.isSuperAdmin;
+            const role = isSuper
+                ? '<span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超级管理员</span>'
+                : '<span class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">管理员</span>';
+            const action = isSuper
+                ? '<span class="text-xs text-hearth-dim">—</span>'
+                : `<button onclick="removeAdmin('${a.battleTag}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">移除</button>`;
+            return `<tr class="hover:bg-white/5 transition">
+                <td class="px-4 py-3 font-medium">${a.battleTag}</td>
+                <td class="px-4 py-3">${role}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${a.addedBy || '-'}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${fmtDate(a.addedAt)}</td>
+                <td class="px-4 py-3 text-right">${action}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        console.error('Load admins error:', e);
+    }
+}
+
+function showAddAdmin() {
+    document.getElementById('add-admin-input').value = '';
+    document.getElementById('add-admin-modal').classList.remove('hidden');
+    document.getElementById('add-admin-input').focus();
+}
+
+async function addAdmin() {
+    const battleTag = document.getElementById('add-admin-input').value.trim();
+    if (!battleTag) { alert('请输入 BattleTag'); return; }
+    if (!battleTag.includes('#')) { alert('请输入完整 BattleTag（含 #tag）'); return; }
+    try {
+        const res = await fetch('/api/admin/admins/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ battleTag })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('add-admin-modal').classList.add('hidden');
+            loadAdmins();
+        } else {
+            alert(data.error || '添加失败');
+        }
+    } catch (e) { alert('网络错误'); }
+}
+
+async function removeAdmin(battleTag) {
+    if (!confirm(`确定移除管理员 ${battleTag}？`)) return;
+    try {
+        const res = await fetch('/api/admin/admins/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ battleTag })
+        });
+        const data = await res.json();
+        if (res.ok) { loadAdmins(); }
+        else { alert(data.error || '移除失败'); }
+    } catch (e) { alert('网络错误'); }
+}
+{% endif %}
 
 // 定时刷新总览（30s）
 setInterval(() => { if (currentTab === 'dashboard') loadDashboard(); }, 30000);
