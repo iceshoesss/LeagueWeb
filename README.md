@@ -1,6 +1,6 @@
 # LeagueWeb
 
-酒馆战棋联赛网站 — 排行榜、对局记录、报名队列、插件 API。
+酒馆战棋联赛网站 — 排行榜、对局记录、淘汰赛对阵图、插件 API。
 
 配套 C# HDT 插件：[HDT_BGTracker](https://github.com/iceshoesss/HDT_BGTracker)
 
@@ -10,9 +10,14 @@
 LeagueWeb/
 ├── app.py              # Flask 后端 API + 页面路由 + 插件端点 + SSE 推送
 ├── templates/          # Jinja2 模板（Tailwind CSS + ECharts CDN）
+│   ├── base.html       # 基础布局
+│   ├── bracket.html    # 淘汰赛对阵图（数据驱动 + 折叠 + SVG 连线）
+│   ├── index.html      # 首页（排行榜 + 对局 + 队列）
+│   └── ...
 ├── Dockerfile
 ├── docker-compose.yml  # Docker 部署（Flask + MongoDB）
-├── API.md              # 插件 API 文档
+├── API.md              # 接口文档（含插件 API + 淘汰赛 API）
+├── KNOCKOUT_PLAN.md    # 淘汰赛开发计划
 ├── gunicorn.conf.py    # Gunicorn 配置（gevent worker）
 ├── manage_admins.py    # 管理员管理工具
 └── requirements.txt
@@ -38,9 +43,9 @@ docker compose up -d
 | `SITE_LOGO` | `🍺` | 网站 Logo，支持 emoji 或图片 URL |
 | `MIN_PLUGIN_VERSION` | `0.5.5` | 最低插件版本，低于此版本的插件请求将被拒绝（403） |
 | `PLUGIN_API_KEY` | _(空)_ | 插件 API Key，配置后插件请求必须带 `Authorization: Bearer <key>`；为空则跳过校验 |
-| `WEBHOOK_URL` | _(空)_ | QQ 机器人 webhook 地址（如 `http://bg-qqbot:8080/webhook/league`）；为空则不发通知 |
-| `BOT_API_KEY` | _(空)_ | 机器人调用 API 的认证 token，需与 BG_QQBot 的 `BOT_API_KEY` 一致 |
-| `CLEANUP_INTERVAL` | `60` | 后台清理间隔（秒），控制超时/掉线检测频率；测试时可设 `15` |
+| `WEBHOOK_URL` | _(空)_ | QQ 机器人 webhook 地址；为空则不发通知 |
+| `BOT_API_KEY` | _(空)_ | 机器人调用 API 的认证 token |
+| `CLEANUP_INTERVAL` | `60` | 后台清理间隔（秒） |
 
 ## 常用命令
 
@@ -50,11 +55,118 @@ docker compose down            # 停止
 docker compose restart web     # 重启
 ```
 
+## 两套赛制
+
+本站支持两套独立的赛制，共用同一数据库：
+
+### 积分赛（main 分支）
+
+自由组局模式：
+- 玩家在网站报名 → `league_queue` → 满 8 人 → `league_waiting_queue`
+- 插件 check-league 匹配 waiting_queue → 创建 `league_matches`
+- 排行榜按累计积分排名
+
+### 淘汰赛（feat/knockout 分支）
+
+预分组 BO N 模式：
+- 管理员创建赛事，预分配 8 人一组（`tournament_groups`）
+- 每组打 N 局（BO3/BO5/BO7），每轮可配置不同
+- **不走 waiting_queue**，check-league 直接按 Lo 集合匹配 tournament_groups
+- 每局结束累加积分，N 局全部打完按总分排名，前 4 晋级
+- 同轮所有组完成后自动创建下一轮分组
+
+**插件不需要改动**——插件只上报 8 个 Lo，判断逻辑全在 Flask 侧。
+
+## BO N 赛制
+
+### 概念
+
+每组可以打 N 局（BO3/BO5/BO7），按 N 局总分排名。
+
+- `boN`：本组打几局（管理员创建赛事时指定，可每轮不同）
+- `gamesPlayed`：已完成局数
+- `players[].totalPoints`：N 局累计积分
+- `players[].games[]`：每局得分明细，如 `[7, 5, 9]`
+
+### 匹配流程
+
+```
+玩家进游戏 → 插件 STEP 13 → POST /api/plugin/check-league
+  → 先查 tournament_groups（status=waiting + gamesPlayed < boN + Lo 集合匹配）
+  → 匹配到 → isLeague=true，创建 league_matches（带 tournamentGroupId）
+  → 没匹配到 → 查 league_waiting_queue（积分赛匹配）
+  → 都没匹配到 → isLeague=false
+
+游戏结束 → POST /api/plugin/update-placement
+  → 更新排名 + 积分
+  → 如果关联了 tournament_group → 累加 totalPoints, gamesPlayed+1
+  → gamesPlayed < boN → status=waiting（等下一局）
+  → gamesPlayed == boN → status=done → 晋级逻辑触发
+```
+
+### 积分规则
+
+| 排名 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|------|---|---|---|---|---|---|---|---|
+| 积分 | 9 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
+
+BO N 赛制下每局积分不变，N 局累加为总分。
+
+### 移动端玩家
+
+手机玩家无法使用插件，获取不到 accountIdLo。目前讨论的解决方案：
+1. 管理员手动注册时填入 Lo（从同局有插件的玩家获取）
+2. 匹配阈值降为 5/8 人匹配即可
+
+## MongoDB 集合
+
+| 集合 | 用途 | 模式 |
+|------|------|------|
+| `player_records` | 玩家记录 + 验证码 | 通用 |
+| `league_matches` | 对局记录 | 通用（淘汰赛新增 `tournamentGroupId`、`tournamentRound`） |
+| `league_players` | 已注册选手 | 通用 |
+| `league_queue` | 报名队列 | 积分赛 |
+| `league_waiting_queue` | 等待组 | 积分赛 |
+| `league_admins` | 管理员 | 通用 |
+| `tournament_groups` | 淘汰赛分组 | 淘汰赛 |
+
+### tournament_groups 结构
+
+```json
+{
+  "tournamentName": "2026 春季赛",
+  "round": 1,
+  "groupIndex": 1,
+  "status": "waiting",        // waiting / active / done
+  "boN": 3,                   // 本组打几局
+  "gamesPlayed": 1,           // 已完成局数
+  "players": [
+    {
+      "battleTag": "xxx#1234",
+      "accountIdLo": "1708070391",
+      "displayName": "xxx",
+      "heroCardId": "TB_BaconShop_HERO_56",
+      "heroName": "阿莱克丝塔萨",
+      "totalPoints": 7,       // BO 累计积分
+      "games": [7],           // 每局得分明细
+      "placement": null,      // 最终排名（done 后计算）
+      "points": null,         // 最终总分
+      "qualified": false,     // 是否晋级
+      "eliminated": false,
+      "empty": false
+    }
+  ],
+  "nextRoundGroupId": 1,      // 晋级目标组号
+  "startedAt": null,
+  "endedAt": null
+}
+```
+
 ## 版本号
 
 当前版本：`v0.1.0`（定义在 `app.py` → `WEB_VERSION`）
 
-> **版本管理**：积分赛（main 分支）和淘汰赛（feat/knockout 分支）是两套独立系统，版本号互不关联，各自递增。
+> 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
@@ -70,71 +182,36 @@ docker compose restart web     # 重启
 
 ## 更新日志
 
+### v0.1.1 (2026-04-22) — Phase 2 完成
+- **check-league 淘汰赛匹配**：先查 tournament_groups（Lo 集合匹配 + gamesPlayed < boN），匹配不到再走 waiting_queue
+- **update-placement BO 累计**：对局结束后累加积分到 tournament_groups，gamesPlayed+1
+- **自动晋级**：同轮所有组 done 后自动创建下一轮分组（前 4 名晋级）
+- **创建赛事 API**：`POST /api/tournament/create`，管理员指定分组 + 每轮 boN
+- **对阵图改为真实数据**：`_build_bracket_data()` 从 tournament_groups 集合读取
+- 对阵图折叠改为 `..` 标签（round-title 样式），必须从左到右折叠、从右到左展开
+- 等待中小组不显示排名序号和积分
+
 ### v0.1.0 (2026-04-21) — 淘汰赛版首发
-- **淘汰赛对阵图**（`/bracket`）：数据驱动布局，支持任意轮次和组数
-- 对阵图小组块复用站点主题样式（hearth-card + gold-border + 英雄头像）
-- SVG 连线自动贴边对齐，按 nextRoundGroupId 数据驱动配对
-- 已完成轮次可折叠（点击轮次标题收起为极细竖条，后续轮次自动左移重分布）
-- 多赛事支持（tournaments 数组结构，页面可并列展示多个赛事）
-- mock 数据对齐 tournament_groups 真实结构（round / groupIndex / status / nextRoundGroupId / players）
+- 淘汰赛对阵图（`/bracket`）：数据驱动布局，SVG 连线，已完成轮次可折叠
+- 多赛事支持（tournaments 数组结构）
+- mock 数据对齐 tournament_groups 真实结构
 
-### v0.5.2 (2026-04-21)
-- 修复选手管理页日期显示为 "-"：日期格式化改用服务端 `to_cst_str`，前端直接展示字符串
+### v0.5.2 (2026-04-21) — 积分赛
+- 修复选手管理页日期显示为 "-"
 
-### v0.5.1 (2026-04-21)
-- **超级管理员**：`league_admins.isSuperAdmin` 字段，管理面板新增「管理员」Tab（仅超级管理员可见），支持添加/移除普通管理员
-- `manage_admins.py` 支持 `--super`、`promote`、`demote` 命令
-- 修复选手管理页 Invalid Date：`to_iso_str` 增强容错 + 前端 `fmtDate` 安全解析
-- 使用指南 bg_tool 部分简化为开箱即用，移除 config.json 配置说明
+### v0.5.1 (2026-04-21) — 积分赛
+- 超级管理员系统、manage_admins.py
 
-### v0.5.0 (2026-04-21)
-- **管理员面板**（`/admin`）：总览/对局管理/选手管理/队列管理，4 个 Tab
-- 对局管理支持全生命周期操作：进行中超时/掉线强制结束、重置回进行中、补录、删除
-- 选手管理显示完整 BattleTag（含 #tag）和验证码
-- 使用指南更新：加入 bg_tool 独立工具使用说明，两种参赛方式并列
-
-### v0.4.2 (2026-04-17)
-- 新增玩家使用指南页面（`/guide`），含快速开始、积分规则、报名流程、QQ 机器人指令、FAQ
-- 管理员可在问题对局页面直接删除对局（`DELETE /api/match/<gameUuid>`）
-
-### v0.4.1 (2026-04-17)
-- **后台独立清理线程**：超时/掉线检测不再依赖页面访问触发，改为后台定时执行（`CLEANUP_INTERVAL` 控制间隔）
-- **abandoned 通知优化**：掉线对局 webhook 只通知未提交排名的玩家，不再发全部 8 人
-- 新增环境变量：`WEBHOOK_URL`、`BOT_API_KEY`、`CLEANUP_INTERVAL`
-
-### v0.4.0 (2026-04-15)
-- **7人提交后自动推算第8人排名**：当 7 位玩家提交 placement 后，自动计算剩余玩家的排名（唯一剩余数字），立即写入 endedAt 结束对局
-- 适用于插件 API 和管理员补录 API 两个端点
-- 解决第一名 AFK 不上传导致对局无法结束的问题
-
-### v0.3.1 (2026-04-14)
-- **插件认证 + 版本强制更新**：所有 `/api/plugin/*` 端点双重校验
-  - API Key：配置 `PLUGIN_API_KEY` 后，插件请求必须带 `Authorization: Bearer <key>`，否则 403
-  - 版本检查：`X-HDT-Plugin` header 版本号低于 `MIN_PLUGIN_VERSION` 则 403
-  - 两个 env var 配合使用，发新插件时同步更换即可让旧插件失效
-
-### v0.3.3 (2026-04-17)
-- **修复 player 页面 battleTag 不带 #tag**：不再依赖 `league_matches` 中插件上报的不完整数据，改为从 `league_players` 读取真实 battleTag；匹配逻辑也从 battleTag 改为 accountIdLo，兼容带/不带 #tag 的访问
-
-### v0.3.0 (2026-04-14)
-- **测试模式改为重叠人数匹配**：不再无脑判联赛，按等待组重叠人数判定（阈值 `MIN_MATCH_PLAYERS`，默认 3）
-- **报名队列阈值联动**：满 N 人移入等待组，N 跟随 `MIN_MATCH_PLAYERS`（test=3, normal=8）
-- `toggle-test-mode.py` 拆分为独立脚本，只管本仓库的 `app.py`
-
-### v0.2.13 (2026-04-14)
-- 修复登录后导航到其他页面丢失登录状态的问题（Session cookie SameSite 配置）
-- 修复 player 页面历史对局时间显示错误（双重时区偏移）
-- 时间格式统一：所有 ISO 时间字符串带 Z 后缀，前端正确解析为 UTC
-- 新增 `WEB_VERSION` 常量，页面底部显示当前版本号
-
-### v0.2.12 及更早
-- 队列超时机制、SSE 推送、ECharts 图表、验证码系统等
-- 详见原仓库 [HDT_BGTracker](https://github.com/iceshoesss/HDT_BGTracker) 历史
+### v0.5.0 (2026-04-21) — 积分赛
+- 管理员面板（`/admin`）：总览/对局管理/选手管理/队列管理
 
 ## 待办
 
-- [ ] CSRF 防护（表单提交缺少 CSRF token，当前风险较低，用户量增长后需加）
-- [ ] HTTPS（通过 Cloudflare Tunnel 实现）
+- [ ] Phase 3 — 管理后台（创建赛事表单、赛事管理 Tab）
+- [ ] Phase 4 — 首页整合（对阵图接入真实数据、移除积分赛 UI）
+- [ ] Phase 5 — 边界处理（弃赛/递补/历史归档）
+- [ ] CSRF 防护
+- [ ] HTTPS（Cloudflare Tunnel）
 
 ## API 文档
 
