@@ -52,7 +52,7 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.5.2`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.6.0`（定义在 `app.py` → `WEB_VERSION`）
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -62,6 +62,14 @@ docker compose restart web     # 重启
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.6.0 (2026-04-21) — 淘汰赛版
+- **淘汰赛对阵图**（`/bracket`）：数据驱动布局，支持任意轮次和组数
+- 对阵图小组块复用站点主题样式（hearth-card + gold-border + 英雄头像）
+- SVG 连线自动贴边对齐，按 nextRoundGroupId 数据驱动配对
+- 已完成轮次可折叠（点击轮次标题收起为极细竖条，后续轮次自动左移重分布）
+- 多赛事支持（tournaments 数组结构，页面可并列展示多个赛事）
+- mock 数据对齐 tournament_groups 真实结构（round / groupIndex / status / nextRoundGroupId / players）
 
 ### v0.5.2 (2026-04-21)
 - 修复选手管理页日期显示为 "-"：日期格式化改用服务端 `to_cst_str`，前端直接展示字符串

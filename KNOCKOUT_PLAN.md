@@ -89,11 +89,11 @@
 
 ## 开发阶段
 
-### Phase 1 — 数据层 + API（当前）
+### Phase 1 — 数据层 + API
 - [x] 创建 feat/knockout 分支
-- [ ] 定义 tournament_groups 数据结构
-- [ ] `GET /api/bracket` 接口
-- [ ] 对阵图模板集成到 Flask
+- [x] 定义 tournament_groups 数据结构
+- [x] `GET /api/bracket` 接口（mock 数据）
+- [x] 对阵图模板集成到 Flask（数据驱动布局 + 折叠 + 连线）
 
 ### Phase 2 — 匹配改造
 - [ ] 改造 check-league：按组匹配
