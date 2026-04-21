@@ -882,6 +882,65 @@ def index():
     return render_template("index.html", players=players, matches=matches, active_games=active_games)
 
 
+def _build_bracket_data():
+    """构建对阵图 mock 数据（Phase 1），Phase 2 改为从 tournament_groups 读取"""
+    names = ['衣锦夜行','瓦莉拉','雷克萨','古尔丹','吉安娜','萨尔','乌瑟尔','玛法里奥']
+
+    def mk_group(label, status, qual_count=0):
+        players = []
+        for i, nm in enumerate(names):
+            done = status == 'done'
+            qual = done and i < qual_count
+            players.append({
+                'name': nm,
+                'placement': (i + 1) if done else None,
+                'points': (9 if i == 0 else max(1, 9 - i)) if done else None,
+                'qualified': qual,
+                'eliminated': done and not qual,
+                'empty': False
+            })
+        return {'label': label, 'status': status, 'players': players}
+
+    def empty_group(label):
+        return {
+            'label': label, 'status': 'waiting',
+            'players': [{'name': '待定', 'placement': None, 'points': None,
+                         'qualified': False, 'eliminated': False, 'empty': True}] * 8
+        }
+
+    # R1: 8 groups — 前2组已结束, 3-4进行中, 5-8等待
+    round1 = [
+        mk_group('1', 'done', 4), mk_group('2', 'done', 4),
+        mk_group('3', 'live'), mk_group('4', 'live'),
+        mk_group('5', 'waiting'), mk_group('6', 'waiting'),
+        mk_group('7', 'waiting'), mk_group('8', 'waiting'),
+    ]
+
+    # R2: 4 groups — 仅第一组有数据（来自 R1 前两组的晋级者）
+    def build_r2(idx):
+        a, b = round1[idx * 2], round1[idx * 2 + 1]
+        if a['status'] != 'done' or b['status'] != 'done':
+            return empty_group(str(idx + 1))
+        quals = [dict(p, placement=None, points=None, qualified=False, eliminated=False)
+                 for p in a['players'] + b['players'] if p['qualified']]
+        while len(quals) < 8:
+            quals.append({'name': '待定', 'placement': None, 'points': None,
+                          'qualified': False, 'eliminated': False, 'empty': True})
+        return {'label': str(idx + 1), 'status': 'waiting', 'players': quals}
+
+    round2 = [build_r2(i) for i in range(4)]
+    round3 = [empty_group('1'), empty_group('2')]
+    final = {**empty_group('决赛'), 'label': '决赛', 'status': 'waiting'}
+
+    return {'round1': round1, 'round2': round2, 'round3': round3, 'final': final}
+
+
+@app.route("/bracket")
+def bracket_page():
+    groups = _build_bracket_data()
+    return render_template("bracket.html", groups_json=json.dumps(groups, ensure_ascii=False))
+
+
 @app.route("/player/<path:battle_tag>")
 def player_page(battle_tag):
     player = get_player(battle_tag)

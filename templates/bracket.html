@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}淘汰赛对阵图 — {{ site_name }}{% endblock %}
+
+{% block head %}
+<style>
+  .bracket-area {
+    position: relative;
+    width: 100%;
+    min-width: 1400px;
+    height: 2100px;
+    margin: 0 auto;
+  }
+  .svg-layer {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+  .svg-layer path { stroke: #2a2f40; stroke-width: 1.5; fill: none; }
+  .svg-layer path.on { stroke: #7a6520; stroke-width: 2; filter: drop-shadow(0 0 2px rgba(240,180,41,0.12)); }
+
+  .round-title {
+    position: absolute;
+    font-size: 11px; font-weight: 700; color: #4e505a;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    background: #151821; border: 1px solid #252a38;
+    border-radius: 5px; padding: 3px 12px; white-space: nowrap;
+    z-index: 2; transform: translateX(-50%);
+  }
+  .round-title.gold { color: #f0b429; border-color: #9a7420; }
+
+  .group-card {
+    position: absolute;
+    background: #151821; border: 1px solid #252a38;
+    border-radius: 7px; overflow: hidden; width: 178px; z-index: 1;
+    transition: border-color 0.2s;
+  }
+  .group-card:hover { border-color: #3a4058; }
+  .group-card.done { border-left: 2.5px solid #4e505a; }
+  .group-card.live { border-left: 2.5px solid #34d399; box-shadow: 0 0 10px rgba(52,211,153,0.10); }
+  .group-card.waiting { border-left: 2.5px solid #9a7420; }
+  .group-card.final {
+    border: 1.5px solid #9a7420;
+    background: linear-gradient(160deg, #1a1608, #151821);
+    box-shadow: 0 0 16px rgba(240,180,41,0.06);
+  }
+
+  .g-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 10px; background: #1a1e2a;
+    border-bottom: 1px solid #252a38; font-size: 11px; font-weight: 600;
+  }
+  .g-head .name { color: #8a8c94; }
+  .badge { font-size: 9px; padding: 1px 5px; border-radius: 3px; font-weight: 700; }
+  .badge.live { background: rgba(52,211,153,0.14); color: #34d399; }
+  .badge.done { background: rgba(138,140,148,0.1); color: #8a8c94; }
+  .badge.waiting { background: rgba(240,180,41,0.1); color: #9a7420; }
+
+  .p-row {
+    display: flex; align-items: center;
+    padding: 0 8px; height: 28px; font-size: 11.5px;
+    border-bottom: 1px solid #252a38;
+  }
+  .p-row:last-child { border-bottom: none; }
+  .p-row .pos { width: 16px; font-weight: 700; font-size: 10px; color: #4e505a; text-align: center; flex-shrink: 0; }
+  .p-row .pos.g { color: #f0b429; }
+  .p-row .pos.s { color: #aaa; }
+  .p-row .pos.b { color: #cd7f32; }
+  .p-row .nm {
+    flex: 1; margin-left: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .p-row .nm.empty { color: #4e505a; font-style: italic; }
+  .p-row .pts { font-size: 10px; font-weight: 700; color: #8a8c94; margin-left: 3px; flex-shrink: 0; }
+  .p-row.q .pos { color: #34d399; }
+  .p-row.q .nm { color: #34d399; }
+  .p-row.el .nm { color: #4e505a; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+  <h1 class="text-2xl font-bold text-hearth-gold tracking-wide">🍺 {{ site_name }} · 淘汰赛对阵图</h1>
+  <p class="text-hearth-dim text-sm mt-1">64 人单淘 — 8 组 → 4 组 → 2 组 → 决赛 8 人</p>
+</div>
+
+<div class="flex justify-center gap-5 mb-4 text-xs text-hearth-dim">
+  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#34d399"></i> 进行中</span>
+  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#4e505a"></i> 已结束</span>
+  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
+</div>
+
+<div class="bracket-area" id="bracketArea">
+  <svg class="svg-layer" id="svgLayer"></svg>
+  <!-- rendered by JS -->
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── 数据（Phase 1: mock，Phase 2 接 API）──
+const GROUPS = {{ groups_json | safe }};
+
+// ── 布局常量 ──
+const CARD_W = 178, CARD_H = 252; // 28*8 + 28
+const COL_X = [40, 330, 620, 910, 1180];
+const AREA_W = 1500, AREA_H = 2100;
+
+const V_SPACE = AREA_H - 80;
+const R1_GAP = (V_SPACE - 8 * CARD_H) / 7;
+function r1Top(i) { return 40 + i * (CARD_H + R1_GAP); }
+function r1Mid(i) { return r1Top(i) + CARD_H / 2; }
+function r2Mid(i) { return (r1Mid(i*2) + r1Mid(i*2+1)) / 2; }
+function r2Top(i) { return r2Mid(i) - CARD_H / 2; }
+function r3Mid(i) { return (r2Mid(i*2) + r2Mid(i*2+1)) / 2; }
+function r3Top(i) { return r3Mid(i) - CARD_H / 2; }
+const finMid = (r3Mid(0) + r3Mid(1)) / 2;
+const finTop = finMid - CARD_H / 2;
+
+// ── 渲染 ──
+const $area = document.getElementById('bracketArea');
+
+function renderGroup(g, x, y, isFinal) {
+  const st = { live: '进行中', done: '已结束', waiting: '等待中' };
+  let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px" data-cx="${x+CARD_W}" data-cy="${y+CARD_H/2}" data-lx="${x}" data-ly="${y+CARD_H/2}">`;
+  h += `<div class="g-head"><span class="name">${g.label}组</span><span class="badge ${g.status}">${st[g.status]}</span></div>`;
+  g.players.forEach((p, i) => {
+    let cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
+    const pc = i===0?'g':i===1?'s':i===2?'b':'';
+    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${p.placement || (i+1)}</span>`;
+    h += `<span class="nm${p.empty ? ' empty' : ''}">${p.empty ? '待定' : p.name}</span>`;
+    if (p.points !== null) h += `<span class="pts">+${p.points}</span>`;
+    h += `</div>`;
+  });
+  return h + `</div>`;
+}
+
+let html = `<svg class="svg-layer" id="svgLayer"></svg>`;
+
+// Round titles
+html += `<div class="round-title" style="left:${COL_X[0]+CARD_W/2}px;top:12px">小组赛 第一轮</div>`;
+html += `<div class="round-title" style="left:${COL_X[1]+CARD_W/2}px;top:12px">淘汰赛 第二轮</div>`;
+html += `<div class="round-title" style="left:${COL_X[2]+CARD_W/2}px;top:12px">半决赛</div>`;
+html += `<div class="round-title gold" style="left:${COL_X[4]+CARD_W/2}px;top:12px">决赛⑧</div>`;
+
+// R1: 8 groups
+const r1 = GROUPS.round1;
+r1.forEach((g, i) => html += renderGroup(g, COL_X[0], r1Top(i)));
+// R2: 4 groups
+const r2 = GROUPS.round2;
+r2.forEach((g, i) => html += renderGroup(g, COL_X[1], r2Top(i)));
+// R3: 2 groups
+const r3 = GROUPS.round3;
+r3.forEach((g, i) => html += renderGroup(g, COL_X[2], r3Top(i)));
+// Final
+html += renderGroup(GROUPS.final, COL_X[4], finTop, true);
+
+$area.innerHTML = html;
+
+// ── SVG 连线 ──
+requestAnimationFrame(() => {
+  const svg = document.getElementById('svgLayer');
+  svg.setAttribute('viewBox', `0 0 ${AREA_W} ${AREA_H}`);
+  const cards = Array.from($area.querySelectorAll('.group-card'));
+  // card indices: R1=0-7, R2=8-11, R3=12-13, Final=14
+  function info(i) {
+    const el = cards[i];
+    return {
+      cx: parseFloat(el.dataset.cx), cy: parseFloat(el.dataset.cy),
+      lx: parseFloat(el.dataset.lx), ly: parseFloat(el.dataset.ly),
+      done: el.classList.contains('done')
+    };
+  }
+  let paths = '';
+  function line(x1,y1,x2,y2,on) {
+    const mx = (x1+x2)/2;
+    paths += `<path class="${on?'on':''}" d="M${x1},${y1} H${mx} V${y2} H${x2}"/>`;
+  }
+  // R1→R2
+  for (let i=0;i<4;i++) {
+    const a=info(i*2), b=info(i*2+1), t=info(8+i);
+    const on=a.done&&b.done;
+    line(a.cx,a.cy,t.lx,t.ly,on); line(b.cx,b.cy,t.lx,t.ly,on);
+  }
+  // R2→R3
+  for (let i=0;i<2;i++) {
+    const a=info(8+i*2), b=info(9+i*2), t=info(12+i);
+    const on=a.done&&b.done;
+    line(a.cx,a.cy,t.lx,t.ly,on); line(b.cx,b.cy,t.lx,t.ly,on);
+  }
+  // R3→Final
+  const a=info(12), b=info(13), t=info(14);
+  const on=a.done&&b.done;
+  line(a.cx,a.cy,t.lx,t.ly,on); line(b.cx,b.cy,t.lx,t.ly,on);
+  svg.innerHTML = paths;
+});
+</script>
+{% endblock %}
