@@ -1000,8 +1000,8 @@ def _build_bracket_data():
         return groups
 
     r2_groups = build_round(r1_groups, 2)
-    # 让 R2 前两组已结束（补上排名数据），后两组等待
-    for gi in range(min(2, len(r2_groups))):
+    # 让 R2 全部 4 组已结束（补上排名数据）
+    for gi in range(len(r2_groups)):
         g = r2_groups[gi]
         g['status'] = 'done'
         g['endedAt'] = '2026-04-21T21:00:00Z'
