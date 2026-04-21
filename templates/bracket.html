@@ -299,15 +299,17 @@ function renderCard(g, x, y, isFinal) {
   const labels = { active: '进行中', done: '已结束', waiting: '等待中' };
   let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
   h += `<div class="g-head"><span class="name">${g.label}</span><span class="badge ${g.status}">${labels[g.status] || g.status}</span></div>`;
+  const isWaiting = g.status === 'waiting';
   (g.players || []).forEach((p, i) => {
     const cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
-    const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
+    const pc = !isWaiting && i === 0 ? 'g' : !isWaiting && i === 1 ? 's' : !isWaiting && i === 2 ? 'b' : '';
+    const posText = isWaiting ? '' : (p.placement || (i + 1));
     const img = (!p.empty && p.heroCardId)
       ? `<div class="w-[22px] h-[22px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
       : '';
-    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${p.placement || (i + 1)}</span>${img}`;
+    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
     h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.name || '')}</span>`;
-    if (p.points != null) h += `<span class="pts">+${p.points}</span>`;
+    if (!isWaiting && p.points != null) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
   return h + `</div>`;
