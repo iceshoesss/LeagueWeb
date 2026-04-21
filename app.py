@@ -197,16 +197,19 @@ def inject_counts():
         active_count = 0
         player_count = 0
 
-    # 当前登录用户
+    # 当前登录用户 + 管理员标识
     current_user = None
+    is_admin_user = False
     battle_tag = session.get("battleTag")
     if battle_tag:
         current_user = {"battleTag": battle_tag, "displayName": session.get("displayName", battle_tag)}
+        is_admin_user = is_admin(battle_tag)
 
     return {
         "active_game_count": active_count,
         "total_player_count": player_count,
         "current_user": current_user,
+        "is_admin_user": is_admin_user,
         "site_name": SITE_NAME,
         "site_logo": SITE_LOGO,
         "web_version": WEB_VERSION,
@@ -915,6 +918,297 @@ def problems_page():
 @app.route("/guide")
 def guide_page():
     return render_template("guide.html")
+
+
+# ── 管理员面板 ────────────────────────────────────────
+
+def _admin_required():
+    """检查管理员权限，返回 battleTag 或 None"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag or not is_admin(battle_tag):
+        return None
+    return battle_tag
+
+
+def get_admin_stats():
+    """管理员面板统计数据"""
+    db = get_db()
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    total_players = db.league_players.count_documents({"verified": True})
+    total_matches = db.league_matches.count_documents({"endedAt": {"$ne": None}})
+    active_games = db.league_matches.count_documents({
+        "$and": [
+            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"startedAt": {"$gte": cutoff_str}}
+        ]
+    })
+    problem_matches = db.league_matches.count_documents({
+        "endedAt": {"$ne": None},
+        "$or": [
+            {"status": {"$in": ["timeout", "abandoned"]}},
+            {"$and": [
+                {"status": {"$exists": False}},
+                {"players": {"$elemMatch": {"placement": None}}}
+            ]}
+        ]
+    })
+    queue_count = db.league_queue.count_documents({})
+    waiting_groups = list(db.league_waiting_queue.find())
+    waiting_count = sum(len(g.get("players", [])) for g in waiting_groups)
+
+    return {
+        "totalPlayers": total_players,
+        "totalMatches": total_matches,
+        "activeGames": active_games,
+        "problemMatches": problem_matches,
+        "queueCount": queue_count,
+        "waitingCount": waiting_count,
+    }
+
+
+def get_admin_matches(page=1, per_page=20, status_filter="all"):
+    """管理员对局列表（包含所有状态：进行中、已完成、问题对局）"""
+    db = get_db()
+    query = {}
+
+    if status_filter == "active":
+        cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        query = {
+            "$and": [
+                {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+                {"startedAt": {"$gte": cutoff_str}}
+            ]
+        }
+    elif status_filter == "completed":
+        query = {
+            "$and": [
+                {"endedAt": {"$ne": None}},
+                {"$or": [{"status": {"$exists": False}}, {"status": "completed"}]},
+                {"players": {"$not": {"$elemMatch": {"placement": None}}}}
+            ]
+        }
+    elif status_filter == "problem":
+        query = {
+            "endedAt": {"$ne": None},
+            "$or": [
+                {"status": {"$in": ["timeout", "abandoned"]}},
+                {"$and": [
+                    {"status": {"$exists": False}},
+                    {"players": {"$elemMatch": {"placement": None}}}
+                ]}
+            ]
+        }
+    elif status_filter == "timeout":
+        query = {"status": "timeout"}
+    elif status_filter == "abandoned":
+        query = {"status": "abandoned"}
+
+    total = db.league_matches.count_documents(query)
+    matches = list(db.league_matches.find(query)
+                   .sort("startedAt", -1)
+                   .skip((page - 1) * per_page)
+                   .limit(per_page))
+
+    cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for m in matches:
+        m["_id"] = str(m["_id"])
+        m["startedAt"] = to_iso_str(m.get("startedAt"))
+        m["endedAt"] = to_iso_str(m.get("endedAt"))
+        m["matchId"] = (m.get("gameUuid") or "")[:8].upper()
+        m["players"] = sorted(m.get("players", []), key=lambda p: p.get("placement") or 999)
+        # 判断状态
+        is_active = (m.get("endedAt") is None or m.get("endedAt") == "") and m.get("startedAt", "") >= cutoff_str
+        m["isActive"] = is_active
+        m["statusLabel"] = (
+            "进行中" if is_active else
+            "超时" if m.get("status") == "timeout" else
+            "掉线" if m.get("status") == "abandoned" else
+            "已完成"
+        )
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    return matches, total, total_pages
+
+
+def get_admin_players(page=1, per_page=50, search=""):
+    """管理员选手列表"""
+    db = get_db()
+    query = {}
+    if search:
+        query = {"displayName": {"$regex": search, "$options": "i"}}
+
+    total = db.league_players.count_documents(query)
+    players = list(db.league_players.find(query)
+                   .sort("verifiedAt", -1)
+                   .skip((page - 1) * per_page)
+                   .limit(per_page))
+
+    for p in players:
+        p["_id"] = str(p["_id"])
+        p["verifiedAt"] = to_iso_str(p.get("verifiedAt"))
+        p["createdAt"] = to_iso_str(p.get("createdAt"))
+
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    return players, total, total_pages
+
+
+@app.route("/admin")
+def admin_page():
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return render_template("404.html", title="无权限", emoji="🔒", message="需要管理员权限"), 403
+
+    stats = get_admin_stats()
+    return render_template("admin.html", stats=stats, admin_tag=admin_tag)
+
+
+# ── 管理员 API ────────────────────────────────────────
+
+@app.route("/api/admin/stats")
+def api_admin_stats():
+    if not _admin_required():
+        return jsonify({"error": "需要管理员权限"}), 403
+    return jsonify(get_admin_stats())
+
+
+@app.route("/api/admin/matches")
+def api_admin_matches():
+    if not _admin_required():
+        return jsonify({"error": "需要管理员权限"}), 403
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    status_filter = request.args.get("status", "all")
+    matches, total, total_pages = get_admin_matches(page, per_page, status_filter)
+    return jsonify({"matches": matches, "total": total, "page": page, "totalPages": total_pages})
+
+
+@app.route("/api/admin/players")
+def api_admin_players():
+    if not _admin_required():
+        return jsonify({"error": "需要管理员权限"}), 403
+    page = request.args.get("page", 1, type=int)
+    search = request.args.get("search", "")
+    players, total, total_pages = get_admin_players(page, 50, search)
+    return jsonify({"players": players, "total": total, "page": page, "totalPages": total_pages})
+
+
+@app.route("/api/admin/match/<game_uuid>/force-end", methods=["POST"])
+def api_admin_force_end(game_uuid):
+    """管理员强制结束进行中对局（标记为 timeout）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+
+    if match.get("endedAt") not in (None, ""):
+        return jsonify({"error": "对局已结束"}), 400
+
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    db.league_matches.update_one(
+        {"gameUuid": game_uuid},
+        {"$set": {"endedAt": now_str, "status": "timeout"}}
+    )
+    log.info(f"管理员 {admin_tag} 强制结束对局 {game_uuid}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/match/<game_uuid>/force-abandon", methods=["POST"])
+def api_admin_force_abandon(game_uuid):
+    """管理员强制标记对局为掉线（保留已有 placement，未提交的保持 null）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+
+    if match.get("endedAt") not in (None, ""):
+        return jsonify({"error": "对局已结束"}), 400
+
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    db.league_matches.update_one(
+        {"gameUuid": game_uuid},
+        {"$set": {"endedAt": now_str, "status": "abandoned"}}
+    )
+    log.info(f"管理员 {admin_tag} 强制标记掉线 {game_uuid}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/queue/remove", methods=["POST"])
+def api_admin_queue_remove():
+    """管理员从报名队列踢人"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "缺少 name"}), 400
+
+    db = get_db()
+    result = db.league_queue.delete_one({"name": name})
+    if result.deleted_count == 0:
+        return jsonify({"error": "该玩家不在报名队列中"}), 404
+
+    log.info(f"管理员 {admin_tag} 踢出报名队列: {name}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/waiting/remove", methods=["POST"])
+def api_admin_waiting_remove():
+    """管理员从等待组踢人"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    if not name:
+        return jsonify({"error": "缺少 name"}), 400
+
+    db = get_db()
+    group = db.league_waiting_queue.find_one({"players.name": name})
+    if not group:
+        return jsonify({"error": "该玩家不在等待组中"}), 404
+
+    remaining = [p for p in group["players"] if p["name"] != name]
+    if remaining:
+        db.league_waiting_queue.update_one(
+            {"_id": group["_id"]},
+            {"$set": {"players": remaining}}
+        )
+    else:
+        db.league_waiting_queue.delete_one({"_id": group["_id"]})
+
+    log.info(f"管理员 {admin_tag} 踢出等待组: {name}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/admin/match/<game_uuid>/reset", methods=["POST"])
+def api_admin_reset_match(game_uuid):
+    """管理员重置对局状态：清除 endedAt/status，让对局回到进行中（用于误判超时的情况）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+
+    db.league_matches.update_one(
+        {"gameUuid": game_uuid},
+        {"$unset": {"endedAt": "", "status": ""}}
+    )
+    log.info(f"管理员 {admin_tag} 重置对局状态 {game_uuid}")
+    return jsonify({"ok": True})
 
 
 # ── API 路由 ──────────────────────────────────────────

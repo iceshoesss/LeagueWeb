@@ -1,0 +1,535 @@
+{% extends "base.html" %}
+{% block title %}管理面板 — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-xl font-bold text-hearth-gold">⚙️ 管理面板</h1>
+        <span class="text-xs text-hearth-dim">{{ admin_tag }}</span>
+    </div>
+
+    <!-- Tab 导航 -->
+    <div class="flex gap-1 mb-4 border-b border-hearth-border">
+        <button onclick="switchTab('dashboard')" data-tab="dashboard" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">总览</button>
+        <button onclick="switchTab('matches')" data-tab="matches" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">对局管理</button>
+        <button onclick="switchTab('players')" data-tab="players" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">选手管理</button>
+        <button onclick="switchTab('queue')" data-tab="queue" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">队列管理</button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  总览                                      -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-dashboard" class="tab-panel">
+        <!-- 数据卡片 -->
+        <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">注册选手</div>
+                <div class="text-2xl font-bold text-hearth-gold" id="stat-players">{{ stats.totalPlayers }}</div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">已完成对局</div>
+                <div class="text-2xl font-bold text-hearth-gold" id="stat-matches">{{ stats.totalMatches }}</div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">进行中</div>
+                <div class="text-2xl font-bold text-green-400" id="stat-active">{{ stats.activeGames }}</div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">问题对局</div>
+                <div class="text-2xl font-bold {% if stats.problemMatches > 0 %}text-red-400{% else %}text-hearth-dim{% endif %}" id="stat-problems">{{ stats.problemMatches }}</div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">报名队列</div>
+                <div class="text-2xl font-bold text-hearth-gold" id="stat-queue">{{ stats.queueCount }}</div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border p-4">
+                <div class="text-xs text-hearth-dim mb-1">等待组</div>
+                <div class="text-2xl font-bold text-hearth-gold" id="stat-waiting">{{ stats.waitingCount }}</div>
+            </div>
+        </div>
+
+        <!-- 快速操作 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+                <div class="px-5 py-3 border-b border-hearth-border">
+                    <h3 class="text-sm font-bold text-hearth-gold">⚠️ 问题对局</h3>
+                </div>
+                <div id="dashboard-problems" class="divide-y divide-hearth-border">
+                    <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+                </div>
+            </div>
+            <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+                <div class="px-5 py-3 border-b border-hearth-border flex items-center gap-2">
+                    <span class="active-pulse text-green-400">⚔️</span>
+                    <h3 class="text-sm font-bold text-hearth-gold">进行中对局</h3>
+                </div>
+                <div id="dashboard-active" class="divide-y divide-hearth-border">
+                    <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  对局管理                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-matches" class="tab-panel hidden">
+        <!-- 筛选 -->
+        <div class="flex items-center gap-2 mb-3">
+            <select id="match-status-filter" onchange="matchPage=1;loadMatches()"
+                class="bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                <option value="all">全部状态</option>
+                <option value="active">⚔️ 进行中</option>
+                <option value="completed">✅ 已完成</option>
+                <option value="problem">⚠️ 问题对局</option>
+                <option value="timeout">⏰ 超时</option>
+                <option value="abandoned">🔌 掉线</option>
+            </select>
+            <button onclick="loadMatches()" class="px-3 py-1.5 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">刷新</button>
+            <span class="text-xs text-hearth-dim ml-auto" id="match-total"></span>
+        </div>
+
+        <!-- 对局列表 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
+                            <th class="px-4 py-3 text-left">对局</th>
+                            <th class="px-4 py-3 text-left">时间</th>
+                            <th class="px-4 py-3 text-left">状态</th>
+                            <th class="px-4 py-3 text-left">玩家</th>
+                            <th class="px-4 py-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="matches-tbody" class="divide-y divide-hearth-border/50">
+                    </tbody>
+                </table>
+            </div>
+            <div id="matches-pager" class="px-4 py-3 flex items-center justify-center gap-1"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  选手管理                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-players" class="tab-panel hidden">
+        <div class="flex items-center gap-2 mb-3">
+            <input type="text" id="player-search-input" placeholder="搜索选手..." oninput="playerPage=1;loadPlayers()"
+                class="w-64 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+            <span class="text-xs text-hearth-dim ml-auto" id="player-total"></span>
+        </div>
+
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
+                            <th class="px-4 py-3 text-left">BattleTag</th>
+                            <th class="px-4 py-3 text-left">accountIdLo</th>
+                            <th class="px-4 py-3 text-left">注册时间</th>
+                            <th class="px-4 py-3 text-left">最近活跃</th>
+                        </tr>
+                    </thead>
+                    <tbody id="players-tbody" class="divide-y divide-hearth-border/50">
+                    </tbody>
+                </table>
+            </div>
+            <div id="players-pager" class="px-4 py-3 flex items-center justify-center gap-1"></div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  队列管理                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-queue" class="tab-panel hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <!-- 报名队列 -->
+            <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+                <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-hearth-gold">📋 报名队列</h3>
+                    <span class="text-xs text-hearth-dim" id="admin-queue-count">0 人</span>
+                </div>
+                <div id="admin-queue-list" class="divide-y divide-hearth-border">
+                    <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+                </div>
+            </div>
+            <!-- 等待组 -->
+            <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+                <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-hearth-gold">⏳ 等待组</h3>
+                </div>
+                <div id="admin-waiting-list" class="divide-y divide-hearth-border">
+                    <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Tab 切换 ──────────────────────────────────────
+let currentTab = 'dashboard';
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-panel').forEach(el => el.classList.add('hidden'));
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        const active = btn.dataset.tab === tab;
+        btn.classList.toggle('text-hearth-gold', active);
+        btn.classList.toggle('bg-hearth-gold/10', active);
+        btn.classList.toggle('text-hearth-dim', !active);
+    });
+    // 懒加载
+    if (tab === 'matches' && !matchesLoaded) loadMatches();
+    if (tab === 'players' && !playersLoaded) loadPlayers();
+    if (tab === 'queue' && !queueLoaded) loadQueue();
+}
+switchTab('dashboard');
+
+// ── 总览：快速加载问题 + 进行中 ──────────────────
+async function loadDashboard() {
+    try {
+        // 问题对局
+        const pRes = await fetch('/api/admin/matches?status=problem&per_page=5');
+        const pData = await pRes.json();
+        const pList = document.getElementById('dashboard-problems');
+        if (pData.matches && pData.matches.length) {
+            pList.innerHTML = pData.matches.map(m => `
+                <a href="/match/${m.gameUuid}/edit" class="flex items-center justify-between px-5 py-3 hover:bg-white/5 transition">
+                    <div>
+                        <span class="text-xs text-hearth-dim">#${m.matchId}</span>
+                        <span class="text-xs ml-2">${m.startedAt ? new Date(m.startedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : ''}</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded ${m.statusLabel === '超时' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-orange-500/20 text-orange-300'}">${m.statusLabel}</span>
+                </a>
+            `).join('');
+        } else {
+            pList.innerHTML = '<div class="px-5 py-4 text-center text-sm text-hearth-dim">🎉 没有问题对局</div>';
+        }
+
+        // 进行中
+        const aRes = await fetch('/api/admin/matches?status=active&per_page=5');
+        const aData = await aRes.json();
+        const aList = document.getElementById('dashboard-active');
+        if (aData.matches && aData.matches.length) {
+            aList.innerHTML = aData.matches.map(m => {
+                const elapsed = Math.floor((Date.now() / 1000) - new Date(m.startedAt + 'Z').getTime() / 1000);
+                const mins = Math.floor(elapsed / 60);
+                const secs = elapsed % 60;
+                const submitted = m.players.filter(p => p.placement != null).length;
+                return `<div class="px-5 py-3">
+                    <div class="flex items-center justify-between mb-1">
+                        <a href="/match/${m.gameUuid}" class="text-xs text-hearth-dim hover:text-hearth-gold">#${m.matchId}</a>
+                        <span class="text-xs text-hearth-gold font-mono">${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-hearth-dim">${m.players.map(p => p.displayName || '?').join(', ')}</span>
+                        <span class="text-xs text-hearth-dim">${submitted}/8 已提交</span>
+                    </div>
+                    <div class="flex gap-1 mt-2">
+                        <button onclick="forceEnd('${m.gameUuid}', 'timeout')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition">标记超时</button>
+                        <button onclick="forceEnd('${m.gameUuid}', 'abandon')" class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition">标记掉线</button>
+                        <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>
+                    </div>
+                </div>`;
+            }).join('');
+        } else {
+            aList.innerHTML = '<div class="px-5 py-4 text-center text-sm text-hearth-dim">暂无进行中对局</div>';
+        }
+
+        // 刷新统计数字
+        const sRes = await fetch('/api/admin/stats');
+        const s = await sRes.json();
+        document.getElementById('stat-players').textContent = s.totalPlayers;
+        document.getElementById('stat-matches').textContent = s.totalMatches;
+        document.getElementById('stat-active').textContent = s.activeGames;
+        const sp = document.getElementById('stat-problems');
+        sp.textContent = s.problemMatches;
+        sp.classList.toggle('text-red-400', s.problemMatches > 0);
+        sp.classList.toggle('text-hearth-dim', s.problemMatches === 0);
+        document.getElementById('stat-queue').textContent = s.queueCount;
+        document.getElementById('stat-waiting').textContent = s.waitingCount;
+    } catch (e) {
+        console.error('Dashboard load error:', e);
+    }
+}
+loadDashboard();
+
+// ── 对局管理 ──────────────────────────────────────
+let matchPage = 1;
+let matchesLoaded = false;
+
+async function loadMatches() {
+    matchesLoaded = true;
+    const status = document.getElementById('match-status-filter').value;
+    try {
+        const res = await fetch(`/api/admin/matches?page=${matchPage}&status=${status}&per_page=20`);
+        const data = await res.json();
+        const tbody = document.getElementById('matches-tbody');
+        document.getElementById('match-total').textContent = `共 ${data.total} 条`;
+
+        if (!data.matches || !data.matches.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-hearth-dim">无数据</td></tr>';
+            document.getElementById('matches-pager').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = data.matches.map(m => {
+            const playerNames = m.players.map(p => {
+                const name = p.displayName || '?';
+                const placed = p.placement != null;
+                return `<span class="${placed ? '' : 'text-red-400/70'}">${name}</span>`;
+            }).join(', ');
+
+            const statusBadge = m.isActive
+                ? '<span class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 active-pulse">进行中</span>'
+                : m.statusLabel === '超时'
+                ? '<span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>'
+                : m.statusLabel === '掉线'
+                ? '<span class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300">掉线</span>'
+                : '<span class="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-500/60">完成</span>';
+
+            let actions = `<a href="/match/${m.gameUuid}" class="text-xs px-2 py-0.5 rounded bg-white/5 text-hearth-dim hover:text-hearth-gold transition">详情</a>`;
+
+            if (m.isActive) {
+                actions += ` <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
+                actions += ` <button onclick="forceEnd('${m.gameUuid}', 'timeout')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition">超时</button>`;
+                actions += ` <button onclick="forceEnd('${m.gameUuid}', 'abandon')" class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition">掉线</button>`;
+            } else if (m.statusLabel === '超时' || m.statusLabel === '掉线') {
+                actions += ` <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
+                actions += ` <button onclick="resetMatch('${m.gameUuid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">重置</button>`;
+            }
+            actions += ` <button onclick="deleteMatch('${m.gameUuid}', '${m.matchId}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">删除</button>`;
+
+            return `<tr class="hover:bg-white/5 transition">
+                <td class="px-4 py-3 font-mono text-xs text-hearth-dim">#${m.matchId}</td>
+                <td class="px-4 py-3 text-xs whitespace-nowrap">${m.startedAt ? new Date(m.startedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
+                <td class="px-4 py-3">${statusBadge}</td>
+                <td class="px-4 py-3 text-xs truncate max-w-xs">${playerNames}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">${actions}</td>
+            </tr>`;
+        }).join('');
+
+        // 分页
+        renderPager('matches-pager', data.page, data.totalPages, 'gotoMatchPage');
+    } catch (e) {
+        console.error('Load matches error:', e);
+    }
+}
+
+// ── 选手管理 ──────────────────────────────────────
+let playerPage = 1;
+let playersLoaded = false;
+
+async function loadPlayers() {
+    playersLoaded = true;
+    const search = document.getElementById('player-search-input').value;
+    try {
+        const res = await fetch(`/api/admin/players?page=${playerPage}&search=${encodeURIComponent(search)}`);
+        const data = await res.json();
+        const tbody = document.getElementById('players-tbody');
+        document.getElementById('player-total').textContent = `共 ${data.total} 人`;
+
+        if (!data.players || !data.players.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-hearth-dim">无数据</td></tr>';
+            document.getElementById('players-pager').innerHTML = '';
+            return;
+        }
+
+        tbody.innerHTML = data.players.map(p => {
+            return `<tr class="hover:bg-white/5 transition">
+                <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.displayName || p.battleTag}</a></td>
+                <td class="px-4 py-3 font-mono text-xs text-hearth-dim">${p.accountIdLo || '-'}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${p.createdAt ? new Date(p.createdAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
+                <td class="px-4 py-3 text-xs text-hearth-dim">${p.verifiedAt ? new Date(p.verifiedAt).toLocaleString('zh-CN', {timeZone:'Asia/Shanghai'}) : '-'}</td>
+            </tr>`;
+        }).join('');
+
+        renderPager('players-pager', data.page, data.totalPages, 'gotoPlayerPage');
+    } catch (e) {
+        console.error('Load players error:', e);
+    }
+}
+
+// ── 队列管理 ──────────────────────────────────────
+let queueLoaded = false;
+let queueEs = null, waitingEs = null;
+
+async function loadQueue() {
+    queueLoaded = true;
+    try {
+        const [qRes, wRes] = await Promise.all([
+            fetch('/api/queue'),
+            fetch('/api/waiting-queue'),
+        ]);
+        renderAdminQueue(await qRes.json());
+        renderAdminWaiting(await wRes.json());
+    } catch (e) {
+        console.error('Load queue error:', e);
+    }
+}
+
+function renderAdminQueue(data) {
+    const list = document.getElementById('admin-queue-list');
+    document.getElementById('admin-queue-count').textContent = `${data.length} 人`;
+    if (!data.length) {
+        list.innerHTML = '<div class="px-5 py-4 text-center text-sm text-hearth-dim">暂无报名</div>';
+        return;
+    }
+    list.innerHTML = data.map((q, i) => `
+        <div class="flex items-center justify-between px-5 py-2.5 text-sm">
+            <div class="flex items-center gap-3">
+                <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
+                <span>${q.name}</span>
+            </div>
+            <button onclick="adminQueueRemove('${q.name}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">踢出</button>
+        </div>
+    `).join('');
+}
+
+function renderAdminWaiting(data) {
+    const container = document.getElementById('admin-waiting-list');
+    if (!data.length) {
+        container.innerHTML = '<div class="px-5 py-4 text-center text-sm text-hearth-dim">暂无等待组</div>';
+        return;
+    }
+    container.innerHTML = data.map((g, gi) => {
+        const players = (g.players || []).map((p, pi) => `
+            <div class="flex items-center justify-between px-5 py-2 text-sm">
+                <div class="flex items-center gap-2">
+                    <span class="text-hearth-dim font-mono w-5 text-right">${pi + 1}</span>
+                    <span>${p.name}</span>
+                    ${p.accountIdLo ? `<span class="text-xs text-hearth-dim font-mono">(${p.accountIdLo})</span>` : ''}
+                </div>
+                <button onclick="adminWaitingRemove('${p.name}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">踢出</button>
+            </div>
+        `).join('');
+        return `<div>
+            <div class="px-5 py-2 bg-white/5 text-xs text-hearth-dim font-medium">组 #${gi + 1} (${(g.players || []).length}/8)</div>
+            ${players}
+        </div>`;
+    }).join('');
+}
+
+// SSE 队列实时更新
+function connectAdminQueue() {
+    if (queueEs) queueEs.close();
+    queueEs = new EventSource('/api/events/queue');
+    queueEs.onmessage = e => { try { renderAdminQueue(JSON.parse(e.data)); } catch(ex) {} };
+}
+function connectAdminWaiting() {
+    if (waitingEs) waitingEs.close();
+    waitingEs = new EventSource('/api/events/waiting-queue');
+    waitingEs.onmessage = e => { try { renderAdminWaiting(JSON.parse(e.data)); } catch(ex) {} };
+}
+
+// Tab 切换到队列时才连 SSE
+const origSwitchTab = switchTab;
+switchTab = function(tab) {
+    origSwitchTab(tab);
+    if (tab === 'queue') { connectAdminQueue(); connectAdminWaiting(); }
+    else { queueEs?.close(); waitingEs?.close(); }
+};
+
+// ── 操作 ──────────────────────────────────────────
+
+async function forceEnd(gameUuid, type) {
+    const label = type === 'timeout' ? '超时' : '掉线';
+    if (!confirm(`确定将此对局标记为${label}？`)) return;
+    const endpoint = type === 'timeout' ? 'force-end' : 'force-abandon';
+    try {
+        const res = await fetch(`/api/admin/match/${gameUuid}/${endpoint}`, { method: 'POST' });
+        if (res.ok) {
+            loadDashboard();
+            if (matchesLoaded) loadMatches();
+        } else {
+            const d = await res.json();
+            alert(d.error || '操作失败');
+        }
+    } catch (e) { alert('网络错误'); }
+}
+
+async function resetMatch(gameUuid) {
+    if (!confirm('确定重置此对局？将清除结束状态，回到进行中。')) return;
+    try {
+        const res = await fetch(`/api/admin/match/${gameUuid}/reset`, { method: 'POST' });
+        if (res.ok) {
+            loadDashboard();
+            if (matchesLoaded) loadMatches();
+        } else {
+            const d = await res.json();
+            alert(d.error || '操作失败');
+        }
+    } catch (e) { alert('网络错误'); }
+}
+
+async function deleteMatch(gameUuid, matchId) {
+    if (!confirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销。`)) return;
+    try {
+        const res = await fetch(`/api/match/${gameUuid}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadDashboard();
+            if (matchesLoaded) loadMatches();
+        } else {
+            const d = await res.json();
+            alert(d.error || '删除失败');
+        }
+    } catch (e) { alert('网络错误'); }
+}
+
+async function adminQueueRemove(name) {
+    if (!confirm(`确定将 ${name} 踢出报名队列？`)) return;
+    try {
+        await fetch('/api/admin/queue/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+    } catch (e) { alert('操作失败'); }
+}
+
+async function adminWaitingRemove(name) {
+    if (!confirm(`确定将 ${name} 踢出等待组？`)) return;
+    try {
+        await fetch('/api/admin/waiting/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+    } catch (e) { alert('操作失败'); }
+}
+
+function gotoMatchPage(p) { matchPage = p; loadMatches(); }
+function gotoPlayerPage(p) { playerPage = p; loadPlayers(); }
+
+// ── 通用分页 ──────────────────────────────────────
+function renderPager(containerId, current, total, callbackName) {
+    const el = document.getElementById(containerId);
+    if (total <= 1) { el.innerHTML = ''; return; }
+    let btns = `<button onclick="${callbackName}(${current - 1})" ${current <= 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${current <= 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    let start = Math.max(1, current - 3), end = Math.min(total, current + 3);
+    if (start > 1) btns += `<button onclick="${callbackName}(1)" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">1</button>`;
+    if (start > 2) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    for (let p = start; p <= end; p++) {
+        const active = p === current;
+        btns += `<button onclick="${callbackName}(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    if (end < total - 1) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    if (end < total) btns += `<button onclick="${callbackName}(${total})" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">${total}</button>`;
+    btns += `<button onclick="${callbackName}(${current + 1})" ${current >= total ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${current >= total ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    el.innerHTML = btns;
+}
+
+// 页面不可见时关闭 SSE
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { queueEs?.close(); waitingEs?.close(); }
+    else if (currentTab === 'queue') { connectAdminQueue(); connectAdminWaiting(); }
+});
+
+// 定时刷新总览（30s）
+setInterval(() => { if (currentTab === 'dashboard') loadDashboard(); }, 30000);
+</script>
+{% endblock %}
