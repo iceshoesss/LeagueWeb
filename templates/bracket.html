@@ -298,7 +298,8 @@ function traceDest(flat, srcRi, si, dstRi) {
 function renderCard(g, x, y, isFinal) {
   const labels = { active: '进行中', done: '已结束', waiting: '等待中' };
   let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
-  h += `<div class="g-head"><span class="name">${g.label}</span><span class="badge ${g.status}">${labels[g.status] || g.status}</span></div>`;
+  const boInfo = (g.boN && g.boN > 1) ? ` BO${g.boN} 第${g.gamesPlayed || 0}/${g.boN}局` : '';
+  h += `<div class="g-head"><span class="name">${g.label}${boInfo}</span><span class="badge ${g.status}">${labels[g.status] || g.status}</span></div>`;
   const isWaiting = g.status === 'waiting';
   (g.players || []).forEach((p, i) => {
     const cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
