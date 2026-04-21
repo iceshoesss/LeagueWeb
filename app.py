@@ -883,17 +883,28 @@ def index():
 
 
 def _build_bracket_data():
-    """构建对阵图 mock 数据（Phase 1），Phase 2 改为从 tournament_groups 读取"""
+    """构建对阵图 mock 数据（Phase 1），Phase 2 改为从 tournament_groups 读取
+
+    数据结构：
+    { "tournaments": [
+        { "name": "赛事名", "rounds": [
+            { "label": "轮次名", "groups": [
+                { "label": "组名", "status": "done|live|waiting",
+                  "feedsInto": 0,        # 下一轮目标组索引（R1/R2 有，末轮无）
+                  "players": [...] }
+            ]}
+        ]}
+    ]}
+    """
     names = ['衣锦夜行','瓦莉拉','雷克萨','古尔丹','吉安娜','萨尔','乌瑟尔','玛法里奥']
     tags = ['#1001','#1002','#1003','#1004','#1005','#1006','#1007','#1008']
     hero_ids = ['TB_BaconShop_HERO_56','TB_BaconShop_HERO_02','TB_BaconShop_HERO_22',
                 'TB_BaconShop_HERO_19','TB_BaconShop_HERO_01','TB_BaconShop_HERO_08',
                 'TB_BaconShop_HERO_13','TB_BaconShop_HERO_36']
 
-    def mk_group(label, status, qual_count=0):
+    def mk_players(qual_count=0, done=False):
         players = []
         for i, nm in enumerate(names):
-            done = status == 'done'
             qual = done and i < qual_count
             players.append({
                 'name': nm,
@@ -906,48 +917,96 @@ def _build_bracket_data():
                 'eliminated': done and not qual,
                 'empty': False
             })
-        return {'label': label, 'status': status, 'players': players}
+        return players
 
-    def empty_group(label):
-        return {
-            'label': label, 'status': 'waiting',
-            'players': [{'name': '待定', 'battleTag': None, 'heroCardId': None, 'heroName': '',
-                         'placement': None, 'points': None,
-                         'qualified': False, 'eliminated': False, 'empty': True}] * 8
-        }
+    def empty_players():
+        return [{'name': '待定', 'battleTag': None, 'heroCardId': None, 'heroName': '',
+                 'placement': None, 'points': None,
+                 'qualified': False, 'eliminated': False, 'empty': True}] * 8
 
-    # R1: 8 groups — 前2组已结束, 3-4进行中, 5-8等待
-    round1 = [
-        mk_group('1', 'done', 4), mk_group('2', 'done', 4),
-        mk_group('3', 'live'), mk_group('4', 'live'),
-        mk_group('5', 'waiting'), mk_group('6', 'waiting'),
-        mk_group('7', 'waiting'), mk_group('8', 'waiting'),
+    def mk_group(label, status, feeds_into=None, players=None):
+        g = {'label': label, 'status': status, 'players': players or empty_players()}
+        if feeds_into is not None:
+            g['feedsInto'] = feeds_into
+        return g
+
+    # ── 赛事 1：8 组标准赛 ──
+    r1_groups = [
+        mk_group('A1 组', 'done', 0, mk_players(4, True)),
+        mk_group('A2 组', 'done', 0, mk_players(4, True)),
+        mk_group('B1 组', 'done', 1, mk_players(4, True)),
+        mk_group('B2 组', 'done', 1, mk_players(4, True)),
+        mk_group('C1 组', 'live', 2, mk_players()),
+        mk_group('C2 组', 'live', 2, mk_players()),
+        mk_group('D1 组', 'waiting', 3),
+        mk_group('D2 组', 'waiting', 3),
     ]
 
-    # R2: 4 groups — 仅第一组有数据（来自 R1 前两组的晋级者）
-    def build_r2(idx):
-        a, b = round1[idx * 2], round1[idx * 2 + 1]
-        if a['status'] != 'done' or b['status'] != 'done':
-            return empty_group(str(idx + 1))
-        quals = [dict(p, placement=None, points=None, qualified=False, eliminated=False)
-                 for p in a['players'] + b['players'] if p['qualified']]
-        while len(quals) < 8:
-            quals.append({'name': '待定', 'battleTag': None, 'heroCardId': None, 'heroName': '',
-                          'placement': None, 'points': None,
-                          'qualified': False, 'eliminated': False, 'empty': True})
-        return {'label': str(idx + 1), 'status': 'waiting', 'players': quals}
+    def build_next_round(prev_groups, round_label_prefix):
+        """根据上一轮 feedsInto 分组，构建下一轮"""
+        # 按 feedsInto 分桶
+        buckets = {}
+        for g in prev_groups:
+            fi = g.get('feedsInto')
+            if fi is None:
+                continue
+            buckets.setdefault(fi, []).append(g)
 
-    round2 = [build_r2(i) for i in range(4)]
-    round3 = [empty_group('1'), empty_group('2')]
-    final = {**empty_group('决赛'), 'label': '决赛', 'status': 'waiting'}
+        groups = []
+        for key in sorted(buckets.keys()):
+            srcs = buckets[key]
+            label = f'{round_label_prefix}{key + 1} 组'
+            # 检查两组是否都已完成
+            if all(s['status'] == 'done' for s in srcs):
+                # 提取晋级玩家
+                quals = []
+                for s in srcs:
+                    for p in s['players']:
+                        if p.get('qualified'):
+                            quals.append(dict(p, placement=None, points=None,
+                                            qualified=False, eliminated=False))
+                while len(quals) < 8:
+                    quals.append({'name': '待定', 'battleTag': None, 'heroCardId': None,
+                                'heroName': '', 'placement': None, 'points': None,
+                                'qualified': False, 'eliminated': False, 'empty': True})
+                # 这组还未开始
+                groups.append(mk_group(label, 'waiting', key if len(buckets) > 1 else None, quals))
+            else:
+                groups.append(mk_group(label, 'waiting', key if len(buckets) > 1 else None))
+        return groups
 
-    return {'round1': round1, 'round2': round2, 'round3': round3, 'final': final}
+    r2_groups = build_next_round(r1_groups, '')
+    # 给 R2 的 feedsInto 编号（R2 两两合一组到 R3）
+    for i, g in enumerate(r2_groups):
+        g['feedsInto'] = i // 2
+
+    r3_groups = build_next_round(r2_groups, '')
+    for i, g in enumerate(r3_groups):
+        g['feedsInto'] = 0
+
+    # 决赛
+    final_groups = build_next_round(r3_groups, '决赛')
+    for g in final_groups:
+        g['label'] = '决赛'
+        g.pop('feedsInto', None)
+
+    tournament1 = {
+        'name': '2026 春季赛',
+        'rounds': [
+            {'label': '小组赛', 'groups': r1_groups},
+            {'label': '第二轮', 'groups': r2_groups},
+            {'label': '半决赛', 'groups': r3_groups},
+            {'label': '决赛', 'groups': final_groups},
+        ]
+    }
+
+    return {'tournaments': [tournament1]}
 
 
 @app.route("/bracket")
 def bracket_page():
-    groups = _build_bracket_data()
-    return render_template("bracket.html", groups_json=json.dumps(groups, ensure_ascii=False))
+    data = _build_bracket_data()
+    return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
 @app.route("/player/<path:battle_tag>")

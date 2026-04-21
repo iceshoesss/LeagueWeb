@@ -4,11 +4,10 @@
 
 {% block head %}
 <style>
+  .bracket-scroll { overflow-x: auto; padding-bottom: 12px; }
+
   .bracket-area {
     position: relative;
-    width: 100%;
-    min-width: 1600px;
-    height: 2760px;
     margin: 0 auto;
   }
   .svg-layer {
@@ -29,10 +28,10 @@
   }
   .round-title.gold { color: #e2b714; border-color: rgba(226,183,20,0.4); }
 
-  /* ── 小组卡片：复用站点主题 ── */
+  /* ── 小组卡片 ── */
   .group-card {
     position: absolute;
-    width: 200px; z-index: 1;
+    z-index: 1;
     background: #16213e;
     border: 1px solid rgba(226,183,20,0.3);
     border-radius: 0.75rem;
@@ -48,7 +47,6 @@
     box-shadow: 0 0 18px rgba(226,183,20,0.06);
   }
 
-  /* ── 组头 ── */
   .g-head {
     display: flex; align-items: center; justify-content: space-between;
     padding: 7px 12px;
@@ -58,13 +56,11 @@
   }
   .g-head .name { color: #e2b714; }
 
-  /* ── 状态标签 ── */
   .badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
   .badge.live    { background: rgba(52,211,153,0.14); color: #34d399; }
   .badge.done    { background: rgba(139,139,158,0.1); color: #8b8b9e; }
   .badge.waiting { background: rgba(226,183,20,0.1);  color: #c9a84c; }
 
-  /* ── 玩家行 ── */
   .p-row {
     display: flex; align-items: center;
     padding: 0 10px; height: 38px; font-size: 12.5px; color: #d1d5db;
@@ -90,7 +86,7 @@
 {% block content %}
 <div class="text-center mb-4">
   <h1 class="text-2xl font-bold text-hearth-gold tracking-wide">🍺 {{ site_name }} · 淘汰赛对阵图</h1>
-  <p class="text-hearth-dim text-sm mt-1">64 人单淘 — 8 组 → 4 组 → 2 组 → 决赛 8 人</p>
+  <p class="text-hearth-dim text-sm mt-1">单淘赛制 — 每组前 4 名晋级</p>
 </div>
 
 <div class="flex justify-center gap-5 mb-4 text-xs text-hearth-dim">
@@ -99,114 +95,180 @@
   <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
 </div>
 
-<div class="bracket-area" id="bracketArea">
-  <svg class="svg-layer" id="svgLayer"></svg>
-  <!-- rendered by JS -->
-</div>
-
+<div id="brackets-container"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// ── 数据（Phase 1: mock，Phase 2 接 API）──
-const GROUPS = {{ groups_json | safe }};
+const DATA = {{ data_json | safe }};
 
-// ── 布局常量 ──
+/* ── 常量 ── */
+const HEADER_H = 34;
+const ROW_H = 38;
+const PLAYER_ROWS = 8;
 const CARD_W = 200;
-const HEADER_H = 34;                    // g-head 高度
-const ROW_H = 38;                       // p-row 高度
-const CARD_H = HEADER_H + 8 * ROW_H;   // 34 + 304 = 338
-const COL_X = [30, 290, 570, 870, 1100];
-const AREA_W = 1600, AREA_H = 2760;
+const CARD_H = HEADER_H + PLAYER_ROWS * ROW_H;   // 338
+const COL_GAP = 60;        // 轮次列间距
+const PAD_TOP = 50;        // 顶部留白（给 round title）
+const PAD_LEFT = 30;
+const R1_MIN_GAP = 20;     // R1 卡片最小间距
 
-// ── 垂直布局：R1 均匀分布，后续轮次居中 ──
-const R1_GAP = (AREA_H - 80 - 8 * CARD_H) / 7; // ≈40px
-function r1Top(i) { return 40 + i * (CARD_H + R1_GAP); }
-function r1Mid(i) { return r1Top(i) + CARD_H / 2; }
-function r2Mid(i) { return (r1Mid(i*2) + r1Mid(i*2+1)) / 2; }
-function r2Top(i) { return r2Mid(i) - CARD_H / 2; }
-function r3Mid(i) { return (r2Mid(i*2) + r2Mid(i*2+1)) / 2; }
-function r3Top(i) { return r3Mid(i) - CARD_H / 2; }
-const finMid = (r3Mid(0) + r3Mid(1)) / 2;
-const finTop = finMid - CARD_H / 2;
+/* ── 渲染单个赛事 ── */
+function renderTournament(t) {
+  const rounds = t.rounds;
+  const numRounds = rounds.length;
+  if (!numRounds) return '';
 
-// ── 渲染 ──
-const $area = document.getElementById('bracketArea');
+  // 找出 R1 最多有几组，决定垂直空间
+  const r1Count = rounds[0].groups.length;
 
-function renderGroup(g, x, y, isFinal) {
+  // 估算区域高度：保证间距至少 R1_MIN_GAP
+  const naturalH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * R1_MIN_GAP + 30;
+  const AREA_H = Math.max(naturalH, 600);
+
+  // R1 垂直位置
+  const r1Gap = r1Count > 1 ? (AREA_H - PAD_TOP - 30 - r1Count * CARD_H) / (r1Count - 1) : 0;
+  function r1Top(i) { return PAD_TOP + i * (CARD_H + r1Gap); }
+  function r1Mid(i) { return r1Top(i) + CARD_H / 2; }
+
+  // 区域宽度
+  const AREA_W = PAD_LEFT + numRounds * CARD_W + (numRounds - 1) * COL_GAP + 50;
+
+  // 每轮的 x 坐标
+  function colX(ri) { return PAD_LEFT + ri * (CARD_W + COL_GAP); }
+
+  // ── 收集所有 group 卡片信息（含 DOM 定位）──
+  // flat[roundIndex][groupIndex] = { top, cy, cx, lx, status }
+  const flat = [];
+
+  // R1: 均匀分布
+  flat[0] = rounds[0].groups.map((g, i) => ({
+    ...g, top: r1Top(i), cy: r1Mid(i),
+    cx: colX(0) + CARD_W, lx: colX(0)
+  }));
+
+  // R2+: 根据 feedsInto 定位到父组中点
+  for (let ri = 1; ri < numRounds; ri++) {
+    const groups = rounds[ri].groups;
+    flat[ri] = groups.map((g, gi) => {
+      // 找上一轮 feedsInto==gi 的组
+      const parents = flat[ri - 1].filter(p => p.feedsInto === gi);
+      let cy;
+      if (parents.length >= 2) {
+        cy = (parents[0].cy + parents[parents.length - 1].cy) / 2;
+      } else if (parents.length === 1) {
+        cy = parents[0].cy;
+      } else {
+        // fallback: 均匀分布
+        const gap = r1Gap;
+        cy = PAD_TOP + gi * (CARD_H + gap) + CARD_H / 2;
+      }
+      return { ...g, top: cy - CARD_H / 2, cy, cx: colX(ri) + CARD_W, lx: colX(ri) };
+    });
+  }
+
+  // ── 渲染 HTML ──
+  let html = `<div class="bracket-scroll"><div class="bracket-area" style="width:${AREA_W}px;height:${AREA_H}px">`;
+  html += `<svg class="svg-layer" data-area-w="${AREA_W}" data-area-h="${AREA_H}"></svg>`;
+
+  // Round titles
+  for (let ri = 0; ri < numRounds; ri++) {
+    const isLast = ri === numRounds - 1;
+    const label = rounds[ri].label || `第 ${ri + 1} 轮`;
+    html += `<div class="round-title${isLast ? ' gold' : ''}" style="left:${colX(ri) + CARD_W / 2}px;top:12px">${label}</div>`;
+  }
+
+  // Group cards
+  for (let ri = 0; ri < numRounds; ri++) {
+    flat[ri].forEach((g, gi) => {
+      const isFinal = ri === numRounds - 1 && rounds[ri].groups.length === 1;
+      html += renderCard(g, colX(ri), g.top, isFinal);
+    });
+  }
+
+  html += `</div></div>`;
+
+  // ── 延迟画 SVG 连线 ──
+  requestAnimationFrame(() => drawLines(flat, numRounds));
+
+  return html;
+}
+
+/* ── 渲染单个卡片 ── */
+function renderCard(g, x, y, isFinal) {
   const st = { live: '进行中', done: '已结束', waiting: '等待中' };
-  // data-cx: 右边中点（线起点）  data-lx: 左边中点（线终点）
-  let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px" data-cx="${x+CARD_W}" data-cy="${y+CARD_H/2}" data-lx="${x}" data-ly="${y+CARD_H/2}">`;
-  h += `<div class="g-head"><span class="name">${g.label}${g.label.includes('决赛') ? '' : '组'}</span><span class="badge ${g.status}">${st[g.status]}</span></div>`;
-  g.players.forEach((p, i) => {
+  let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px" data-cx="${x + CARD_W}" data-cy="${y + CARD_H / 2}" data-lx="${x}" data-ly="${y + CARD_H / 2}" data-status="${g.status}">`;
+  h += `<div class="g-head"><span class="name">${g.label}</span><span class="badge ${g.status}">${st[g.status] || g.status}</span></div>`;
+  (g.players || []).forEach((p, i) => {
     let cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
-    const pc = i===0?'g':i===1?'s':i===2?'b':'';
+    const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
     const img = (!p.empty && p.heroCardId)
       ? `<div class="w-[22px] h-[22px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
       : '';
-    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${p.placement || (i+1)}</span>`;
+    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${p.placement || (i + 1)}</span>`;
     h += img;
-    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.name)}</span>`;
-    if (p.points !== null) h += `<span class="pts">+${p.points}</span>`;
+    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.name || '')}</span>`;
+    if (p.points != null) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
   return h + `</div>`;
 }
 
-let html = `<svg class="svg-layer" id="svgLayer"></svg>`;
+/* ── SVG 连线：按 feedsInto 配对 ── */
+function drawLines(flat, numRounds) {
+  document.querySelectorAll('.svg-layer').forEach(svg => {
+    const w = parseFloat(svg.dataset.areaW);
+    const h = parseFloat(svg.dataset.areaH);
+    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  });
 
-// Round titles
-html += `<div class="round-title" style="left:${COL_X[0]+CARD_W/2}px;top:12px">小组赛 第一轮</div>`;
-html += `<div class="round-title" style="left:${COL_X[1]+CARD_W/2}px;top:12px">淘汰赛 第二轮</div>`;
-html += `<div class="round-title" style="left:${COL_X[2]+CARD_W/2}px;top:12px">半决赛</div>`;
-html += `<div class="round-title gold" style="left:${COL_X[4]+CARD_W/2}px;top:12px">决赛⑧</div>`;
+  // 为每个 bracket-area 内的 svg 画线
+  const areas = document.querySelectorAll('.bracket-area');
+  areas.forEach(area => {
+    const svg = area.querySelector('.svg-layer');
+    if (!svg) return;
 
-// R1: 8 groups
-const r1 = GROUPS.round1;
-r1.forEach((g, i) => html += renderGroup(g, COL_X[0], r1Top(i)));
-// R2: 4 groups
-const r2 = GROUPS.round2;
-r2.forEach((g, i) => html += renderGroup(g, COL_X[1], r2Top(i)));
-// R3: 2 groups
-const r3 = GROUPS.round3;
-r3.forEach((g, i) => html += renderGroup(g, COL_X[2], r3Top(i)));
-// Final
-html += renderGroup(GROUPS.final, COL_X[4], finTop, true);
+    const allCards = Array.from(area.querySelectorAll('.group-card'));
+    // 按 DOM 顺序分组到轮次（和 flat 结构对应）
+    // 但我们用 data 属性来定位更可靠
+    let paths = '';
 
-$area.innerHTML = html;
+    // 遍历每对相邻轮次
+    let cardIdx = 0;
+    const roundCards = [];
+    // 重新按轮次分组卡片 —— 通过 data 属性找
+    // 实际上我们可以通过 flat 的结构来遍历
+    // 简化：直接遍历 flat 相邻轮次
+    for (let ri = 0; ri < flat.length - 1; ri++) {
+      const cur = flat[ri];
+      const nxt = flat[ri + 1];
+      // 按 feedsInto 配对
+      const pairs = {};
+      cur.forEach(c => {
+        const key = c.feedsInto;
+        if (key == null) return;
+        if (!pairs[key]) pairs[key] = [];
+        pairs[key].push(c);
+      });
+      Object.keys(pairs).forEach(key => {
+        const sources = pairs[key];
+        const target = nxt[parseInt(key)];
+        if (!target || sources.length < 2) return;
+        // 取第一个和最后一个 source（通常就是两个）
+        const a = sources[0];
+        const b = sources[sources.length - 1];
+        const mx = (a.cx + target.lx) / 2;
+        const on = a.status === 'done' && b.status === 'done';
+        paths += `<path class="${on ? 'on' : ''}" d="M${a.cx},${a.cy} H${mx} V${target.ly} H${target.lx}"/>`;
+        paths += `<path class="${on ? 'on' : ''}" d="M${b.cx},${b.cy} H${mx} V${target.ly} H${target.lx}"/>`;
+      });
+    }
+    svg.innerHTML = paths;
+  });
+}
 
-// ── SVG 连线（L 形 bracket：水平→垂直→水平，紧贴卡片边缘）──
-requestAnimationFrame(() => {
-  const svg = document.getElementById('svgLayer');
-  svg.setAttribute('viewBox', `0 0 ${AREA_W} ${AREA_H}`);
-  const cards = Array.from($area.querySelectorAll('.group-card'));
-  // card indices: R1=0-7, R2=8-11, R3=12-13, Final=14
-  function info(i) {
-    const el = cards[i];
-    return {
-      cx: parseFloat(el.dataset.cx), cy: parseFloat(el.dataset.cy),
-      lx: parseFloat(el.dataset.lx), ly: parseFloat(el.dataset.ly),
-      done: el.classList.contains('done')
-    };
-  }
-  let paths = '';
-  // 两个源卡 → 一个目标卡的 bracket 连线
-  function bracket(a, b, t) {
-    const on = a.done && b.done;
-    // 水平中点：源右边和目标左边的正中间
-    const mx = (a.cx + t.lx) / 2;
-    // 源 A: 右边中点 → 水平到 mx → 垂直到目标中点
-    paths += `<path class="${on?'on':''}" d="M${a.cx},${a.cy} H${mx} V${t.ly} H${t.lx}"/>`;
-    // 源 B: 同理
-    paths += `<path class="${on?'on':''}" d="M${b.cx},${b.cy} H${mx} V${t.ly} H${t.lx}"/>`;
-  }
-  // R1→R2
-  for (let i = 0; i < 4; i++) bracket(info(i*2), info(i*2+1), info(8+i));
-  // R2→R3
-  for (let i = 0; i < 2; i++) bracket(info(8+i*2), info(9+i*2), info(12+i));
-  // R3→Final
-  bracket(info(12), info(13), info(14));
-  svg.innerHTML = paths;
-});
+/* ── 主渲染 ── */
+const container = document.getElementById('brackets-container');
+container.innerHTML = DATA.tournaments.map(renderTournament).join('');
 </script>
 {% endblock %}
