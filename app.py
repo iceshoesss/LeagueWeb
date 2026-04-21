@@ -953,14 +953,14 @@ def _build_bracket_data():
 
     # R1: 8 组，前 4 组已结束、5-6 进行中、7-8 等待
     r1_groups = [
-        mk_group(1, 0, 8, 'done',    1, mk_players(4, True)),
-        mk_group(1, 1, 8, 'done',    1, mk_players(4, True)),
-        mk_group(1, 2, 8, 'done',    2, mk_players(4, True)),
-        mk_group(1, 3, 8, 'done',    2, mk_players(4, True)),
-        mk_group(1, 4, 8, 'active',  3, mk_players()),
-        mk_group(1, 5, 8, 'active',  3, mk_players()),
-        mk_group(1, 6, 8, 'waiting', 4),
-        mk_group(1, 7, 8, 'waiting', 4),
+        mk_group(1, 0, 8, 'done', 1, mk_players(4, True)),
+        mk_group(1, 1, 8, 'done', 1, mk_players(4, True)),
+        mk_group(1, 2, 8, 'done', 2, mk_players(4, True)),
+        mk_group(1, 3, 8, 'done', 2, mk_players(4, True)),
+        mk_group(1, 4, 8, 'done', 3, mk_players(4, True)),
+        mk_group(1, 5, 8, 'done', 3, mk_players(4, True)),
+        mk_group(1, 6, 8, 'done', 4, mk_players(4, True)),
+        mk_group(1, 7, 8, 'done', 4, mk_players(4, True)),
     ]
 
     # R2: 4 组，由 R1 的 nextRoundGroupId 分组
