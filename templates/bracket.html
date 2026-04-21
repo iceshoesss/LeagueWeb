@@ -132,36 +132,70 @@ const COLLAPSED_W = 36;                     // 折叠条宽度
 const tournaments = [];
 
 /* ══════════════════════════════════════════
-   构建 flat 数据 + 初始布局
+   布局计算（每次渲染重新算，支持折叠后重分布）
    ══════════════════════════════════════════ */
-function buildFlat(rounds) {
+function layoutRound(rounds, flat, collapsed, areaH) {
   const nR = rounds.length;
-  if (!nR) return [];
-
   const r1Count = rounds[0].groups.length;
-  const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
-  const areaH = Math.max(minH, 600);
   const r1Gap = r1Count > 1 ? (areaH - PAD_TOP - PAD_BOT - r1Count * CARD_H) / (r1Count - 1) : 0;
 
-  const flat = [];
-  // R1 均匀分布
-  flat[0] = rounds[0].groups.map((g, i) => ({
-    ...g,
-    top: PAD_TOP + i * (CARD_H + r1Gap),
-    cy:  PAD_TOP + i * (CARD_H + r1Gap) + CARD_H / 2
-  }));
-  // R2+：根据 nextRoundGroupId 定位到父组中点
-  for (let ri = 1; ri < nR; ri++) {
-    flat[ri] = rounds[ri].groups.map((g, gi) => {
-      const parents = flat[ri - 1].filter(p => p.nextRoundGroupId === gi + 1);
-      let cy;
-      if (parents.length >= 2) cy = (parents[0].cy + parents[parents.length - 1].cy) / 2;
-      else if (parents.length === 1) cy = parents[0].cy;
-      else cy = PAD_TOP + gi * (CARD_H + r1Gap) + CARD_H / 2;
-      return { ...g, top: cy - CARD_H / 2, cy };
-    });
+  // 找出当前可见的轮次
+  const vis = [];
+  for (let ri = 0; ri < nR; ri++) { if (!collapsed.has(ri)) vis.push(ri); }
+
+  // 每个可见轮的垂直位置
+  const pos = [];   // pos[ri] = [cy0, cy1, ...]
+
+  vis.forEach((ri, vi) => {
+    const groups = rounds[ri].groups;
+    if (vi === 0) {
+      // 第一个可见轮：均匀分布
+      pos[ri] = groups.map((_, i) => PAD_TOP + i * (CARD_H + r1Gap) + CARD_H / 2);
+    } else {
+      // 基于上一个可见轮，按 feedsInto 链追踪中点
+      const prevRi = vis[vi - 1];
+      pos[ri] = groups.map((_, gi) => {
+        const srcs = traceSrc(flat, prevRi, ri, gi);
+        if (srcs.length >= 2) {
+          const ys = srcs.map(s => pos[prevRi][s.gi]).sort((a, b) => a - b);
+          return (ys[0] + ys[ys.length - 1]) / 2;
+        } else if (srcs.length === 1) {
+          return pos[prevRi][srcs[0].gi];
+        }
+        return PAD_TOP + gi * (CARD_H + r1Gap) + CARD_H / 2;
+      });
+    }
+  });
+
+  return pos;
+}
+
+/* ── 反向追踪：dstRi 的 gi 组，来自 srcRi 的哪些组 ── */
+function traceSrc(flat, srcRi, dstRi, gi) {
+  if (dstRi === srcRi + 1) {
+    // 直接相邻：找 srcRi 中 nextRoundGroupId == gi+1 的
+    return flat[srcRi]
+      .map((g, i) => ({ gi: i, nrg: g.nextRoundGroupId }))
+      .filter(s => s.nrg === gi + 1);
   }
-  return flat;
+  // 跨轮：从 dstRi 反向推到 srcRi
+  let cursors = [{ ri: dstRi, gi }];
+  for (let ri = dstRi - 1; ri >= srcRi; ri--) {
+    const prev = [];
+    for (const c of cursors) {
+      const sources = flat[ri]
+        .map((g, i) => ({ gi: i, nrg: g.nextRoundGroupId }))
+        .filter(s => s.nrg === c.ri + 1 && s.nrg === c.gi + 1);
+      // 简化：直接找 feedsInto 到当前组的
+      flat[ri].forEach((g, i) => {
+        if (g.nextRoundGroupId === c.gi + 1 && !prev.some(p => p.gi === i)) {
+          prev.push({ ri, gi: i });
+        }
+      });
+    }
+    cursors = prev.length ? prev : cursors;
+  }
+  return cursors.filter(c => c.ri === srcRi);
 }
 
 /* ══════════════════════════════════════════
@@ -171,6 +205,19 @@ function render(tIdx) {
   const t = tournaments[tIdx];
   const { rounds, flat, collapsed, areaEl, svgEl } = t;
   const nR = rounds.length;
+  const areaH = parseInt(areaEl.style.height);
+
+  // ── 重新计算垂直位置（折叠后重分布）──
+  const pos = layoutRound(rounds, flat, collapsed, areaH);
+  // 更新 flat 的 cy/top
+  for (let ri = 0; ri < nR; ri++) {
+    if (pos[ri]) {
+      flat[ri].forEach((g, gi) => {
+        g.cy = pos[ri][gi];
+        g.top = pos[ri][gi] - CARD_H / 2;
+      });
+    }
+  }
 
   // ── 计算列 x 坐标（折叠的轮次变窄）──
   const colXs = [];
@@ -181,8 +228,6 @@ function render(tIdx) {
   }
   const areaW = x + 50;
 
-  // 找出"哪些相邻轮次都是可见的"——用于画线
-  // 可见轮次列表
   const vis = [];
   for (let ri = 0; ri < nR; ri++) { if (!collapsed.has(ri)) vis.push(ri); }
 
@@ -313,6 +358,12 @@ function toggleRound(tIdx, ri) {
 /* ══════════════════════════════════════════
    主入口
    ══════════════════════════════════════════ */
+
+// 构建 flat 数据（不含位置，位置由 layoutRound 动态计算）
+function buildFlat(rounds) {
+  return rounds.map(r => r.groups.map(g => ({ ...g })));
+}
+
 const container = document.getElementById('brackets-container');
 
 DATA.tournaments.forEach((t, tIdx) => {
