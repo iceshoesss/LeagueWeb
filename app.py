@@ -968,6 +968,132 @@ def index():
     return render_template("index.html", players=players, matches=matches, active_games=active_games)
 
 
+def _build_bracket_mock():
+    """对阵图 mock 数据（tournament_groups 为空时的 fallback）"""
+    PLAYERS = [
+        {'displayName': '衣锦夜行', 'battleTag': '衣锦夜行#1001', 'accountIdLo': 1000001, 'heroCardId': 'TB_BaconShop_HERO_56', 'heroName': '阿莱克丝塔萨'},
+        {'displayName': '瓦莉拉',   'battleTag': '瓦莉拉#1002',   'accountIdLo': 1000002, 'heroCardId': 'TB_BaconShop_HERO_02', 'heroName': '帕奇维克'},
+        {'displayName': '雷克萨',   'battleTag': '雷克萨#1003',   'accountIdLo': 1000003, 'heroCardId': 'TB_BaconShop_HERO_22', 'heroName': '巫妖王'},
+        {'displayName': '古尔丹',   'battleTag': '古尔丹#1004',   'accountIdLo': 1000004, 'heroCardId': 'TB_BaconShop_HERO_19', 'heroName': '米尔豪斯'},
+        {'displayName': '吉安娜',   'battleTag': '吉安娜#1005',   'accountIdLo': 1000005, 'heroCardId': 'TB_BaconShop_HERO_01', 'heroName': '鼠王'},
+        {'displayName': '萨尔',     'battleTag': '萨尔#1006',     'accountIdLo': 1000006, 'heroCardId': 'TB_BaconShop_HERO_08', 'heroName': '尤格-萨隆'},
+        {'displayName': '乌瑟尔',   'battleTag': '乌瑟尔#1007',   'accountIdLo': 1000007, 'heroCardId': 'TB_BaconShop_HERO_13', 'heroName': '伊瑟拉'},
+        {'displayName': '玛法里奥', 'battleTag': '玛法里奥#1008', 'accountIdLo': 1000008, 'heroCardId': 'TB_BaconShop_HERO_36', 'heroName': '拉卡尼休'},
+    ]
+    GROUP_LABELS = 'ABCDEFGH'
+
+    def _round_label(r):
+        return {1: '小组赛', 2: '第二轮', 3: '半决赛', 4: '决赛'}.get(r, f'第 {r} 轮')
+
+    def _group_label(r, gi, total):
+        if r >= 4 and total == 1:
+            return '决赛'
+        if r == 1:
+            return f'{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组' if total > 8 else f'{GROUP_LABELS[gi]} 组'
+        return f'{gi + 1} 组'
+
+    def mk_players(qual_count=0, done=False):
+        players = []
+        for i, bp in enumerate(PLAYERS):
+            qual = done and i < qual_count
+            players.append({
+                **bp,
+                'placement': (i + 1) if done else None,
+                'points': (9 if i == 0 else max(1, 9 - i)) if done else None,
+                'qualified': qual,
+                'eliminated': done and not qual,
+                'empty': False,
+            })
+        return players
+
+    def empty_players():
+        return [{'displayName': '待定', 'battleTag': None, 'accountIdLo': None,
+                 'heroCardId': None, 'heroName': None,
+                 'placement': None, 'points': None,
+                 'qualified': False, 'eliminated': False, 'empty': True}] * 8
+
+    def mk_group(round_num, gi, total, status, next_round_gid=None, players=None):
+        g = {
+            'round': round_num,
+            'groupIndex': gi + 1,
+            'label': _group_label(round_num, gi, total),
+            'status': status,
+            'boN': 1,
+            'gamesPlayed': 1 if status == 'done' else 0,
+            'players': players or empty_players(),
+            'startedAt': '2026-04-21T20:00:00Z' if status != 'waiting' else None,
+            'endedAt': '2026-04-21T20:45:00Z' if status == 'done' else None,
+        }
+        if next_round_gid is not None:
+            g['nextRoundGroupId'] = next_round_gid
+        return g
+
+    r1_groups = [
+        mk_group(1, 0, 8, 'done', 1, mk_players(4, True)),
+        mk_group(1, 1, 8, 'done', 1, mk_players(4, True)),
+        mk_group(1, 2, 8, 'done', 2, mk_players(4, True)),
+        mk_group(1, 3, 8, 'done', 2, mk_players(4, True)),
+        mk_group(1, 4, 8, 'done', 3, mk_players(4, True)),
+        mk_group(1, 5, 8, 'done', 3, mk_players(4, True)),
+        mk_group(1, 6, 8, 'done', 4, mk_players(4, True)),
+        mk_group(1, 7, 8, 'done', 4, mk_players(4, True)),
+    ]
+
+    def build_round(prev_groups, round_num):
+        buckets = {}
+        for g in prev_groups:
+            nrg = g.get('nextRoundGroupId')
+            if nrg is None:
+                continue
+            buckets.setdefault(nrg, []).append(g)
+        groups = []
+        for gid in sorted(buckets.keys()):
+            srcs = buckets[gid]
+            total = len(buckets)
+            all_done = all(s['status'] == 'done' for s in srcs)
+            if all_done:
+                quals = []
+                for s in srcs:
+                    for p in s['players']:
+                        if p.get('qualified'):
+                            quals.append({**p, 'placement': None, 'points': None,
+                                          'qualified': False, 'eliminated': False})
+                while len(quals) < 8:
+                    quals.append({'displayName': '待定', 'battleTag': None, 'accountIdLo': None,
+                                  'heroCardId': None, 'heroName': None,
+                                  'placement': None, 'points': None,
+                                  'qualified': False, 'eliminated': False, 'empty': True})
+                nrg = (gid - 1) // 2 + 1 if total > 1 else None
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, quals))
+            else:
+                nrg = (gid - 1) // 2 + 1 if total > 1 else None
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg))
+        return groups
+
+    r2_groups = build_round(r1_groups, 2)
+    for gi in range(len(r2_groups)):
+        g = r2_groups[gi]
+        g['status'] = 'done'
+        g['endedAt'] = '2026-04-21T21:00:00Z'
+        g['gamesPlayed'] = 1
+        for i, p in enumerate(g['players']):
+            if not p.get('empty'):
+                p['placement'] = i + 1
+                p['points'] = 9 if i == 0 else max(1, 9 - i)
+                p['qualified'] = i < 4
+    r3_groups = build_round(r2_groups, 3)
+    final_groups = build_round(r3_groups, 4)
+    for g in final_groups:
+        g.pop('nextRoundGroupId', None)
+
+    return {'tournaments': [{'name': '2026 春季赛', 'rounds': [
+        {'label': _round_label(1), 'groups': r1_groups},
+        {'label': _round_label(2), 'groups': r2_groups},
+        {'label': _round_label(3), 'groups': r3_groups},
+        {'label': _round_label(4), 'groups': final_groups},
+    ]}]}
+
+
 def _build_bracket_data():
     """从 tournament_groups 集合读取对阵图数据"""
     db = get_db()
@@ -985,7 +1111,7 @@ def _build_bracket_data():
 
     groups = list(db.tournament_groups.find().sort([("round", 1), ("groupIndex", 1)]))
     if not groups:
-        return {"tournaments": []}
+        return _build_bracket_mock()
 
     # 按赛事分组（用 tournamentName 字段，没有则默认）
     tournaments_map = {}
