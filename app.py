@@ -1012,14 +1012,14 @@ def _build_bracket_mock():
                  'placement': None, 'points': None,
                  'qualified': False, 'eliminated': False, 'empty': True}] * 8
 
-    def mk_group(round_num, gi, total, status, next_round_gid=None, players=None):
+    def mk_group(round_num, gi, total, status, next_round_gid=None, players=None, bo_n=1):
         g = {
             'round': round_num,
             'groupIndex': gi + 1,
             'label': _group_label(round_num, gi, total),
             'status': status,
-            'boN': 1,
-            'gamesPlayed': 1 if status == 'done' else 0,
+            'boN': bo_n,
+            'gamesPlayed': bo_n if status == 'done' else 0,
             'players': players or empty_players(),
             'startedAt': '2026-04-21T20:00:00Z' if status != 'waiting' else None,
             'endedAt': '2026-04-21T20:45:00Z' if status == 'done' else None,
@@ -1029,14 +1029,14 @@ def _build_bracket_mock():
         return g
 
     r1_groups = [
-        mk_group(1, 0, 8, 'done', 1, mk_players(4, True)),
-        mk_group(1, 1, 8, 'done', 1, mk_players(4, True)),
-        mk_group(1, 2, 8, 'done', 2, mk_players(4, True)),
-        mk_group(1, 3, 8, 'done', 2, mk_players(4, True)),
-        mk_group(1, 4, 8, 'done', 3, mk_players(4, True)),
-        mk_group(1, 5, 8, 'done', 3, mk_players(4, True)),
-        mk_group(1, 6, 8, 'done', 4, mk_players(4, True)),
-        mk_group(1, 7, 8, 'done', 4, mk_players(4, True)),
+        mk_group(1, 0, 8, 'done', 1, mk_players(4, True), bo_n=3),
+        mk_group(1, 1, 8, 'done', 1, mk_players(4, True), bo_n=3),
+        mk_group(1, 2, 8, 'done', 2, mk_players(4, True), bo_n=3),
+        mk_group(1, 3, 8, 'done', 2, mk_players(4, True), bo_n=3),
+        mk_group(1, 4, 8, 'done', 3, mk_players(4, True), bo_n=3),
+        mk_group(1, 5, 8, 'done', 3, mk_players(4, True), bo_n=3),
+        mk_group(1, 6, 8, 'done', 4, mk_players(4, True), bo_n=3),
+        mk_group(1, 7, 8, 'done', 4, mk_players(4, True), bo_n=3),
     ]
 
     def build_round(prev_groups, round_num):
@@ -1064,10 +1064,10 @@ def _build_bracket_mock():
                                   'placement': None, 'points': None,
                                   'qualified': False, 'eliminated': False, 'empty': True})
                 nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, quals))
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, quals, bo_n=5))
             else:
                 nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg))
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, bo_n=5))
         return groups
 
     r2_groups = build_round(r1_groups, 2)
@@ -1075,7 +1075,8 @@ def _build_bracket_mock():
         g = r2_groups[gi]
         g['status'] = 'done'
         g['endedAt'] = '2026-04-21T21:00:00Z'
-        g['gamesPlayed'] = 1
+        g['boN'] = 3
+        g['gamesPlayed'] = 3
         for i, p in enumerate(g['players']):
             if not p.get('empty'):
                 p['placement'] = i + 1
