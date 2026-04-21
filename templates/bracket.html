@@ -318,11 +318,19 @@ function renderCard(g, x, y, isFinal) {
    ══════════════════════════════════════════ */
 function toggleRound(tIdx, ri) {
   const t = tournaments[tIdx];
+  const nR = t.rounds.length;
   if (t.collapsed.has(ri)) {
+    // 展开：右边所有轮次必须已展开（从右到左展开）
+    for (let j = ri + 1; j < nR; j++) {
+      if (t.collapsed.has(j)) return;
+    }
     t.collapsed.delete(ri);
   } else {
-    // 安全检查：所有组必须 done
+    // 折叠：左边所有轮次必须已折叠（从左到右折叠）
     if (!t.rounds[ri].groups.every(g => g.status === 'done')) return;
+    for (let j = 0; j < ri; j++) {
+      if (!t.collapsed.has(j)) return;
+    }
     t.collapsed.add(ri);
   }
   render(tIdx);
