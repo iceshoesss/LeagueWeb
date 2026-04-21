@@ -52,14 +52,14 @@ docker compose restart web     # 重启
 
 ## 版本号
 
-当前版本：`v0.6.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.1.0`（定义在 `app.py` → `WEB_VERSION`）
 
 > **版本管理**：积分赛（main 分支）和淘汰赛（feat/knockout 分支）是两套独立系统，版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.6.0 |
+| `feat/knockout` | 淘汰赛 | v0.1.0 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -70,7 +70,7 @@ docker compose restart web     # 重启
 
 ## 更新日志
 
-### v0.6.0 (2026-04-21) — 淘汰赛版
+### v0.1.0 (2026-04-21) — 淘汰赛版首发
 - **淘汰赛对阵图**（`/bracket`）：数据驱动布局，支持任意轮次和组数
 - 对阵图小组块复用站点主题样式（hearth-card + gold-border + 英雄头像）
 - SVG 连线自动贴边对齐，按 nextRoundGroupId 数据驱动配对
