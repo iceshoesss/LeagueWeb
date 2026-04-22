@@ -876,7 +876,7 @@ function ctRefreshBoRounds() {
     const rounds = [];
     let gc = groupCount, r = 1;
     while (gc >= 1) {
-        const label = gc === groupCount ? `第 1 轮（${gc} 组）` : gc === 1 ? '决赛（1 组）' : gc === 2 ? '半决赛（2 组）' : gc === 4 ? '四强（4 组）' : `第 ${r} 轮（${gc} 组）`;
+        const label = gc === groupCount ? `第 1 轮（${gc} 组）` : gc === 1 ? '决赛（1 组）' : gc === 2 ? '半决赛（2 组）' : `第 ${r} 轮（${gc} 组）`;
         rounds.push({ label, gc });
         gc = Math.floor(gc / 2);
         r++;

@@ -1115,8 +1115,6 @@ def _build_bracket_data():
             return "决赛"
         if r == total_rounds - 1:
             return "半决赛"
-        if r == total_rounds - 2:
-            return "四强"
         return f"第 {r} 轮"
 
     def _group_label(r, gi, total, total_rounds):
