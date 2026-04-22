@@ -83,6 +83,8 @@
   .p-row.el img { filter: grayscale(1); opacity: 0.4; }
   .group-card.done .p-row.el .nm { color: #d1d5db; }
   .group-card.done .p-row.el img { filter: none; opacity: 1; }
+  /* 对战图不限制宽度，靠浏览器原生滚动条 */
+  main { max-width: none !important; }
 </style>
 {% endblock %}
 
