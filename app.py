@@ -2993,6 +2993,7 @@ def api_plugin_update_placement():
 
     # 检查是否所有 8 人都填完了（用刚更新后的内存数据）
     players[target_index]["placement"] = placement
+    players[target_index]["points"] = points
     all_done = all(p.get("placement") is not None for p in players)
 
     # ★ 7人提交 → 自动推算第8人排名（剩余的那个数字）
@@ -3011,6 +3012,8 @@ def api_plugin_update_placement():
                         f"players.{null_indices[0]}.points": auto_points,
                     }}
                 )
+                players[null_indices[0]]["placement"] = auto_placement
+                players[null_indices[0]]["points"] = auto_points
                 log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
                 all_done = True
 

@@ -813,18 +813,46 @@ async function showCreateTournament() {
 }
 
 function ctAutoAssign() {
-    if (!ctAllPlayers.length) { alert('没有可分配的选手'); return; }
     const groupDivs = document.querySelectorAll('#ct-groups > div');
     if (!groupDivs.length) { alert('请先添加分组'); return; }
 
-    const needed = groupDivs.length * 8;
-    if (ctAllPlayers.length < needed) {
-        alert(`需要 ${needed} 位选手（${groupDivs.length} 组 × 8），当前只有 ${ctAllPlayers.length} 位`);
+    // 第一组固定测试玩家
+    const TEST_PLAYERS = Array.from({length: 8}, (_, i) => ({
+        battleTag: `衣锦夜行#${String(i).padStart(4, '0')}`,
+        accountIdLo: String(10000000 + i),
+        displayName: '衣锦夜行',
+    }));
+
+    // 从第二组起需要注册选手
+    const remainingGroups = groupDivs.length - 1;
+    const needed = remainingGroups * 8;
+    if (remainingGroups > 0 && ctAllPlayers.length < needed) {
+        alert(`需要 ${needed} 位注册选手（第 2 组起 ${remainingGroups} 组 × 8），当前只有 ${ctAllPlayers.length} 位`);
         return;
     }
 
+    // 第一组：添加测试玩家 option 并选中
+    const firstGroup = groupDivs[0];
+    const firstSelects = firstGroup.querySelectorAll('.ct-select');
+    firstSelects.forEach((sel, si) => {
+        const tp = TEST_PLAYERS[si];
+        // 检查是否已有该 option，没有则添加
+        let opt = Array.from(sel.options).find(o => o.value === tp.accountIdLo);
+        if (!opt) {
+            opt = document.createElement('option');
+            opt.value = tp.accountIdLo;
+            opt.dataset.tag = tp.battleTag;
+            opt.dataset.name = tp.displayName;
+            opt.textContent = tp.battleTag;
+            sel.insertBefore(opt, sel.options[1] || null);
+        }
+        sel.value = tp.accountIdLo;
+    });
+
+    // 后续组：按序从注册选手分配
     let idx = 0;
-    groupDivs.forEach(gd => {
+    groupDivs.forEach((gd, gi) => {
+        if (gi === 0) return;
         gd.querySelectorAll('.ct-select').forEach(sel => {
             const p = ctAllPlayers[idx++];
             sel.value = p.accountIdLo;
