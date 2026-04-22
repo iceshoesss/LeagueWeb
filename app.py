@@ -3145,11 +3145,13 @@ def api_plugin_update_placement():
 
         # ── 淘汰赛 BO 累计 ──
         tg_id = match.get("tournamentGroupId")
+        log.info(f"[update-placement] BO检查: tg_id={tg_id} type={type(tg_id).__name__}")
         if tg_id:
             tg = db.tournament_groups.find_one({"_id": tg_id})
             if tg:
                 bo_n = tg.get("boN", 1)
                 old_gp = tg.get("gamesPlayed", 0)
+                old_status = tg.get("status", "waiting")
                 games_played = old_gp + 1
 
                 # 累加每个玩家的本局积分到 totalPoints
@@ -3160,18 +3162,21 @@ def api_plugin_update_placement():
                     # BO 全部打完 → 标记 done，触发晋级
                     update_fields["status"] = "done"
                     update_fields["endedAt"] = now_str
-                    log.info(f"[update-placement] BO 完成: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n} → status=done")
+                    log.info(f"[update-placement] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} {old_status}→done")
                     # 晋级逻辑：检查同轮所有组是否都完成
                     group_rankings = _get_group_rankings(db, tg.get("tournamentName", "赛事"))
                     _try_advance_round(db, tg.get("round"), tg.get("tournamentName", "赛事"), group_rankings)
                 else:
                     # 还有下一局 → 回到 waiting
                     update_fields["status"] = "waiting"
-                    log.info(f"[update-placement] BO 进度: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={old_gp}→{games_played}/{bo_n} → status=waiting")
+                    log.info(f"[update-placement] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} {old_status}→waiting")
 
-                db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
+                result = db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
+                log.info(f"[update-placement] 组更新结果: matched={result.matched_count} modified={result.modified_count}")
             else:
                 log.warning(f"[update-placement] tournament_group 不存在: tg_id={tg_id}")
+        else:
+            log.info(f"[update-placement] 非淘汰赛对局（无 tournamentGroupId）")
 
     return jsonify({"ok": True, "finalized": finalized})
 

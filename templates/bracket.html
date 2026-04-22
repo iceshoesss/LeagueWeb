@@ -316,7 +316,7 @@ function renderCard(g, x, y, isFinal) {
       ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
-    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '')}</span>`;
+    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.displayName || p.name || '')}</span>`;
     if (p.points != null && !isWaiting) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
@@ -399,7 +399,20 @@ initBrackets(DATA);
    SSE 实时更新
    ══════════════════════════════════════════ */
 let bracketSse = null;
-let lastBracketData = null;
+let lastBracketHash = '';
+
+// 与服务端 sort_keys=True 一致的确定性序列化
+function stableStringify(obj) {
+  return JSON.stringify(obj, function(key, value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return Object.keys(value).sort().reduce(function(sorted, k) {
+        sorted[k] = value[k];
+        return sorted;
+      }, {});
+    }
+    return value;
+  });
+}
 
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
@@ -407,14 +420,12 @@ function connectBracketSse() {
 
   bracketSse.onmessage = function(e) {
     if (!e.data) return;
-    try {
-      const data = JSON.parse(e.data);
-      // 用解析后比较而非 stringify，避免 key 顺序导致误判
-      if (JSON.stringify(data) !== JSON.stringify(lastBracketData)) {
-        lastBracketData = data;
-        initBrackets(data);
-      }
-    } catch(err) { console.error('[bracket-sse] parse error:', err); }
+    if (e.data !== lastBracketHash) {
+      lastBracketHash = e.data;
+      try {
+        initBrackets(JSON.parse(e.data));
+      } catch(err) { console.error('[bracket-sse] parse error:', err); }
+    }
   };
 
   bracketSse.onerror = function() {
@@ -423,8 +434,8 @@ function connectBracketSse() {
   };
 }
 
-// 首次连接
-lastBracketData = DATA;
+// 首次连接：用与服务端一致的排序方式初始化指纹
+lastBracketHash = stableStringify(DATA);
 connectBracketSse();
 
 // 切 tab 时断开/重连，省资源
