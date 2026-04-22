@@ -1212,6 +1212,11 @@ def bracket_page():
     return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
+@app.route("/verify-shuffle")
+def verify_shuffle_page():
+    return render_template("verify_shuffle.html")
+
+
 @app.route("/api/bracket")
 def api_bracket():
     """返回对阵图数据（JSON）"""

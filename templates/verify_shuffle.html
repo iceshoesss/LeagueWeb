@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}窝要烟牌 — {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <h1 class="text-xl font-bold text-purple-400 mb-1">🎲 窝要烟牌</h1>
+    <p class="text-sm text-hearth-dim mb-6">确定性随机洗牌验证 — 同一个 seed，任何人都能跑出完全相同的结果</p>
+
+    <!-- 使用说明 -->
+    <div class="bg-hearth-card rounded-xl gold-border p-5 mb-4">
+        <h2 class="text-sm font-bold text-hearth-gold mb-2">怎么用</h2>
+        <ol class="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+            <li>管理员和选手提前约定一个随机种子（比如"安德罗妮4月29日14:00第一句话"）</li>
+            <li>管理员用种子在后台执行洗牌，分配分组</li>
+            <li>任何人在这里输入同样的种子 + 同样的选手列表，验证结果是否一致</li>
+        </ol>
+    </div>
+
+    <!-- 验证工具 -->
+    <div class="bg-hearth-card rounded-xl gold-border p-5 mb-4">
+        <h2 class="text-sm font-bold text-hearth-gold mb-3">在线验证</h2>
+
+        <div class="mb-3">
+            <label class="block text-xs text-hearth-dim mb-1">随机种子</label>
+            <input type="text" id="v-seed" placeholder="输入约定的种子"
+                class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-purple-500/50">
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-xs text-hearth-dim mb-1">选手列表（每行一个 battleTag）</label>
+            <textarea id="v-players" rows="6" placeholder="衣锦夜行#1000&#10;瓦莉拉#2000&#10;南怀北瑾#3000&#10;..."
+                class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-purple-500/50 font-mono"></textarea>
+            <div class="flex gap-2 mt-1">
+                <button onclick="vLoadPlayers()" class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">加载已注册选手</button>
+                <span class="text-xs text-hearth-dim" id="v-player-count"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="block text-xs text-hearth-dim mb-1">分组数</label>
+            <select id="v-groups" class="bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-purple-500/50">
+                <option value="2">2 组（16 人）</option>
+                <option value="4">4 组（32 人）</option>
+                <option value="8">8 组（64 人）</option>
+            </select>
+        </div>
+
+        <button onclick="vRun()" class="px-4 py-2 text-sm rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition">🎲 验证洗牌</button>
+    </div>
+
+    <!-- 结果 -->
+    <div id="v-result" class="hidden bg-hearth-card rounded-xl gold-border p-5 mb-4">
+        <h2 class="text-sm font-bold text-hearth-gold mb-3">洗牌结果</h2>
+        <div class="text-xs text-hearth-dim mb-2">Seed hash: <code id="v-hash" class="text-purple-400"></code></div>
+        <div id="v-groups-result" class="space-y-3"></div>
+    </div>
+
+    <!-- 算法代码 -->
+    <div class="bg-hearth-card rounded-xl gold-border p-5">
+        <h2 class="text-sm font-bold text-hearth-gold mb-3">算法代码（Python，可独立运行）</h2>
+        <pre class="bg-black/40 rounded-lg p-4 text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre-wrap"><code>import hashlib
+import struct
+import sys
+
+def shuffle(players: list[str], seed: str) -> list[str]:
+    """确定性随机洗牌 — SHA256 + Fisher-Yates
+
+    同一个 seed + 同一个选手列表 → 完全相同的结果
+    与服务端 /api/tournament/shuffle 结果一致
+    """
+    # SHA256(seed) → 32 字节 → 8 个 uint32 → 求和作为初始种子
+    h = hashlib.sha256(seed.encode("utf-8")).digest()
+    seed_int = sum(struct.unpack_from("<I", h, i)[0] for i in range(0, 32, 4))
+
+    # xorshift32 PRNG
+    state = seed_int & 0xFFFFFFFF
+    def rng(max_val):
+        nonlocal state
+        x = state
+        x ^= (x << 13) & 0xFFFFFFFF
+        x ^= (x >> 17)
+        x ^= (x << 5) & 0xFFFFFFFF
+        state = x & 0xFFFFFFFF
+        return x % max_val
+
+    # Fisher-Yates shuffle
+    arr = list(players)
+    for i in range(len(arr) - 1, 0, -1):
+        j = rng(i + 1)
+        arr[i], arr[j] = arr[j], arr[i]
+    return arr
+
+# ── 示例 ──
+if __name__ == "__main__":
+    seed = "安德罗妮4月29日14:00第一句话"
+    players = [
+        "衣锦夜行#1000", "瓦莉拉#2000", "南怀北瑾#3000",
+        "安德罗妮#4000", "王师傅#5000", "萌太奇#6000",
+        "啦神#7000", "戴佳伟#8000", "囚徒#9000",
+        "冰蓝飞狐#1001", "锦衣夜行#2001", "Sol君#3001",
+        "春哥#4001", "不二#5001", "狗贼#6001", "瓦莉拉的跟班#7001",
+    ]
+    result = shuffle(players, seed)
+    # 按每组 8 人分组
+    group_size = 8
+    for i in range(0, len(result), group_size):
+        group = result[i:i+group_size]
+        print(f"组 {i // group_size + 1}:")
+        for j, p in enumerate(group):
+            print(f"  {j+1}. {p}")
+        print()</code></pre>
+        <div class="mt-3 flex gap-2">
+            <button onclick="vCopyCode()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">📋 复制代码</button>
+            <a href="/static/verify_shuffle.py" download class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">⬇ 下载 .py</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// SHA256 纯 JS 实现（浏览器端验证）
+async function sha256(msg) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+    return new Uint32Array(buf);
+}
+
+// xorshift32（与服务端完全一致）
+function makeRng(seedInt) {
+    let state = seedInt >>> 0;
+    return function(maxVal) {
+        let x = state;
+        x ^= (x << 13); x >>>= 0;
+        x ^= (x >> 17);
+        x ^= (x << 5); x >>>= 0;
+        state = x >>> 0;
+        return (x >>> 0) % maxVal;
+    };
+}
+
+async function shuffle(players, seed) {
+    const words = await sha256(seed);
+    let seedInt = 0;
+    for (let i = 0; i < words.length; i++) seedInt = (seedInt + words[i]) >>> 0;
+
+    const rng = makeRng(seedInt);
+    const arr = [...players];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = rng(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+async function vLoadPlayers() {
+    try {
+        const res = await fetch('/api/admin/players-all');
+        const players = await res.json();
+        document.getElementById('v-players').value = players.map(p => p.battleTag).join('\n');
+        document.getElementById('v-player-count').textContent = `${players.length} 位选手`;
+    } catch (e) { alert('加载失败（需要登录）'); }
+}
+
+async function vRun() {
+    const seed = document.getElementById('v-seed').value.trim();
+    if (!seed) { alert('请输入种子'); return; }
+    const raw = document.getElementById('v-players').value.trim();
+    const players = raw.split('\n').map(s => s.trim()).filter(Boolean);
+    if (players.length < 2) { alert('至少需要 2 位选手'); return; }
+    const groupCount = parseInt(document.getElementById('v-groups').value);
+    const needed = groupCount * 8;
+    if (players.length < needed) {
+        alert(`${groupCount} 组需要 ${needed} 位选手，当前 ${players.length} 位`);
+        return;
+    }
+
+    const result = await shuffle(players.slice(0, needed), seed);
+    const hashWords = await sha256(seed);
+    const hashHex = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed))))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+
+    document.getElementById('v-hash').textContent = hashHex.slice(0, 16) + '...';
+    const container = document.getElementById('v-groups-result');
+    container.innerHTML = '';
+    for (let g = 0; g < groupCount; g++) {
+        const group = result.slice(g * 8, (g + 1) * 8);
+        let html = `<div class="bg-black/20 rounded-lg p-3">
+            <div class="text-xs font-bold text-hearth-gold mb-2">${'ABCDEFGH'[g]} 组</div>`;
+        group.forEach((p, i) => {
+            html += `<div class="flex items-center gap-2 text-sm py-0.5">
+                <span class="text-hearth-dim w-4 text-right text-xs">${i+1}</span>
+                <span class="text-gray-300">${p}</span>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML += html;
+    }
+    document.getElementById('v-result').classList.remove('hidden');
+}
+
+function vCopyCode() {
+    const code = document.querySelector('.bg-black\\/40 code').textContent;
+    navigator.clipboard.writeText(code).then(() => alert('已复制'));
+}
+</script>
+{% endblock %}
