@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% block title %}{{ site_name }} — 排行榜{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row gap-3">
+    <!-- 左侧：排行榜 + 最近对局 + 广告 -->
+    <div class="flex-1 min-w-0">
+        <!-- 排行榜 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">🏆 排行榜</h2>
+                <div class="flex items-center gap-3">
+                    <input type="text" id="player-search" placeholder="搜索玩家..." oninput="currentPage=1;renderLeaderboard()"
+                        class="w-48 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 transition">
+                    <span class="text-xs text-hearth-dim whitespace-nowrap" id="player-count">共 {{ players|length }} 名选手</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm" id="leaderboard">
+                    <thead>
+                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
+                            <th class="px-5 py-3 text-left w-12">#</th>
+                            <th class="px-5 py-3 text-left">玩家</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="totalPoints">积分 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="leagueGames">场次 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="winRate">胜率 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="avgPlacement">场均排名 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickens">吃鸡 ↕</th>
+                            <th class="px-5 py-3 text-right sort-btn" data-sort="chickenRate">吃鸡率 ↕</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                    </tbody>
+                </table>
+            </div>
+            <div id="leaderboard-pager" class="px-5 py-3 flex items-center justify-center gap-1"></div>
+        </div>
+
+        <!-- 最近对局 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border">
+                <h2 class="text-lg font-bold text-hearth-gold">📋 最近对局</h2>
+            </div>
+            <div id="matches-list" class="divide-y divide-hearth-border">
+                {% for match in matches[:5] %}
+                <a href="/match/{{ match.gameUuid }}" class="block px-5 py-4 hover:bg-white/5 transition">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {% for p in match.players[:8] %}
+                        {% if p.placement is not none %}
+                        <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">
+                            {% if p.heroCardId %}
+                            <div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card">
+                                <img src="https://art.hearthstonejson.com/v1/256x/{{ p.heroCardId }}.jpg"
+                                     alt="{{ p.heroName }}" title="{{ p.heroName }}"
+                                     class="w-[150%] h-[150%] object-cover"
+                                     onerror="this.closest('div').style.display='none'">
+                            </div>
+                            {% endif %}
+                            <div class="min-w-0 flex-1">
+                                <div class="text-xs truncate">{{ p.displayName }}</div>
+                                <div class="text-xs text-hearth-dim">
+                                    第{{ p.placement }}名
+                                    <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：正在进行 + 报名/等待队列 -->
+    <div class="w-full lg:w-auto flex-shrink-0 flex gap-3 items-start">
+        <div class="w-72 space-y-3">
+        <!-- 正在进行 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center gap-2">
+                <span class="active-pulse text-green-400">⚔️</span>
+                <h2 class="text-lg font-bold text-hearth-gold">正在进行</h2>
+            </div>
+            <div id="active-games-list" class="divide-y divide-hearth-border"></div>
+            <div id="active-games-pager" class="px-5 py-3 flex items-center justify-center gap-1"></div>
+        </div>
+
+        <!-- 问题对局提醒 -->
+        <div id="problem-banner" class="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 text-center hidden">
+            <div class="text-sm text-red-400 font-bold">
+                ⚠️ <span id="problem-count">0</span> 场对局未被正常记录
+            </div>
+            <a href="/problems" class="text-xs text-red-300 hover:text-red-200 underline mt-1 inline-block">
+                请点击此处修改您的战绩
+            </a>
+        </div>
+        </div>
+
+        <!-- 报名 + 等待队列 -->
+        <div class="w-72 space-y-3" id="queue-column">
+
+        <!-- 报名队列 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-lg font-bold text-hearth-gold">📋 报名队列</h2>
+                <span class="text-xs text-hearth-dim" id="queue-count">0 人</span>
+            </div>
+            <div id="queue-list" class="divide-y divide-hearth-border">
+                <div class="px-5 py-6 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+            <div class="px-5 py-4 border-t border-hearth-border">
+                <button id="queue-btn" onclick="toggleQueue()" class="w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30">
+                    ✋ 报名参加
+                </button>
+            </div>
+        </div>
+
+        <!-- 等待队列（动态渲染，每组一个框） -->
+        <div id="waiting-queue-container"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 排行榜数据
+const players = {{ players | tojson }};
+
+let currentSort = 'totalPoints';
+let currentOrder = 'desc';
+let currentPage = 1;
+const PAGE_SIZE = 20;
+
+function renderLeaderboard() {
+    const query = (document.getElementById('player-search').value || '').trim().toLowerCase();
+    const filtered = query
+        ? players.filter(p => p.displayName.toLowerCase().includes(query) || p.battleTag.toLowerCase().includes(query))
+        : players;
+    document.getElementById('player-count').textContent = `共 ${filtered.length} 名选手`;
+
+    const sorted = [...filtered].sort((a, b) => {
+        let va = a[currentSort], vb = b[currentSort];
+        if (currentSort === 'avgPlacement') {
+            return currentOrder === 'desc' ? va - vb : vb - va;
+        }
+        if (currentSort === 'winRate' || currentSort === 'chickenRate') {
+            return currentOrder === 'desc' ? vb - va : va - vb;
+        }
+        return currentOrder === 'desc' ? vb - va : va - vb;
+    });
+
+    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+    if (currentPage > totalPages) currentPage = totalPages;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageItems = sorted.slice(start, start + PAGE_SIZE);
+
+    const tbody = document.getElementById('leaderboard-body');
+    tbody.innerHTML = pageItems.map((p, i) => {
+        const rank = start + i + 1;
+        const rankClass = rank <= 3 ? `rank-${rank} font-bold` : 'text-hearth-dim';
+        const winRate = (p.winRate * 100).toFixed(0) + '%';
+        return `<tr class="border-b border-hearth-border/50 hover:bg-white/5 transition">
+            <td class="px-5 py-3 ${rankClass}">${rank}</td>
+            <td class="px-5 py-3">
+                <a href="/player/${encodeURIComponent(p.battleTag)}" class="hover:text-hearth-gold transition">
+                    ${p.displayName}
+                </a>
+            </td>
+            <td class="px-5 py-3 text-right font-mono font-bold text-hearth-gold">${p.totalPoints}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.leagueGames}</td>
+            <td class="px-5 py-3 text-right font-mono">${winRate}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.avgPlacement.toFixed(1)}</td>
+            <td class="px-5 py-3 text-right font-mono">${p.chickens}</td>
+            <td class="px-5 py-3 text-right font-mono">${(p.chickenRate * 100).toFixed(0)}%</td>
+        </tr>`;
+    }).join('');
+
+    // 翻页控件
+    const pager = document.getElementById('leaderboard-pager');
+    if (totalPages <= 1) {
+        pager.innerHTML = '';
+        return;
+    }
+    let btns = '';
+    btns += `<button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        const active = p === currentPage;
+        btns += `<button onclick="goPage(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    btns += `<button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    pager.innerHTML = btns;
+}
+
+function goPage(p) {
+    currentPage = p;
+    renderLeaderboard();
+}
+
+// 实时计时器
+function updateTimers() {
+    const now = Math.floor(Date.now() / 1000);
+    document.querySelectorAll('[data-started-epoch]').forEach(el => {
+        const started = parseFloat(el.dataset.startedEpoch);
+        const diff = Math.max(0, now - Math.floor(started));
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        el.textContent = `⏱️ ${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    });
+}
+
+renderLeaderboard();
+
+// 点击列头排序
+document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const sort = btn.dataset.sort;
+        if (currentSort === sort) {
+            currentOrder = currentOrder === 'desc' ? 'asc' : 'desc';
+        } else {
+            currentSort = sort;
+            currentOrder = sort === 'avgPlacement' ? 'asc' : 'desc';
+        }
+        currentPage = 1;
+        renderLeaderboard();
+    });
+});
+
+updateTimers();
+setInterval(updateTimers, 1000);
+
+// ── SSE 实时推送 ────────────────────────────────────
+const MY_NAME = {% if current_user %}{{ current_user.battleTag | tojson }}{% else %}null{% endif %};
+let queueData = [];
+let waitingData = [];
+
+// --- 进行中对局 SSE ---
+let activeEs = null;
+function connectActiveGames() {
+    if (activeEs) activeEs.close();
+    activeEs = new EventSource('/api/events/active-games');
+    activeEs.onmessage = function(e) {
+        try {
+            const games = JSON.parse(e.data);
+            renderActiveGames(games);
+            updateNavCount(games.length);
+        } catch (err) {
+            console.error('SSE active-games parse error:', err);
+        }
+    };
+    activeEs.onerror = function() {
+        console.warn('SSE active-games disconnected, will auto-reconnect');
+    };
+}
+connectActiveGames();
+
+// --- 报名队列 SSE ---
+let queueEs = null;
+function connectQueue() {
+    if (queueEs) queueEs.close();
+    queueEs = new EventSource('/api/events/queue');
+    queueEs.onmessage = function(e) {
+        try {
+            queueData = JSON.parse(e.data);
+            renderQueue();
+        } catch (err) {
+            console.error('SSE queue parse error:', err);
+        }
+    };
+    queueEs.onerror = function() {
+        console.warn('SSE queue disconnected, will auto-reconnect');
+    };
+}
+connectQueue();
+
+// --- 等待队列 SSE ---
+let waitingEs = null;
+function connectWaitingQueue() {
+    if (waitingEs) waitingEs.close();
+    waitingEs = new EventSource('/api/events/waiting-queue');
+    waitingEs.onmessage = function(e) {
+        try {
+            waitingData = JSON.parse(e.data);
+            renderWaitingQueue();
+            renderQueue();
+        } catch (err) {
+            console.error('SSE waiting-queue parse error:', err);
+        }
+    };
+    waitingEs.onerror = function() {
+        console.warn('SSE waiting-queue disconnected, will auto-reconnect');
+    };
+}
+connectWaitingQueue();
+
+// --- 最近对局 SSE ---
+let matchesEs = null;
+function connectMatches() {
+    if (matchesEs) matchesEs.close();
+    matchesEs = new EventSource('/api/events/matches');
+    matchesEs.onmessage = function(e) {
+        try {
+            const matches = JSON.parse(e.data);
+            renderMatches(matches);
+        } catch (err) {
+            console.error('SSE matches parse error:', err);
+        }
+    };
+    matchesEs.onerror = function() {
+        console.warn('SSE matches disconnected, will auto-reconnect');
+    };
+}
+connectMatches();
+
+// --- 问题对局数量 SSE ---
+let problemEs = null;
+function connectProblemMatches() {
+    if (problemEs) problemEs.close();
+    problemEs = new EventSource('/api/events/problem-matches');
+    problemEs.onmessage = function(e) {
+        try {
+            const data = JSON.parse(e.data);
+            const banner = document.getElementById('problem-banner');
+            const countEl = document.getElementById('problem-count');
+            if (data.count > 0) {
+                countEl.textContent = data.count;
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        } catch (err) {
+            console.error('SSE problem-matches parse error:', err);
+        }
+    };
+    problemEs.onerror = function() {
+        console.warn('SSE problem-matches disconnected, will auto-reconnect');
+    };
+}
+connectProblemMatches();
+
+// 页面不可见时关闭 SSE，可见时重连（避免切 tab 后连接堆积）
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        activeEs?.close();
+        queueEs?.close();
+        waitingEs?.close();
+        matchesEs?.close();
+        problemEs?.close();
+    } else {
+        connectActiveGames();
+        connectQueue();
+        connectWaitingQueue();
+        connectMatches();
+        connectProblemMatches();
+    }
+});// 正在进行 - 分页
+let allActiveGames = [];
+let activePage = 1;
+const ACTIVE_PAGE_SIZE = 3;
+
+function renderActiveGames(games) {
+    allActiveGames = games || [];
+    // 数据减少时回到第 1 页
+    const totalPages = Math.max(1, Math.ceil(allActiveGames.length / ACTIVE_PAGE_SIZE));
+    if (activePage > totalPages) activePage = totalPages;
+    renderActiveGamesPage();
+}
+
+function renderActiveGamesPage() {
+    const list = document.getElementById('active-games-list');
+    const pager = document.getElementById('active-games-pager');
+
+    if (!allActiveGames.length) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无进行中的对局</div>';
+        pager.innerHTML = '';
+        return;
+    }
+
+    const totalPages = Math.max(1, Math.ceil(allActiveGames.length / ACTIVE_PAGE_SIZE));
+    if (activePage > totalPages) activePage = totalPages;
+    const start = (activePage - 1) * ACTIVE_PAGE_SIZE;
+    const pageGames = allActiveGames.slice(start, start + ACTIVE_PAGE_SIZE);
+
+    list.innerHTML = pageGames.map(g => {
+        const placed = g.players.filter(p => p.placement != null).sort((a, b) => a.placement - b.placement);
+        const unplaced = g.players.filter(p => p.placement == null);
+        const sorted = [...unplaced, ...placed];
+
+        const players = sorted.map(p => {
+            const img = p.heroCardId
+                ? `<div class="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover${p.placement != null ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
+                : '';
+            if (p.placement != null) {
+                return `<div class="flex items-center gap-2 text-sm">${img}<span class="text-gray-500">${p.displayName}</span></div>`;
+            }
+            return `<div class="flex items-center gap-2 text-sm">${img}<span>${p.displayName}</span></div>`;
+        }).join('');
+        const started = g.startedAtEpoch;
+        return `<div class="px-5 py-3">
+            <div class="space-y-1 mb-2">${players}</div>
+            <div class="flex items-center justify-between text-xs text-hearth-dim">
+                <span>8 人对局</span>
+                <span class="text-hearth-gold font-mono" data-started-epoch="${started}">⏱️ --:--</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    // 翻页控件（与排行榜/玩家页一致的样式）
+    if (totalPages <= 1) { pager.innerHTML = ''; updateTimers(); return; }
+    let btns = '';
+    btns += `<button onclick="goActivePage(${activePage - 1})" ${activePage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
+    for (let p = 1; p <= totalPages; p++) {
+        const isActive = p === activePage;
+        btns += `<button onclick="goActivePage(${p})" class="px-2.5 py-1 rounded text-xs ${isActive ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
+    }
+    btns += `<button onclick="goActivePage(${activePage + 1})" ${activePage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
+    pager.innerHTML = btns;
+
+    updateTimers();
+}
+
+function goActivePage(p) {
+    activePage = p;
+    renderActiveGamesPage();
+}
+
+// 初始化：渲染服务端数据
+renderActiveGames({{ active_games | tojson }});
+
+function updateNavCount(count) {
+    document.querySelectorAll('[data-nav-active-count]').forEach(el => {
+        el.textContent = `● ${count} 场对局进行中`;
+    });
+}
+
+function renderMatches(matches) {
+    const list = document.getElementById('matches-list');
+    if (!matches || !matches.length) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无对局记录</div>';
+        return;
+    }
+    list.innerHTML = matches.map(m => {
+        const players = m.players.filter(p => p.placement != null).map(p => {
+            const img = p.heroCardId
+                ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+                : '';
+            return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">${img}<div class="min-w-0 flex-1"><div class="text-xs truncate">${p.displayName}</div><div class="text-xs text-hearth-dim">第${p.placement}名 <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span></div></div></div>`;
+        }).join('');
+        return `<a href="/match/${m.gameUuid}" class="block px-5 py-4 hover:bg-white/5 transition"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${players}</div></a>`;
+    }).join('');
+}
+
+// --- 报名队列 SSE (已在上面 connectQueue 中定义) ---
+
+// --- 等待队列 SSE (已在上面 connectWaitingQueue 中定义) ---
+
+function renderQueue() {
+    const list = document.getElementById('queue-list');
+    const count = document.getElementById('queue-count');
+    const btn = document.getElementById('queue-btn');
+
+    count.textContent = `${queueData.length} 人`;
+
+    if (queueData.length === 0) {
+        list.innerHTML = '<div class="px-5 py-6 text-center text-sm text-hearth-dim">暂无报名</div>';
+    } else {
+        list.innerHTML = queueData.map((q, i) => `
+            <div class="flex items-center gap-3 px-5 py-2.5 text-sm">
+                <span class="text-hearth-dim font-mono w-5 text-right">${i + 1}</span>
+                <span>${q.name}</span>
+            </div>
+        `).join('');
+    }
+
+    if (!MY_NAME) {
+        btn.textContent = '请先登录';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-border text-hearth-dim cursor-not-allowed';
+        return;
+    }
+
+    // 如果在等待队列里，报名按钮变灰
+    const inWaiting = waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME));
+    if (inWaiting) {
+        btn.textContent = '已在等待队列';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-border text-hearth-dim cursor-not-allowed';
+        return;
+    }
+
+    const inQueue = queueData.some(q => q.name === MY_NAME);
+    if (inQueue) {
+        btn.textContent = '❌ 取消报名';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-red-500/20 text-red-400 hover:bg-red-500/30';
+    } else {
+        btn.textContent = '✋ 报名参加';
+        btn.className = 'w-full py-2.5 rounded-lg font-bold text-sm transition bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30';
+    }
+}
+
+function renderWaitingQueue() {
+    const container = document.getElementById('waiting-queue-container');
+
+    if (waitingData.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = waitingData.map((g, gi) => {
+        const players = (g.players || []).map(p => `
+            <div class="flex items-center gap-2 px-5 py-2.5 text-sm">
+                <span>${p.name}</span>
+            </div>
+        `).join('');
+
+        const inThisGroup = MY_NAME && (g.players || []).some(p => p.name === MY_NAME);
+        const leaveBtn = inThisGroup ? `
+            <div class="px-5 py-3 border-t border-hearth-border">
+                <button onclick="leaveWaitingQueue()" class="w-full py-2 rounded-lg font-bold text-xs transition bg-red-500/20 text-red-400 hover:bg-red-500/30">
+                    ❌ 退出等待
+                </button>
+            </div>` : '';
+
+        return `<div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
+            <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                <h2 class="text-sm font-bold text-hearth-gold">⏳ 等待组 #${gi + 1}</h2>
+                <span class="text-xs text-hearth-dim">${(g.players || []).length}/8 人</span>
+            </div>
+            <div class="divide-y divide-hearth-border">${players}</div>
+            ${leaveBtn}
+        </div>`;
+    }).join('');
+}
+
+let queueBusy = false;
+
+async function toggleQueue() {
+    if (!MY_NAME) { window.location.href = '/register'; return; }
+    if (queueBusy) return;
+    if (waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME))) return;
+    const inQueue = queueData.some(q => q.name === MY_NAME);
+    const endpoint = inQueue ? '/api/queue/leave' : '/api/queue/join';
+    queueBusy = true;
+    try {
+        await fetch(endpoint, { method: 'POST' });
+    } catch (e) {
+        alert('操作失败，请重试');
+    }
+    // 防连点：500ms 后才允许再次操作（等 SSE 推回来更新状态）
+    setTimeout(() => { queueBusy = false; }, 500);
+}
+
+async function leaveWaitingQueue() {
+    if (!MY_NAME) return;
+    if (queueBusy) return;
+    queueBusy = true;
+    try {
+        await fetch('/api/queue/leave', { method: 'POST' });
+    } catch (e) {
+        alert('操作失败，请重试');
+    }
+    setTimeout(() => { queueBusy = false; }, 500);
+}
+</script>
+{% endblock %}
