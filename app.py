@@ -73,7 +73,13 @@ ENROLL_CAP = 1024                                                    # 正选上
 ENROLL_DEADLINE = os.environ.get("ENROLL_DEADLINE", "")              # ISO 时间，空=不自动截止
 # 示例: "2026-05-01T20:00:00+08:00"  北京时间 5 月 1 日晚 8 点截止
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.3.0"
+WEB_VERSION = "0.3.1"
+
+# ── 赛事阶段 ──────────────────────────────────────
+# auto   — ENROLL_DEADLINE 未到显示报名页，已过显示对阵图
+# enroll — 强制报名页
+# bracket — 强制对阵图
+TOURNAMENT_PHASE = os.environ.get("TOURNAMENT_PHASE", "auto")
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员（含超级管理员）"""
@@ -1116,8 +1122,19 @@ def get_problem_matches():
 
 @app.route("/")
 def index():
-    data = _build_bracket_data()
-    return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
+    # 赛事阶段切换：报名期间显示报名页，比赛期间显示对阵图
+    phase = TOURNAMENT_PHASE
+    if phase == "auto":
+        if ENROLL_DEADLINE and not _enroll_deadline_reached():
+            return render_template("enroll.html")
+        # 无截止时间或已过 → 对阵图
+        data = _build_bracket_data()
+        return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
+    elif phase == "enroll":
+        return render_template("enroll.html")
+    else:  # bracket
+        data = _build_bracket_data()
+        return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
 def _build_bracket_mock():

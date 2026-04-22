@@ -55,7 +55,9 @@
                 <span class="text-hearth-dim">|</span>
                 <a href="/verify-shuffle" class="text-hearth-dim hover:text-purple-400 transition">🎲 窝要烟牌</a>
                 <span class="text-hearth-dim">|</span>
-                <a href="/enroll" class="text-hearth-dim hover:text-hearth-gold transition">📢 报名参赛</a>
+                <a href="/enroll" class="text-hearth-dim hover:text-hearth-gold transition">📢 报名</a>
+                <span class="text-hearth-dim">|</span>
+                <a href="/bracket" class="text-hearth-dim hover:text-hearth-gold transition">🏆 对阵图</a>
                 <span class="text-hearth-dim">|</span>
                 {% if current_user %}
                 <a href="/player/{{ current_user.battleTag|urlencode }}" class="text-hearth-gold font-medium hover:text-hearth-accent transition">{{ current_user.battleTag }}</a>
