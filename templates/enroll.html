@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}报名参赛 - {{ site_name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <!-- 报名状态卡片 -->
+  <div id="enrollCard" class="hearth-card rounded-xl p-6 mb-6 gold-border">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-hearth-gold">📢 赛事报名</h2>
+      <span id="deadlineBadge" class="text-xs px-3 py-1 rounded-full font-medium"></span>
+    </div>
+
+    <!-- 统计条 -->
+    <div class="flex items-center gap-6 mb-4 text-sm">
+      <div>
+        <span class="text-hearth-dim">正选</span>
+        <span id="enrolledCount" class="text-hearth-gold font-bold ml-1">-</span>
+        <span class="text-hearth-dim">/ 1024</span>
+      </div>
+      <div>
+        <span class="text-hearth-dim">替补</span>
+        <span id="waitlistCount" class="text-hearth-dim font-bold ml-1">-</span>
+      </div>
+      <div id="yourStatus" class="hidden">
+        <span class="text-hearth-dim">你的状态</span>
+        <span id="yourStatusText" class="font-bold ml-1">-</span>
+      </div>
+    </div>
+
+    <!-- 进度条 -->
+    <div class="w-full bg-black/30 rounded-full h-2 mb-4">
+      <div id="enrollBar" class="h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div id="enrollActions" class="flex gap-3">
+      <button id="enrollBtn" onclick="doEnroll()" class="px-6 py-2.5 bg-hearth-gold text-black font-bold rounded-lg hover:bg-yellow-400 transition text-sm">
+        报名参赛
+      </button>
+      <button id="withdrawBtn" onclick="doWithdraw()" class="hidden px-6 py-2.5 bg-red-900/40 text-red-300 font-bold rounded-lg hover:bg-red-900/60 transition text-sm border border-red-800/50">
+        退赛
+      </button>
+    </div>
+    <div id="enrollMsg" class="mt-3 text-sm hidden"></div>
+  </div>
+
+  <!-- 报名列表 -->
+  <div class="hearth-card rounded-xl p-6 gold-border">
+    <h3 class="text-lg font-bold text-hearth-gold mb-4">📋 报名列表</h3>
+    <div id="enrollList" class="text-sm text-hearth-dim">加载中...</div>
+  </div>
+</div>
+
+<style>
+  .hearth-card { background: #16213e; }
+  .enroll-row { display: flex; align-items: center; padding: 8px 12px; border-bottom: 1px solid rgba(42,42,74,0.4); }
+  .enroll-row:last-child { border-bottom: none; }
+  .enroll-row .pos { width: 36px; font-weight: 700; font-size: 12px; color: #8b8b9e; text-align: center; flex-shrink: 0; }
+  .enroll-row .name { flex: 1; color: #d1d5db; }
+  .enroll-row .name.waitlist { color: #8b8b9e; font-style: italic; }
+  .enroll-row .tag { font-size: 10px; padding: 2px 6px; border-radius: 3px; font-weight: 700; margin-left: 8px; flex-shrink: 0; }
+  .enroll-row .tag.enrolled { background: rgba(52,211,153,0.14); color: #34d399; }
+  .enroll-row .tag.waitlist { background: rgba(226,183,20,0.1); color: #c9a84c; }
+  .enroll-row .sep { width: 1px; height: 20px; background: #2a2a4a; margin: 0 8px; flex-shrink: 0; }
+  .enroll-row .time { font-size: 11px; color: #8b8b9e; flex-shrink: 0; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let myStatus = null;
+
+async function loadStatus() {
+  try {
+    const r = await fetch('/api/enroll/status');
+    const d = await r.json();
+    myStatus = d;
+
+    document.getElementById('enrolledCount').textContent = d.enrolledCount || 0;
+    document.getElementById('waitlistCount').textContent = '-';
+
+    const bar = document.getElementById('enrollBar');
+    const pct = Math.min(100, ((d.enrolledCount || 0) / 1024) * 100);
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 100 ? '#ef4444' : '#e2b714';
+
+    const deadlineBadge = document.getElementById('deadlineBadge');
+    if (d.deadline) {
+      const dl = new Date(d.deadline);
+      const now = new Date();
+      if (now >= dl) {
+        deadlineBadge.textContent = '已截止';
+        deadlineBadge.className = 'text-xs px-3 py-1 rounded-full font-medium bg-red-900/40 text-red-300';
+      } else {
+        deadlineBadge.textContent = '截止: ' + dl.toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+        deadlineBadge.className = 'text-xs px-3 py-1 rounded-full font-medium bg-green-900/20 text-green-400';
+      }
+    } else {
+      deadlineBadge.textContent = '不限时';
+      deadlineBadge.className = 'text-xs px-3 py-1 rounded-full font-medium bg-hearth-dim/10 text-hearth-dim';
+    }
+
+    const yourDiv = document.getElementById('yourStatus');
+    const enrollBtn = document.getElementById('enrollBtn');
+    const withdrawBtn = document.getElementById('withdrawBtn');
+
+    if (d.enrolled) {
+      yourDiv.classList.remove('hidden');
+      const st = document.getElementById('yourStatusText');
+      if (d.status === 'enrolled') {
+        st.textContent = '✅ 正选 #' + d.position;
+        st.className = 'font-bold ml-1 text-green-400';
+      } else if (d.status === 'waitlist') {
+        st.textContent = '⏳ 替补 #' + d.position;
+        st.className = 'font-bold ml-1 text-yellow-400';
+      }
+      enrollBtn.classList.add('hidden');
+      withdrawBtn.classList.remove('hidden');
+    } else {
+      yourDiv.classList.add('hidden');
+      enrollBtn.classList.remove('hidden');
+      withdrawBtn.classList.add('hidden');
+    }
+  } catch(e) {
+    console.error('loadStatus error:', e);
+  }
+}
+
+async function loadList() {
+  try {
+    const r = await fetch('/api/enrollments');
+    const d = await r.json();
+
+    document.getElementById('waitlistCount').textContent = d.waitlistCount || 0;
+
+    const container = document.getElementById('enrollList');
+    if (!d.players || d.players.length === 0) {
+      container.innerHTML = '<div class="text-center py-8 text-hearth-dim">暂无报名</div>';
+      return;
+    }
+
+    let html = '';
+    d.players.forEach((p, i) => {
+      const isWaitlist = p.status === 'waitlist';
+      html += `<div class="enroll-row">
+        <span class="pos">${p.position}</span>
+        <span class="name ${isWaitlist ? 'waitlist' : ''}">${escHtml(p.displayName)}</span>
+        <span class="tag ${p.status}">${isWaitlist ? '替补' : '正选'}</span>
+        <span class="sep"></span>
+        <span class="time">${formatTime(p.enrollAt)}</span>
+      </div>`;
+    });
+    container.innerHTML = html;
+  } catch(e) {
+    console.error('loadList error:', e);
+    document.getElementById('enrollList').innerHTML = '<div class="text-red-400">加载失败</div>';
+  }
+}
+
+async function doEnroll() {
+  const btn = document.getElementById('enrollBtn');
+  btn.disabled = true;
+  btn.textContent = '报名中...';
+  try {
+    const r = await fetch('/api/enroll', { method: 'POST' });
+    const d = await r.json();
+    showMsg(d.message || d.error, r.ok);
+    if (r.ok) { loadStatus(); loadList(); }
+  } catch(e) {
+    showMsg('网络错误', false);
+  }
+  btn.disabled = false;
+  btn.textContent = '报名参赛';
+}
+
+async function doWithdraw() {
+  if (!confirm('确定要退赛吗？')) return;
+  const btn = document.getElementById('withdrawBtn');
+  btn.disabled = true;
+  btn.textContent = '退赛中...';
+  try {
+    const r = await fetch('/api/enroll/withdraw', { method: 'POST' });
+    const d = await r.json();
+    showMsg(d.message || d.error, r.ok);
+    if (r.ok) { loadStatus(); loadList(); }
+  } catch(e) {
+    showMsg('网络错误', false);
+  }
+  btn.disabled = false;
+  btn.textContent = '退赛';
+}
+
+function showMsg(msg, ok) {
+  const el = document.getElementById('enrollMsg');
+  el.textContent = msg;
+  el.className = 'mt-3 text-sm ' + (ok ? 'text-green-400' : 'text-red-400');
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function formatTime(s) {
+  if (!s) return '';
+  try {
+    const d = new Date(s);
+    return d.toLocaleString('zh-CN', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  } catch { return s; }
+}
+
+loadStatus();
+loadList();
+</script>
+{% endblock %}

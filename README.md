@@ -129,6 +129,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 | `league_waiting_queue` | 等待组 | 积分赛 |
 | `league_admins` | 管理员 | 通用 |
 | `tournament_groups` | 淘汰赛分组 | 淘汰赛 |
+| `tournament_enrollments` | 赛事报名 | 淘汰赛 |
 
 ### tournament_groups 结构
 
@@ -164,14 +165,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.2.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.3.0`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.2.0 |
+| `feat/knockout` | 淘汰赛 | v0.3.0 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -181,6 +182,16 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.3.0 (2026-04-23) — 赛事报名系统
+- 新增报名入口页面（`/enroll`），正选 1024 人上限 + 替补队列
+- 报名/退赛/状态 API（`/api/enroll`、`/api/enroll/withdraw`、`/api/enroll/status`）
+- 报名截止定时触发（环境变量 `ENROLL_DEADLINE`，ISO 时间格式）
+- 正选退出后替补自动补上（按报名时间顺序）
+- 截止后禁止新报名和退赛，替补仍可被补上
+- 管理员查看报名列表 API（`/api/admin/enrolled`，含 accountIdLo）
+- 导航栏新增"📢 报名参赛"入口
+- 新增 `tournament_enrollments` 集合
 
 ### v0.2.0 (2026-04-23) — 首页整合 + 少人开打 + 管理优化
 - 首页改为淘汰赛对阵图（积分赛首页备份为 index_league.html）

@@ -693,3 +693,85 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 获取单个分组详情。
 
 **响应：** tournament_groups 文档完整数据（含 boN、gamesPlayed、players.totalPoints、players.games[]）。
+
+---
+
+## 赛事报名
+
+报名上限 1024 人，超出自动进替补队列。正选退出后替补按顺序自动补上。
+截止时间通过环境变量 `ENROLL_DEADLINE` 配置（ISO 时间格式），截止后禁止新报名和退赛。
+
+### `POST /api/enroll`
+
+报名参赛（需登录）。
+
+**请求体：** 无需传参
+
+**响应：**
+```json
+{ "ok": true, "status": "enrolled", "position": 42, "message": "报名成功" }
+```
+
+| 字段 | 说明 |
+|------|------|
+| `status` | `enrolled`（正选）或 `waitlist`（替补） |
+| `position` | 队列位置 |
+
+**错误：**
+- `401` 未登录
+- `400` 已报名 / 已截止
+
+### `POST /api/enroll/withdraw`
+
+退赛（需登录，截止前可退）。正选退出后替补自动补上。
+
+**请求体：** 无需传参
+
+**响应：** `{"ok": true, "message": "已退赛"}`
+
+**错误：**
+- `401` 未登录
+- `400` 未报名 / 已截止
+
+### `GET /api/enroll/status`
+
+查看自己的报名状态（需登录）。
+
+**响应：**
+```json
+{
+  "enrolled": true,
+  "status": "enrolled",
+  "position": 42,
+  "enrollAt": "2026-04-23T10:00:00Z",
+  "cap": 1024,
+  "deadline": "2026-05-01T20:00:00+08:00"
+}
+```
+
+未报名时返回 `{"enrolled": false, "cap": 1024, "enrolledCount": N, "deadline": "..."}`
+
+### `GET /api/enrollments`
+
+查看报名列表（公开）。
+
+**响应：**
+```json
+{
+  "cap": 1024,
+  "enrolledCount": 500,
+  "waitlistCount": 30,
+  "deadline": "2026-05-01T20:00:00+08:00",
+  "deadlineReached": false,
+  "players": [
+    { "battleTag": "xxx#1234", "displayName": "xxx", "status": "enrolled", "position": 1, "enrollAt": "..." },
+    { "battleTag": "yyy#5678", "displayName": "yyy", "status": "waitlist", "position": 1025, "enrollAt": "..." }
+  ]
+}
+```
+
+### `GET /api/admin/enrolled`
+
+管理员查看报名列表（含 accountIdLo，用于创建赛事分组）。需管理员登录。
+
+**响应：** 同 `/api/enrollments`，players 额外包含 `accountIdLo` 字段。

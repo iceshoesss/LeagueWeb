@@ -67,8 +67,13 @@ BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分
 
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
+
+# ── 赛事报名 ──────────────────────────────────────
+ENROLL_CAP = 1024                                                    # 正选上限
+ENROLL_DEADLINE = os.environ.get("ENROLL_DEADLINE", "")              # ISO 时间，空=不自动截止
+# 示例: "2026-05-01T20:00:00+08:00"  北京时间 5 月 1 日晚 8 点截止
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.2.0"
+WEB_VERSION = "0.3.0"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员（含超级管理员）"""
@@ -651,6 +656,7 @@ def _background_cleanup():
             cleanup_partial_matches()
             cleanup_stale_queues()
             cleanup_expired_bind_codes()
+            cleanup_enrollment_deadline()
         except Exception as e:
             log.error(f"后台 cleanup 异常: {e}")
         time.sleep(CLEANUP_INTERVAL)
@@ -1459,6 +1465,11 @@ def verify_shuffle_page():
     return render_template("verify_shuffle.html")
 
 
+@app.route("/enroll")
+def enroll_page():
+    return render_template("enroll.html")
+
+
 @app.route("/api/bracket")
 def api_bracket():
     """返回对阵图数据（JSON）"""
@@ -2257,6 +2268,22 @@ def api_admin_player_add():
     return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
 
 
+@app.route("/api/admin/enrolled")
+def api_admin_enrolled():
+    """管理员查看报名列表（含 accountIdLo，用于创建赛事分组）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    enrolled = list(db.tournament_enrollments.find(
+        {"status": {"$in": ["enrolled", "waitlist"]}},
+        {"_id": 0, "battleTag": 1, "displayName": 1, "accountIdLo": 1, "status": 1, "position": 1, "enrollAt": 1}
+    ).sort("position", 1))
+
+    return jsonify({"players": enrolled})
+
+
 # ── API 路由 ──────────────────────────────────────────
 
 @app.route("/api/players")
@@ -2540,6 +2567,209 @@ def api_queue_leave():
         else:
             db.league_waiting_queue.delete_one({"_id": group["_id"]})
     return jsonify({"ok": True, "name": name})
+
+
+# ── 赛事报名 API ──────────────────────────────────────
+
+def _enroll_deadline_reached():
+    """检查报名是否已截止"""
+    if not ENROLL_DEADLINE:
+        return False
+    try:
+        deadline = datetime.fromisoformat(ENROLL_DEADLINE)
+        if deadline.tzinfo is None:
+            from datetime import timezone
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        return datetime.now(UTC) >= deadline
+    except Exception:
+        return False
+
+
+def _promote_waitlist(db):
+    """替补补上：正选有空位时，从 waitlist 按顺序补人"""
+    enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
+    if enrolled_count >= ENROLL_CAP:
+        return
+    slots = ENROLL_CAP - enrolled_count
+    waitlist = list(db.tournament_enrollments.find(
+        {"status": "waitlist"}
+    ).sort("position", 1).limit(slots))
+    for w in waitlist:
+        db.tournament_enrollments.update_one(
+            {"_id": w["_id"]},
+            {"$set": {"status": "enrolled", "promotedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
+        )
+        log.info(f"[enroll] 替补补上: {w['battleTag']}")
+
+
+@app.route("/api/enroll", methods=["POST"])
+def api_enroll():
+    """报名参赛（需登录）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+
+    if _enroll_deadline_reached():
+        return jsonify({"error": "报名已截止"}), 400
+
+    db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # 检查是否已报名
+    existing = db.tournament_enrollments.find_one({"battleTag": battle_tag})
+    if existing:
+        if existing["status"] == "enrolled":
+            return jsonify({"error": "你已报名"}), 400
+        elif existing["status"] == "waitlist":
+            return jsonify({"error": f"你在替补队列中，当前第 {existing.get('position', '?')} 位"}), 400
+        elif existing["status"] == "withdrawn":
+            # 撤回后重新报名
+            enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
+            if enrolled_count >= ENROLL_CAP:
+                # 进替补
+                max_pos = db.tournament_enrollments.find_one(
+                    {"status": {"$in": ["enrolled", "waitlist"]}},
+                    sort=[("position", -1)]
+                )
+                new_pos = (max_pos["position"] + 1) if max_pos else 1
+                db.tournament_enrollments.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"status": "waitlist", "enrollAt": now_str, "withdrawnAt": None, "position": new_pos}}
+                )
+                return jsonify({"ok": True, "status": "waitlist", "position": new_pos, "message": "已重新报名，当前为替补"})
+            else:
+                db.tournament_enrollments.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"status": "enrolled", "enrollAt": now_str, "withdrawnAt": None}}
+                )
+                return jsonify({"ok": True, "status": "enrolled", "message": "已重新报名"})
+
+    # 获取选手信息
+    player = db.league_players.find_one({"battleTag": battle_tag})
+    display_name = player.get("displayName", battle_tag.split("#")[0]) if player else battle_tag.split("#")[0]
+    account_id_lo = str(player.get("accountIdLo", "")) if player and player.get("accountIdLo") else ""
+
+    enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
+
+    if enrolled_count >= ENROLL_CAP:
+        # 替补
+        max_pos = db.tournament_enrollments.find_one(
+            {"status": {"$in": ["enrolled", "waitlist"]}},
+            sort=[("position", -1)]
+        )
+        new_pos = (max_pos["position"] + 1) if max_pos else 1
+        db.tournament_enrollments.insert_one({
+            "battleTag": battle_tag,
+            "displayName": display_name,
+            "accountIdLo": account_id_lo,
+            "status": "waitlist",
+            "enrollAt": now_str,
+            "withdrawnAt": None,
+            "position": new_pos,
+        })
+        return jsonify({"ok": True, "status": "waitlist", "position": new_pos, "message": f"正选已满（{ENROLL_CAP} 人），你是第 {new_pos - ENROLL_CAP} 位替补"})
+    else:
+        db.tournament_enrollments.insert_one({
+            "battleTag": battle_tag,
+            "displayName": display_name,
+            "accountIdLo": account_id_lo,
+            "status": "enrolled",
+            "enrollAt": now_str,
+            "withdrawnAt": None,
+            "position": enrolled_count + 1,
+        })
+        return jsonify({"ok": True, "status": "enrolled", "position": enrolled_count + 1, "message": "报名成功"})
+
+
+@app.route("/api/enroll/withdraw", methods=["POST"])
+def api_enroll_withdraw():
+    """退赛（需登录，截止前可退）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+
+    if _enroll_deadline_reached():
+        return jsonify({"error": "报名已截止，无法退赛"}), 400
+
+    db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    enrollment = db.tournament_enrollments.find_one({"battleTag": battle_tag})
+    if not enrollment or enrollment["status"] == "withdrawn":
+        return jsonify({"error": "你尚未报名"}), 400
+
+    was_enrolled = enrollment["status"] == "enrolled"
+
+    db.tournament_enrollments.update_one(
+        {"_id": enrollment["_id"]},
+        {"$set": {"status": "withdrawn", "withdrawnAt": now_str}}
+    )
+
+    # 正选退出 → 替补补上
+    if was_enrolled:
+        _promote_waitlist(db)
+
+    return jsonify({"ok": True, "message": "已退赛"})
+
+
+@app.route("/api/enroll/status")
+def api_enroll_status():
+    """查看自己的报名状态（需登录）"""
+    battle_tag = session.get("battleTag")
+    if not battle_tag:
+        return jsonify({"error": "请先登录"}), 401
+
+    db = get_db()
+    enrollment = db.tournament_enrollments.find_one({"battleTag": battle_tag})
+    if not enrollment or enrollment["status"] == "withdrawn":
+        enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
+        return jsonify({"enrolled": False, "cap": ENROLL_CAP, "enrolledCount": enrolled_count, "deadline": ENROLL_DEADLINE or None})
+
+    return jsonify({
+        "enrolled": True,
+        "status": enrollment["status"],
+        "position": enrollment.get("position"),
+        "enrollAt": enrollment.get("enrollAt"),
+        "cap": ENROLL_CAP,
+        "deadline": ENROLL_DEADLINE or None,
+    })
+
+
+@app.route("/api/enrollments")
+def api_enrollments():
+    """查看报名列表（公开）"""
+    db = get_db()
+    enrolled = list(db.tournament_enrollments.find(
+        {"status": {"$in": ["enrolled", "waitlist"]}},
+        {"_id": 0, "battleTag": 1, "displayName": 1, "status": 1, "position": 1, "enrollAt": 1}
+    ).sort("position", 1))
+
+    total_enrolled = sum(1 for e in enrolled if e["status"] == "enrolled")
+    total_waitlist = sum(1 for e in enrolled if e["status"] == "waitlist")
+
+    return jsonify({
+        "cap": ENROLL_CAP,
+        "enrolledCount": total_enrolled,
+        "waitlistCount": total_waitlist,
+        "deadline": ENROLL_DEADLINE or None,
+        "deadlineReached": _enroll_deadline_reached(),
+        "players": enrolled,
+    })
+
+
+_enroll_deadline_logged = False
+
+def cleanup_enrollment_deadline():
+    """报名截止检查（仅记录日志，不踢替补——替补仍可被正选退出后补上）"""
+    global _enroll_deadline_logged
+    if not ENROLL_DEADLINE:
+        return
+    if _enroll_deadline_reached() and not _enroll_deadline_logged:
+        db = get_db()
+        enrolled = db.tournament_enrollments.count_documents({"status": "enrolled"})
+        waitlist = db.tournament_enrollments.count_documents({"status": "waitlist"})
+        log.info(f"[enroll] 报名已截止，正选 {enrolled} 人，替补 {waitlist} 人")
+        _enroll_deadline_logged = True
 
 
 # ── 注册验证 API ──────────────────────────────────────
