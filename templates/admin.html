@@ -201,9 +201,16 @@
 
             <!-- 轮次配置 -->
             <div class="mb-4">
-                <label class="block text-xs text-hearth-dim mb-2">轮次配置</label>
-                <div id="ct-rounds" class="space-y-3"></div>
-                <button onclick="ctAddRound()" class="mt-2 text-xs px-3 py-1 rounded bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">+ 添加轮次</button>
+                <label class="block text-xs text-hearth-dim mb-1">BO 设置（每轮局数）</label>
+                <div class="flex items-center gap-3">
+                    <select id="ct-bo" class="bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                        <option value="1">BO1</option>
+                        <option value="3" selected>BO3</option>
+                        <option value="5">BO5</option>
+                        <option value="7">BO7</option>
+                    </select>
+                    <span class="text-xs text-hearth-dim">后续轮次自动为 n/2、n/4... 直到决赛</span>
+                </div>
             </div>
 
             <!-- 第一轮分组分配 -->
@@ -738,7 +745,6 @@ async function removeAdmin(battleTag) {
 // ── 赛事管理 ──────────────────────────────────────
 let tournamentLoaded = false;
 let ctAllPlayers = [];       // 所有注册选手
-let ctRoundIdx = 0;
 let ctGroupIdx = 0;
 let mtTournamentName = '';   // 当前管理的赛事名
 let mtAllPlayers = [];       // 管理弹窗用的选手列表
@@ -785,9 +791,7 @@ async function showCreateTournament() {
     modal.classList.remove('hidden');
     // 重置
     document.getElementById('ct-name').value = '';
-    document.getElementById('ct-rounds').innerHTML = '';
     document.getElementById('ct-groups').innerHTML = '';
-    ctRoundIdx = 0;
     ctGroupIdx = 0;
 
     // 加载所有选手
@@ -799,30 +803,9 @@ async function showCreateTournament() {
         return;
     }
 
-    // 默认 1 个轮次（BO3）+ 2 个分组
-    ctAddRound();
+    // 默认 2 个分组
     ctAddGroup();
     ctAddGroup();
-}
-
-function ctAddRound() {
-    const container = document.getElementById('ct-rounds');
-    const idx = ctRoundIdx++;
-    const label = {0:'小组赛',1:'第二轮',2:'半决赛',3:'决赛'}[idx] || `第${idx+1}轮`;
-    const div = document.createElement('div');
-    div.className = 'flex items-center gap-3 bg-black/20 rounded-lg px-4 py-2';
-    div.id = `ct-round-${idx}`;
-    div.innerHTML = `
-        <span class="text-sm text-gray-300 flex-shrink-0">${label}</span>
-        <select class="bg-black/30 border border-hearth-border rounded px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50" data-round="${idx}">
-            <option value="1" ${idx===0?'':'selected'}>BO1</option>
-            <option value="3" ${idx===0?'selected':''}>BO3</option>
-            <option value="5">BO5</option>
-            <option value="7">BO7</option>
-        </select>
-        <button onclick="this.parentElement.remove()" class="ml-auto text-xs text-red-400 hover:text-red-300 transition">删除</button>
-    `;
-    container.appendChild(div);
 }
 
 function ctAddGroup() {
@@ -868,13 +851,7 @@ async function ctSubmit() {
     const name = document.getElementById('ct-name').value.trim();
     if (!name) { alert('请输入赛事名称'); return; }
 
-    // 收集轮次
-    const roundDivs = document.querySelectorAll('#ct-rounds > div');
-    const rounds = [];
-    roundDivs.forEach((div, i) => {
-        const sel = div.querySelector('select');
-        rounds.push({ round: i + 1, boN: parseInt(sel.value) });
-    });
+    const boN = parseInt(document.getElementById('ct-bo').value);
 
     // 收集第一轮分组
     const groupDivs = document.querySelectorAll('#ct-groups > div');
@@ -899,15 +876,25 @@ async function ctSubmit() {
         groups.push({ groupIndex: groups.length + 1, players });
     }
 
-    // 组装请求体
-    const body = {
-        tournamentName: name,
-        rounds: rounds.map((r, i) => ({
-            round: r.round,
-            boN: r.boN,
-            groups: i === 0 ? groups : groups.map((g, gi) => ({ groupIndex: gi + 1, players: [] })),
-        })),
-    };
+    // 自动生成后续轮次：n → n/2 → ... → 1
+    const allRounds = [{ round: 1, boN: boN, groups: groups }];
+    let nextGroupCount = Math.floor(groups.length / 2);
+    let r = 2;
+    while (nextGroupCount >= 1) {
+        allRounds.push({
+            round: r,
+            boN: boN,
+            groups: Array.from({ length: nextGroupCount }, (_, i) => ({ groupIndex: i + 1, players: [] })),
+        });
+        nextGroupCount = Math.floor(nextGroupCount / 2);
+        r++;
+    }
+    // 确保最后一轮是 1 组（决赛）
+    if (allRounds[allRounds.length - 1].groups.length > 1) {
+        allRounds.push({ round: r, boN: boN, groups: [{ groupIndex: 1, players: [] }] });
+    }
+
+    const body = { tournamentName: name, rounds: allRounds };
 
     try {
         const res = await fetch('/api/tournament/create', {

@@ -1109,11 +1109,18 @@ def _build_bracket_data():
     db = get_db()
     GROUP_LABELS = "ABCDEFGH"
 
-    def _round_label(r):
-        return {1: "小组赛", 2: "第二轮", 3: "半决赛", 4: "决赛"}.get(r, f"第 {r} 轮")
+    def _round_label(r, total_rounds):
+        """动态轮次名：根据总轮数计算"""
+        if r == total_rounds:
+            return "决赛"
+        if r == total_rounds - 1:
+            return "半决赛"
+        if r == total_rounds - 2:
+            return "四强"
+        return f"第 {r} 轮"
 
-    def _group_label(r, gi, total):
-        if r >= 4 and total == 1:
+    def _group_label(r, gi, total, total_rounds):
+        if r == total_rounds and total == 1:
             return "决赛"
         if r == 1:
             return f"{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组" if total > 8 else f"{GROUP_LABELS[gi]} 组"
@@ -1183,7 +1190,7 @@ def _build_bracket_data():
                 gd = {
                     "round": r,
                     "groupIndex": gi + 1,
-                    "label": _group_label(r, gi, total),
+                    "label": _group_label(r, gi, total, len(sorted_rounds)),
                     "status": status,
                     "boN": bo_n,
                     "gamesPlayed": games_played,
@@ -1195,7 +1202,7 @@ def _build_bracket_data():
                     gd["nextRoundGroupId"] = g["nextRoundGroupId"]
                 groups_data.append(gd)
 
-            rounds_data.append({"label": _round_label(r), "groups": groups_data})
+            rounds_data.append({"label": _round_label(r, len(sorted_rounds)), "groups": groups_data})
 
         result.append({"name": tname, "rounds": rounds_data})
 
