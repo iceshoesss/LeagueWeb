@@ -3033,12 +3033,13 @@ def api_plugin_check_league():
             upsert=True,
         )
 
-        # 更新 tournament_group 状态
+        # 更新 tournament_group 状态：gamesPlayed +1（开始即计数）
         game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
         old_status = matched_tournament_group.get("status")
         db.tournament_groups.update_one(
             {"_id": matched_tournament_group["_id"]},
-            {"$set": {"status": "active", "startedAt": started_at}}
+            {"$set": {"status": "active", "startedAt": started_at},
+             "$inc": {"gamesPlayed": 1}}
         )
         log.info(f"[check-league] 淘汰赛匹配: group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={game_uuid}")
 
@@ -3262,7 +3263,7 @@ def api_plugin_update_placement():
                 bo_n = tg.get("boN", 1)
                 old_gp = tg.get("gamesPlayed", 0)
                 old_status = tg.get("status", "waiting")
-                games_played = old_gp + 1
+                games_played = old_gp  # check-league 已 +1，此处不再重复
 
                 # 累加每个玩家的本局积分到 totalPoints
                 # 不再写 totalPoints/games 到 tournament_groups，排名从 league_matches 聚合
