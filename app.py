@@ -2219,6 +2219,44 @@ def api_admin_admins_remove():
     return jsonify({"ok": True})
 
 
+@app.route("/api/admin/player/add", methods=["POST"])
+def api_admin_player_add():
+    """管理员手动添加选手（手机玩家/无插件玩家）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    battle_tag = data.get("battleTag", "").strip()
+    display_name = data.get("displayName", "").strip()
+
+    if not battle_tag:
+        return jsonify({"error": "BattleTag 不能为空"}), 400
+    if "#" not in battle_tag:
+        return jsonify({"error": "BattleTag 格式应为 玩家名#1234"}), 400
+    if not display_name:
+        display_name = battle_tag.rsplit("#", 1)[0]
+
+    db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    # 检查是否已存在
+    existing = db.league_players.find_one({"battleTag": battle_tag})
+    if existing:
+        return jsonify({"error": f"{battle_tag} 已注册"}), 400
+
+    db.league_players.insert_one({
+        "battleTag": battle_tag,
+        "displayName": display_name,
+        "accountIdLo": "",
+        "verified": True,
+        "verifiedAt": now_str,
+        "createdAt": now_str,
+    })
+    log.info(f"管理员 {admin_tag} 手动添加选手: {battle_tag}")
+    return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
+
+
 # ── API 路由 ──────────────────────────────────────────
 
 @app.route("/api/players")

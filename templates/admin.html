@@ -121,6 +121,7 @@
         <div class="flex items-center gap-2 mb-3">
             <input type="text" id="player-search-input" placeholder="搜索选手..." oninput="playerPage=1;loadPlayers()"
                 class="w-64 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+            <button onclick="showAddPlayer()" class="text-xs px-3 py-1.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 添加选手</button>
             <span class="text-xs text-hearth-dim ml-auto" id="player-total"></span>
         </div>
 
@@ -183,6 +184,30 @@
             </div>
             <div id="tournament-list" class="divide-y divide-hearth-border">
                 <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加选手弹窗 -->
+    <div id="add-player-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-hearth-card rounded-xl gold-border p-6 w-96" onclick="event.stopPropagation()">
+            <h3 class="text-lg font-bold text-hearth-gold mb-4">手动添加选手</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-hearth-dim mb-1">BattleTag <span class="text-red-400">*</span></label>
+                    <input type="text" id="add-player-tag" placeholder="玩家名#1234"
+                        class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                </div>
+                <div>
+                    <label class="block text-xs text-hearth-dim mb-1">显示名称（可选，默认取 # 前的部分）</label>
+                    <input type="text" id="add-player-name" placeholder="玩家名"
+                        class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                </div>
+                <p class="text-xs text-hearth-dim">适用于手机玩家或无法使用插件的玩家。无需验证码，管理员手动确认身份。</p>
+            </div>
+            <div class="flex justify-end gap-2 mt-5">
+                <button onclick="document.getElementById('add-player-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-hearth-dim hover:text-white transition">取消</button>
+                <button onclick="submitAddPlayer()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">添加</button>
             </div>
         </div>
     </div>
@@ -462,6 +487,34 @@ async function loadMatches() {
 // ── 选手管理 ──────────────────────────────────────
 let playerPage = 1;
 let playersLoaded = false;
+
+function showAddPlayer() {
+    document.getElementById('add-player-tag').value = '';
+    document.getElementById('add-player-name').value = '';
+    document.getElementById('add-player-modal').classList.remove('hidden');
+    document.getElementById('add-player-tag').focus();
+}
+
+async function submitAddPlayer() {
+    const battleTag = document.getElementById('add-player-tag').value.trim();
+    const displayName = document.getElementById('add-player-name').value.trim();
+    if (!battleTag) { alert('BattleTag 不能为空'); return; }
+    if (!battleTag.includes('#')) { alert('格式应为 玩家名#1234'); return; }
+    try {
+        const res = await fetch('/api/admin/player/add', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ battleTag, displayName }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            document.getElementById('add-player-modal').classList.add('hidden');
+            loadPlayers();
+        } else {
+            alert(data.error || '添加失败');
+        }
+    } catch { alert('网络错误'); }
+}
 
 async function loadPlayers() {
     playersLoaded = true;
