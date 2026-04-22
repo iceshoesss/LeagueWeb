@@ -399,7 +399,7 @@ initBrackets(DATA);
    SSE 实时更新
    ══════════════════════════════════════════ */
 let bracketSse = null;
-let lastBracketHash = '';
+let lastBracketData = null;
 
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
@@ -409,13 +409,12 @@ function connectBracketSse() {
     if (!e.data) return;
     try {
       const data = JSON.parse(e.data);
-      // 指纹比对，有变化才重渲染
-      const hash = JSON.stringify(data);
-      if (hash !== lastBracketHash) {
-        lastBracketHash = hash;
+      // 用解析后比较而非 stringify，避免 key 顺序导致误判
+      if (JSON.stringify(data) !== JSON.stringify(lastBracketData)) {
+        lastBracketData = data;
         initBrackets(data);
       }
-    } catch(err) { /* ignore parse errors */ }
+    } catch(err) { console.error('[bracket-sse] parse error:', err); }
   };
 
   bracketSse.onerror = function() {
@@ -425,7 +424,7 @@ function connectBracketSse() {
 }
 
 // 首次连接
-lastBracketHash = JSON.stringify(DATA);
+lastBracketData = DATA;
 connectBracketSse();
 
 // 切 tab 时断开/重连，省资源
@@ -433,6 +432,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (bracketSse) { bracketSse.close(); bracketSse = null; }
   } else {
+    lastBracketData = null;  // 切回来强制刷新
     connectBracketSse();
   }
 });
