@@ -239,7 +239,7 @@
                 <div id="ct-groups" class="space-y-4"></div>
                 <div class="flex items-center gap-2 mt-2 flex-wrap">
                     <button onclick="ctAddGroup()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
-                    <button onclick="ctAutoAssign()" class="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🪄 按序分配</button>
+
                 </div>
                 <div class="flex items-center gap-2 mt-2">
                     <input type="text" id="ct-seed" placeholder="随机种子（如：安德罗妮4月29日14:00第一句话）"
@@ -805,6 +805,89 @@ let ctAllPlayers = [];       // 所有注册选手
 let ctGroupIdx = 0;
 let mtTournamentName = '';   // 当前管理的赛事名
 let mtAllPlayers = [];       // 管理弹窗用的选手列表
+const ctSearchSlots = {};    // { "gi-si": searchInstance }
+const mtSearchSlots = {};    // 管理赛事弹窗搜索实例
+
+// ── 通用搜索选择组件 ──
+// allPlayers: [{battleTag, displayName, accountIdLo}]
+// onSelect: 回调，参数为选中的 player 对象或 null（清空）
+function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
+    container.innerHTML = '';
+    container.style.position = 'relative';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = '搜索选手...';
+    input.className = 'w-full bg-black/30 border border-hearth-border rounded px-2 py-1.5 text-xs text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50';
+    input.autocomplete = 'off';
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'hidden absolute left-0 right-0 top-full mt-1 bg-[#1a1a2e] border border-hearth-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto';
+
+    let selectedPlayer = selectedTag ? allPlayers.find(p => p.battleTag === selectedTag) : null;
+    if (selectedPlayer) input.value = selectedPlayer.battleTag;
+
+    function renderDropdown(query) {
+        if (!query) { dropdown.classList.add('hidden'); return; }
+        const q = query.toLowerCase();
+        const matches = allPlayers.filter(p =>
+            p.battleTag.toLowerCase().includes(q) ||
+            (p.displayName && p.displayName.toLowerCase().includes(q))
+        ).slice(0, 20);
+
+        if (matches.length === 0) {
+            dropdown.innerHTML = '<div class="px-3 py-2 text-xs text-hearth-dim">无匹配选手</div>';
+        } else {
+            dropdown.innerHTML = matches.map(p => {
+                const tag = p.battleTag.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const dn = (p.displayName || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return `<div class="px-3 py-2 text-xs text-gray-200 hover:bg-hearth-gold/20 cursor-pointer search-opt" data-tag="${tag}" data-lo="${p.accountIdLo}" data-name="${dn}">
+                    <span class="text-hearth-gold">${tag}</span>
+                    ${dn && dn !== tag ? `<span class="text-hearth-dim ml-2">${dn}</span>` : ''}
+                </div>`;
+            }).join('');
+        }
+        dropdown.classList.remove('hidden');
+    }
+
+    input.addEventListener('input', () => {
+        selectedPlayer = null;
+        renderDropdown(input.value.trim());
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) renderDropdown(input.value.trim());
+    });
+
+    dropdown.addEventListener('click', (e) => {
+        const opt = e.target.closest('.search-opt');
+        if (!opt) return;
+        const tag = opt.dataset.tag;
+        selectedPlayer = allPlayers.find(p => p.battleTag === tag) || null;
+        input.value = tag;
+        dropdown.classList.add('hidden');
+        if (onSelect) onSelect(selectedPlayer);
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) dropdown.classList.add('hidden');
+    });
+
+    container.appendChild(input);
+    container.appendChild(dropdown);
+
+    // 返回读取当前值的方法
+    return {
+        getValue: () => selectedPlayer ? selectedPlayer.accountIdLo : '',
+        getTag: () => selectedPlayer ? selectedPlayer.battleTag : '',
+        getName: () => selectedPlayer ? (selectedPlayer.displayName || '') : '',
+        setValue: (lo) => {
+            selectedPlayer = allPlayers.find(p => String(p.accountIdLo) === String(lo)) || null;
+            input.value = selectedPlayer ? selectedPlayer.battleTag : '';
+        },
+        clear: () => { selectedPlayer = null; input.value = ''; }
+    };
+}
 
 async function loadTournaments() {
     tournamentLoaded = true;
@@ -865,56 +948,6 @@ async function showCreateTournament() {
     ctAddGroup();
 }
 
-function ctAutoAssign() {
-    const groupDivs = document.querySelectorAll('#ct-groups > div');
-    if (!groupDivs.length) { alert('请先添加分组'); return; }
-
-    // 第一组固定测试玩家
-    const TEST_PLAYERS = Array.from({length: 8}, (_, i) => ({
-        battleTag: `衣锦夜行#${String(i).padStart(4, '0')}`,
-        accountIdLo: String(10000000 + i),
-        displayName: '衣锦夜行',
-    }));
-
-    // 从第二组起需要注册选手
-    const remainingGroups = groupDivs.length - 1;
-    const needed = remainingGroups * 8;
-    if (remainingGroups > 0 && ctAllPlayers.length < needed) {
-        alert(`需要 ${needed} 位注册选手（第 2 组起 ${remainingGroups} 组 × 8），当前只有 ${ctAllPlayers.length} 位`);
-        return;
-    }
-
-    // 第一组：添加测试玩家 option 并选中
-    const firstGroup = groupDivs[0];
-    const firstSelects = firstGroup.querySelectorAll('.ct-select');
-    firstSelects.forEach((sel, si) => {
-        const tp = TEST_PLAYERS[si];
-        // 检查是否已有该 option，没有则添加
-        let opt = Array.from(sel.options).find(o => o.value === tp.accountIdLo);
-        if (!opt) {
-            opt = document.createElement('option');
-            opt.value = tp.accountIdLo;
-            opt.dataset.tag = tp.battleTag;
-            opt.dataset.name = tp.displayName;
-            opt.textContent = tp.battleTag;
-            sel.insertBefore(opt, sel.options[1] || null);
-        }
-        sel.value = tp.accountIdLo;
-    });
-
-    // 后续组：按序从注册选手分配
-    let idx = 0;
-    groupDivs.forEach((gd, gi) => {
-        if (gi === 0) return;
-        gd.querySelectorAll('.ct-select').forEach(sel => {
-            const p = ctAllPlayers[idx++];
-            sel.value = p.accountIdLo;
-        });
-    });
-
-    ctUpdateCounts();
-}
-
 async function ctShuffle() {
     const seed = document.getElementById('ct-seed').value.trim();
     if (!seed) { alert('请输入随机种子'); return; }
@@ -941,9 +974,10 @@ async function ctShuffle() {
 
         let idx = 0;
         groupDivs.forEach(gd => {
-            gd.querySelectorAll('.ct-select').forEach(sel => {
+            gd.querySelectorAll('.ct-search-wrap').forEach(wrap => {
                 const p = shuffled[idx++];
-                sel.value = p.accountIdLo;
+                const key = wrap.dataset.gi + '-' + wrap.dataset.si;
+                if (ctSearchSlots[key]) ctSearchSlots[key].setValue(p.accountIdLo);
             });
         });
 
@@ -969,24 +1003,29 @@ function ctAddGroup() {
         </div>
     `;
     container.appendChild(div);
+    ctInitNewSlots(div);
     ctUpdateCounts();
     ctRefreshBoRounds();
 }
 
+function ctInitNewSlots(root) {
+    root.querySelectorAll('.ct-search-wrap').forEach(wrap => {
+        const gi = wrap.dataset.gi, si = wrap.dataset.si;
+        const key = gi + '-' + si;
+        if (ctSearchSlots[key]) return;
+        ctSearchSlots[key] = createSearchSelect(wrap, ctAllPlayers, null, () => ctUpdateCounts());
+    });
+}
+
 function ctSlotHTML(gi, si) {
     return `<div class="ct-slot" data-gi="${gi}" data-si="${si}">
-        <select onchange="ctUpdateCounts()"
-            class="w-full bg-black/30 border border-hearth-border rounded px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-hearth-gold/50 ct-select">
-            <option value="">空位 ${si+1}</option>
-            ${ctAllPlayers.map(p => `<option value="${p.accountIdLo}" data-tag="${p.battleTag}" data-name="${p.displayName}">${p.battleTag}</option>`).join('')}
-        </select>
+        <div class="ct-search-wrap" data-gi="${gi}" data-si="${si}"></div>
     </div>`;
 }
 
 function ctUpdateCounts() {
-    const selects = document.querySelectorAll('#ct-groups .ct-select');
     let assigned = 0;
-    selects.forEach(s => { if (s.value) assigned++; });
+    Object.values(ctSearchSlots).forEach(s => { if (s.getValue()) assigned++; });
     document.getElementById('ct-assigned-count').textContent = assigned;
     document.getElementById('ct-unassigned-count').textContent = ctAllPlayers.length - assigned;
     ctRefreshBoRounds();
@@ -1038,15 +1077,16 @@ async function ctSubmit() {
 
     const groups = [];
     for (const gd of groupDivs) {
-        const selects = gd.querySelectorAll('.ct-select');
+        const slots = gd.querySelectorAll('.ct-search-wrap');
         const players = [];
-        for (const sel of selects) {
-            if (!sel.value) continue;
-            const opt = sel.options[sel.selectedIndex];
+        for (const wrap of slots) {
+            const key = wrap.dataset.gi + '-' + wrap.dataset.si;
+            const s = ctSearchSlots[key];
+            if (!s || !s.getValue()) continue;
             players.push({
-                battleTag: opt.dataset.tag,
-                accountIdLo: sel.value,
-                displayName: opt.dataset.name,
+                battleTag: s.getTag(),
+                accountIdLo: s.getValue(),
+                displayName: s.getName(),
                 heroCardId: '',
                 heroName: '',
             });
@@ -1160,13 +1200,7 @@ function renderManageTournament(data) {
 
                 if (isEditable) {
                     html += `<div class="flex items-center gap-2">
-                        <select class="flex-1 bg-black/30 border border-hearth-border rounded px-2 py-1 text-xs text-gray-200 mt-player-select" data-gid="${gid}" data-slot="${i}">
-                            <option value="">空位</option>
-                            ${mtAllPlayers.map(ap => {
-                                const sel = p.battleTag === ap.battleTag ? 'selected' : '';
-                                return `<option value="${ap.accountIdLo}" data-tag="${ap.battleTag}" data-name="${ap.displayName}" ${sel}>${ap.battleTag}</option>`;
-                            }).join('')}
-                        </select>
+                        <div class="flex-1 mt-search-wrap" data-gid="${gid}" data-slot="${i}" data-tag="${(p.battleTag||'').replace(/"/g,'&quot;')}"></div>
                         ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold w-6 text-right">${pts}</span>` : ''}
                     </div>`;
                 } else {
@@ -1186,16 +1220,24 @@ function renderManageTournament(data) {
         html += `</div></div>`;
     });
     content.innerHTML = html;
+    // 初始化搜索组件
+    content.querySelectorAll('.mt-search-wrap').forEach(wrap => {
+        const gid = wrap.dataset.gid, slot = wrap.dataset.slot;
+        const key = gid + '-' + slot;
+        const selectedTag = wrap.dataset.tag || '';
+        mtSearchSlots[key] = createSearchSelect(wrap, mtAllPlayers, selectedTag, null);
+    });
 }
 
 async function mtSave(gid) {
     const boSel = document.querySelector(`.mt-bo-select[data-gid="${gid}"]`);
     const boN = boSel ? parseInt(boSel.value) : null;
     const players = [];
-    document.querySelectorAll(`.mt-player-select[data-gid="${gid}"]`).forEach(sel => {
-        if (sel.value) {
-            const opt = sel.options[sel.selectedIndex];
-            players.push({ battleTag: opt.dataset.tag, accountIdLo: sel.value, displayName: opt.dataset.name, heroCardId: '', heroName: '' });
+    document.querySelectorAll(`.mt-search-wrap[data-gid="${gid}"]`).forEach(wrap => {
+        const key = wrap.dataset.gid + '-' + wrap.dataset.slot;
+        const s = mtSearchSlots[key];
+        if (s && s.getValue()) {
+            players.push({ battleTag: s.getTag(), accountIdLo: s.getValue(), displayName: s.getName(), heroCardId: '', heroName: '' });
         }
     });
 
