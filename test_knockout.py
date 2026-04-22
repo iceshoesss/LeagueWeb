@@ -21,7 +21,7 @@ import uuid
 import requests
 
 # ─── 配置 ───
-DEFAULT_BASE = "http://localhost:5000"
+DEFAULT_BASE = "http://127.0.0.1:5000"
 PLUGIN_KEY = "YOUR_PLUGIN_KEY_HERE"
 PLUGIN_VER = "1.1.0"
 
