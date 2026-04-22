@@ -1323,6 +1323,114 @@ def api_tournament_group(group_id):
     return jsonify(group)
 
 
+@app.route("/api/tournament/manage/<path:tournament_name>")
+def api_tournament_manage(tournament_name):
+    """获取赛事完整数据（管理用，含 _id）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    groups = list(db.tournament_groups.find({"tournamentName": tournament_name}).sort([("round", 1), ("groupIndex", 1)]))
+    if not groups:
+        return jsonify({"error": "赛事不存在"}), 404
+
+    for g in groups:
+        g["_id"] = str(g["_id"])
+
+    return jsonify({"name": tournament_name, "groups": groups})
+
+
+@app.route("/api/tournament/group/<group_id>/update", methods=["PUT"])
+def api_tournament_group_update(group_id):
+    """更新分组（玩家分配 + BO 设置，仅 waiting 状态可编辑）"""
+    from bson import ObjectId
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    try:
+        oid = ObjectId(group_id)
+    except Exception:
+        return jsonify({"error": "无效的 group ID"}), 400
+
+    group = db.tournament_groups.find_one({"_id": oid})
+    if not group:
+        return jsonify({"error": "分组不存在"}), 404
+
+    if group.get("status") not in ("waiting", None):
+        if group.get("gamesPlayed", 0) > 0:
+            return jsonify({"error": "已开始的分组不能编辑玩家"}), 400
+
+    data = request.get_json() or {}
+    update = {}
+
+    # 更新 boN
+    if "boN" in data:
+        bo_n = int(data["boN"])
+        if bo_n < 1 or bo_n > 20:
+            return jsonify({"error": "boN 必须在 1-20 之间"}), 400
+        update["boN"] = bo_n
+
+    # 更新玩家
+    if "players" in data:
+        players = []
+        for p in data["players"]:
+            players.append({
+                "battleTag": p.get("battleTag") or None,
+                "accountIdLo": str(p.get("accountIdLo", "")) if p.get("accountIdLo") else None,
+                "displayName": p.get("displayName", "待定"),
+                "heroCardId": p.get("heroCardId") or None,
+                "heroName": p.get("heroName") or None,
+                "totalPoints": p.get("totalPoints", 0),
+                "games": p.get("games", []),
+                "placement": p.get("placement"),
+                "points": p.get("points"),
+                "qualified": p.get("qualified", False),
+                "eliminated": p.get("eliminated", False),
+                "empty": not bool(p.get("battleTag")),
+            })
+        # 补空位
+        while len(players) < 8:
+            players.append({
+                "battleTag": None, "accountIdLo": None, "displayName": "待定",
+                "heroCardId": None, "heroName": None,
+                "totalPoints": 0, "games": [],
+                "placement": None, "points": None,
+                "qualified": False, "eliminated": False, "empty": True,
+            })
+        update["players"] = players
+
+    if update:
+        db.tournament_groups.update_one({"_id": oid}, {"$set": update})
+
+    log.info(f"[tournament] 管理员 {admin_tag} 更新分组 {group_id}: {list(update.keys())}")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/tournament/<path:tournament_name>", methods=["DELETE"])
+def api_tournament_delete(tournament_name):
+    """删除整个赛事（仅 waiting 状态的分组可删）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    groups = list(db.tournament_groups.find({"tournamentName": tournament_name}))
+    if not groups:
+        return jsonify({"error": "赛事不存在"}), 404
+
+    # 检查是否有已开始的分组
+    active = [g for g in groups if g.get("gamesPlayed", 0) > 0 or g.get("status") == "active"]
+    if active:
+        return jsonify({"error": f"有 {len(active)} 个分组已开始比赛，不能删除"}), 400
+
+    result = db.tournament_groups.delete_many({"tournamentName": tournament_name})
+    log.info(f"[tournament] 管理员 {admin_tag} 删除赛事 {tournament_name}，删除 {result.deleted_count} 个分组")
+    return jsonify({"ok": True, "deleted": result.deleted_count})
+
+
 @app.route("/api/tournaments")
 def api_tournaments():
     """获取赛事列表（管理员）"""

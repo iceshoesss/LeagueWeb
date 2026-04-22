@@ -226,6 +226,19 @@
         </div>
     </div>
 
+    <!-- 赛事管理弹窗 -->
+    <div id="manage-tournament-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-hearth-card rounded-xl gold-border p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-hearth-gold" id="mt-title">赛事管理</h3>
+                <button onclick="document.getElementById('manage-tournament-modal').classList.add('hidden')" class="text-hearth-dim hover:text-white transition">✕</button>
+            </div>
+            <div id="mt-content">
+                <div class="text-center text-sm text-hearth-dim py-8">加载中...</div>
+            </div>
+        </div>
+    </div>
+
     {% if is_super_admin %}
     <!-- ═══════════════════════════════════════════ -->
     <!--  管理员管理（仅超级管理员）                  -->
@@ -727,6 +740,8 @@ let tournamentLoaded = false;
 let ctAllPlayers = [];       // 所有注册选手
 let ctRoundIdx = 0;
 let ctGroupIdx = 0;
+let mtTournamentName = '';   // 当前管理的赛事名
+let mtAllPlayers = [];       // 管理弹窗用的选手列表
 
 async function loadTournaments() {
     tournamentLoaded = true;
@@ -754,7 +769,10 @@ async function loadTournaments() {
                     <span class="text-xs text-hearth-dim">${t.totalGroups} 组</span>
                 </div>
                 <div class="flex items-center gap-2">${badges.join('')}</div>
-                <div class="flex items-center gap-1">${roundLabels}</div>
+                <div class="flex items-center gap-2">${roundLabels}
+                    <button onclick="showManageTournament('${t.name.replace(/'/g,"\\'")}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition ml-1">管理</button>
+                    <button onclick="deleteTournament('${t.name.replace(/'/g,"\\'")}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">删除</button>
+                </div>
             </div>`;
         }).join('');
     } catch (e) {
@@ -904,6 +922,141 @@ async function ctSubmit() {
         } else {
             alert(data.error || '创建失败');
         }
+    } catch (e) { alert('网络错误'); }
+}
+
+// ── 赛事管理弹窗 ──────────────────────────────────
+async function showManageTournament(name) {
+    mtTournamentName = name;
+    document.getElementById('mt-title').textContent = `管理 — ${name}`;
+    document.getElementById('manage-tournament-modal').classList.remove('hidden');
+    const content = document.getElementById('mt-content');
+    content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">加载中...</div>';
+
+    try {
+        const [pRes, tRes] = await Promise.all([
+            fetch('/api/admin/players-all'),
+            fetch(`/api/tournament/manage/${encodeURIComponent(name)}`),
+        ]);
+        mtAllPlayers = await pRes.json();
+        const tData = await tRes.json();
+        if (tRes.ok) {
+            renderManageTournament(tData);
+        } else {
+            content.innerHTML = `<div class="text-center text-sm text-red-400 py-8">${tData.error || '加载失败'}</div>`;
+        }
+    } catch (e) {
+        content.innerHTML = '<div class="text-center text-sm text-red-400 py-8">网络错误</div>';
+    }
+}
+
+function renderManageTournament(data) {
+    const content = document.getElementById('mt-content');
+    const groups = data.groups || [];
+    const rounds = {};
+    groups.forEach(g => { (rounds[g.round || 1] = rounds[g.round || 1] || []).push(g); });
+
+    let html = '';
+    const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
+    Object.keys(rounds).map(Number).sort((a,b) => a-b).forEach(r => {
+        html += `<div class="mb-6">
+            <h4 class="text-sm font-bold text-hearth-gold mb-3">第 ${r} 轮 — ${roundLabels[r] || `第${r}轮`}</h4>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">`;
+
+        rounds[r].forEach(g => {
+            const gid = g._id;
+            const boN = g.boN || 1, gp = g.gamesPlayed || 0;
+            const status = g.status || 'waiting';
+            const isEditable = status === 'waiting' && gp === 0;
+
+            html += `<div class="bg-black/20 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-gray-300">组 ${g.groupIndex || ''}</span>
+                        <span class="badge ${status}">${status === 'waiting' ? '等待' : status === 'active' ? '进行中' : '已完成'} · ${gp}/${boN} 局</span>
+                    </div>
+                    ${isEditable ? `<div class="flex items-center gap-2">
+                        <label class="text-xs text-hearth-dim">BO</label>
+                        <select class="bg-black/30 border border-hearth-border rounded px-1.5 py-0.5 text-xs text-gray-200 mt-bo-select" data-gid="${gid}">
+                            <option value="1" ${boN===1?'selected':''}>1</option>
+                            <option value="3" ${boN===3?'selected':''}>3</option>
+                            <option value="5" ${boN===5?'selected':''}>5</option>
+                            <option value="7" ${boN===7?'selected':''}>7</option>
+                        </select>
+                        <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
+                    </div>` : ''}
+                </div>
+                <div class="space-y-1">`;
+
+            (g.players || []).forEach((p, i) => {
+                const isEmpty = p.empty || !p.battleTag;
+                const pts = p.totalPoints || 0;
+                const gamesStr = (p.games || []).join(', ');
+
+                if (isEditable) {
+                    html += `<div class="flex items-center gap-2">
+                        <select class="flex-1 bg-black/30 border border-hearth-border rounded px-2 py-1 text-xs text-gray-200 mt-player-select" data-gid="${gid}" data-slot="${i}">
+                            <option value="">空位</option>
+                            ${mtAllPlayers.map(ap => {
+                                const sel = p.battleTag === ap.battleTag ? 'selected' : '';
+                                return `<option value="${ap.accountIdLo}" data-tag="${ap.battleTag}" data-name="${ap.displayName}" ${sel}>${ap.displayName}</option>`;
+                            }).join('')}
+                        </select>
+                        ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold w-6 text-right">${pts}</span>` : ''}
+                    </div>`;
+                } else {
+                    const nameClass = isEmpty ? 'text-hearth-dim italic' : p.qualified ? 'text-green-400' : p.eliminated ? 'text-red-400/50 line-through' : 'text-gray-300';
+                    html += `<div class="flex items-center gap-2 px-2 py-1">
+                        <span class="text-xs text-hearth-dim w-4 text-right">${i+1}</span>
+                        <span class="text-xs ${nameClass} flex-1">${isEmpty ? '待定' : p.displayName || p.battleTag}</span>
+                        ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold">${pts}分</span>` : ''}
+                        ${gamesStr ? `<span class="text-xs text-hearth-dim">[${gamesStr}]</span>` : ''}
+                        ${p.qualified ? '<span class="text-xs text-green-400">✓ 晋级</span>' : ''}
+                        ${p.eliminated ? '<span class="text-xs text-red-400/50">✗ 淘汰</span>' : ''}
+                    </div>`;
+                }
+            });
+            html += `</div></div>`;
+        });
+        html += `</div></div>`;
+    });
+    content.innerHTML = html;
+}
+
+async function mtSave(gid) {
+    const boSel = document.querySelector(`.mt-bo-select[data-gid="${gid}"]`);
+    const boN = boSel ? parseInt(boSel.value) : null;
+    const players = [];
+    document.querySelectorAll(`.mt-player-select[data-gid="${gid}"]`).forEach(sel => {
+        if (sel.value) {
+            const opt = sel.options[sel.selectedIndex];
+            players.push({ battleTag: opt.dataset.tag, accountIdLo: sel.value, displayName: opt.dataset.name, heroCardId: '', heroName: '' });
+        }
+    });
+
+    const body = {};
+    if (boN !== null) body.boN = boN;
+    if (players.length) body.players = players;
+
+    try {
+        const res = await fetch(`/api/tournament/group/${gid}/update`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) showManageTournament(mtTournamentName);
+        else alert(data.error || '保存失败');
+    } catch (e) { alert('网络错误'); }
+}
+
+async function deleteTournament(name) {
+    if (!confirm(`确定删除赛事「${name}」？\n\n只有全部分组都未开始比赛才能删除。`)) return;
+    try {
+        const res = await fetch(`/api/tournament/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (res.ok) loadTournaments();
+        else alert(data.error || '删除失败');
     } catch (e) { alert('网络错误'); }
 }
 
