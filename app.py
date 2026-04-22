@@ -1092,9 +1092,9 @@ def _build_bracket_mock():
         g['gamesPlayed'] = 1
         for i, p in enumerate(g['players']):
             if not p.get('empty'):
-                p['points'] = 9 if i == 0 else max(1, 9 - i)
                 if i >= 6:
                     p['placement'] = i + 1
+                    p['points'] = 9 if i == 0 else max(1, 9 - i)
                     p['eliminated'] = True
     final_groups = build_round(r3_groups, 4)
     for g in final_groups:
