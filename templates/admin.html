@@ -213,6 +213,7 @@
                 <label class="block text-xs text-hearth-dim mb-2">第一轮分组分配 <span class="text-hearth-dim/60">（从注册选手中选择）</span></label>
                 <div id="ct-groups" class="space-y-4"></div>
                 <button onclick="ctAddGroup()" class="mt-2 text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
+                <button onclick="ctAutoAssign()" class="mt-2 text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🪄 自动分组</button>
             </div>
 
             <!-- 已分配提示 -->
@@ -801,6 +802,38 @@ async function showCreateTournament() {
     // 默认 2 个分组
     ctAddGroup();
     ctAddGroup();
+}
+
+function ctAutoAssign() {
+    if (!ctAllPlayers.length) { alert('没有可分配的选手'); return; }
+    let groupDivs = document.querySelectorAll('#ct-groups > div');
+    if (!groupDivs.length) { alert('请先添加分组'); return; }
+
+    // 按每组 8 人自动计算需要多少组
+    const perGroup = 8;
+    const needed = Math.ceil(ctAllPlayers.length / perGroup);
+    const current = groupDivs.length;
+
+    // 补齐分组
+    if (needed > current) {
+        for (let i = current; i < needed; i++) ctAddGroup();
+    }
+    groupDivs = document.querySelectorAll('#ct-groups > div');
+
+    // 分配玩家
+    let playerIdx = 0;
+    groupDivs.forEach(gd => {
+        gd.querySelectorAll('.ct-select').forEach(sel => {
+            if (playerIdx < ctAllPlayers.length) {
+                const p = ctAllPlayers[playerIdx++];
+                sel.value = p.accountIdLo;
+            } else {
+                sel.value = '';
+            }
+        });
+    });
+
+    ctUpdateCounts();
 }
 
 function ctAddGroup() {
