@@ -183,7 +183,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 ## 更新日志
 
 ### v0.1.5 (2026-04-22) — Bug 修复
-- 修复 check-league 构建 players 时空 battleTag 覆盖 fallback：HearthMirror 只有本地玩家有 Name，插件发送的 players dict 中其他人 battleTag 为空串，服务端 `detail.get("battleTag", fallback)` 因 detail 存在返回空串覆盖了等待组的正确名字。改为三级 fallback（请求数据 → 等待组 name → league_players 查库）
+- 修复 check-league 构建 players 时空 battleTag 覆盖 fallback：HearthMirror 只有本地玩家有 Name，插件发送的 players dict 中其他人 battleTag 为空串，服务端 `detail.get("battleTag", fallback)` 因 detail 存在返回空串覆盖了等待组的正确名字。改为三级 fallback（请求数据 → 等待组 name → player_records.playerId 查库，确保带 #tag 的完整 battleTag）
 
 ### v0.1.4 (2026-04-22) — Bug 修复
 - 修复 tournamentGroupId (ObjectId) 导致管理面板对局列表 JSON 序列化失败
