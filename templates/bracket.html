@@ -80,6 +80,9 @@
   .p-row.q .pos { color: #34d399; }
   .p-row.q .nm  { color: #34d399; }
   .p-row.el .nm { color: #8b8b9e; }
+  .p-row.el img { filter: grayscale(1); opacity: 0.4; }
+  .group-card.done .p-row.el .nm { color: #d1d5db; }
+  .group-card.done .p-row.el img { filter: none; opacity: 1; }
 </style>
 {% endblock %}
 
@@ -303,11 +306,12 @@ function renderCard(g, x, y, isFinal) {
   const boInfo = (g.boN && g.boN > 1) ? `<span class="bo-info">BO${g.boN} ${g.gamesPlayed || 0}/${g.boN}</span>` : '';
   h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge ${g.status}">${labels[g.status] || g.status}</span></div></div>`;
   const isWaiting = g.status === 'waiting';
+  const showHero = g.status === 'active';
   (g.players || []).forEach((p, i) => {
     const cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
     const pc = !isWaiting && i === 0 ? 'g' : !isWaiting && i === 1 ? 's' : !isWaiting && i === 2 ? 'b' : '';
     const posText = isWaiting ? '' : (p.placement || (i + 1));
-    const img = (!p.empty && p.heroCardId)
+    const img = (showHero && !p.empty && p.heroCardId)
       ? `<div class="w-[22px] h-[22px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;

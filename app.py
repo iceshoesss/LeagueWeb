@@ -1082,7 +1082,20 @@ def _build_bracket_mock():
                 p['placement'] = i + 1
                 p['points'] = 9 if i == 0 else max(1, 9 - i)
                 p['qualified'] = i < 4
+                p['eliminated'] = i >= 4
     r3_groups = build_round(r2_groups, 3)
+    # 半决赛设为 active，模拟进行中（已有 2 人被淘汰）
+    for g in r3_groups:
+        g['status'] = 'active'
+        g['startedAt'] = '2026-04-22T10:00:00Z'
+        g['boN'] = 3
+        g['gamesPlayed'] = 1
+        for i, p in enumerate(g['players']):
+            if not p.get('empty'):
+                if i >= 6:
+                    p['placement'] = i + 1
+                    p['points'] = 9 if i == 0 else max(1, 9 - i)
+                    p['eliminated'] = True
     final_groups = build_round(r3_groups, 4)
     for g in final_groups:
         g.pop('nextRoundGroupId', None)
