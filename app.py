@@ -230,8 +230,10 @@ def inject_counts():
 def _get_group_rankings(db, tournament_name=None):
     """从 league_matches 聚合淘汰赛各组排名数据
 
+    同分规则：吃鸡数多 > 最后一局排名高（placement 数字小）
     返回: {tournamentGroupId_str: {accountIdLo_str: {
         "totalPoints": int, "gamesPlayed": int, "games": [int,...],
+        "chickens": int, "lastGamePlacement": int,
         "placement": int (1-based), "qualified": bool, "eliminated": bool
     }}}
     """
@@ -250,35 +252,45 @@ def _get_group_rankings(db, tournament_name=None):
             "totalPoints": {"$sum": {"$ifNull": ["$players.points", 0]}},
             "gamesPlayed": {"$sum": 1},
             "games": {"$push": {"$ifNull": ["$players.points", 0]}},
-        }},
-        {"$sort": {"_id.tg": 1, "totalPoints": -1}},
-        {"$group": {
-            "_id": "$_id.tg",
-            "players": {"$push": {
-                "accountIdLo": "$_id.lo",
-                "totalPoints": "$totalPoints",
-                "gamesPlayed": "$gamesPlayed",
-                "games": "$games",
-            }},
+            "placements": {"$push": "$players.placement"},
+            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "lastPlacement": {"$last": "$players.placement"},
         }},
     ]
 
     rankings = {}
     for doc in db.league_matches.aggregate(pipeline):
-        tg_str = str(doc["_id"])
+        tg_str = str(doc["_id"]["tg"])
+        lo = str(doc["_id"]["lo"])
+        if tg_str not in rankings:
+            rankings[tg_str] = []
+        rankings[tg_str].append({
+            "accountIdLo": lo,
+            "totalPoints": doc["totalPoints"],
+            "gamesPlayed": doc["gamesPlayed"],
+            "games": doc["games"],
+            "chickens": doc["chickens"],
+            "lastGamePlacement": doc["lastPlacement"] or 999,
+        })
+
+    result = {}
+    for tg_str, players_list in rankings.items():
+        # 排序：总分降序 → 吃鸡数降序 → 最后一局排名升序（数字小=高）
+        players_list.sort(key=lambda p: (-p["totalPoints"], -p["chickens"], p["lastGamePlacement"]))
         players_data = {}
-        for i, p in enumerate(doc.get("players", [])):
-            lo = str(p["accountIdLo"])
-            players_data[lo] = {
+        for i, p in enumerate(players_list):
+            players_data[p["accountIdLo"]] = {
                 "totalPoints": p["totalPoints"],
                 "gamesPlayed": p["gamesPlayed"],
                 "games": p["games"],
+                "chickens": p["chickens"],
+                "lastGamePlacement": p["lastGamePlacement"],
                 "placement": i + 1,
                 "qualified": i < 4,
                 "eliminated": i >= 4,
             }
-        rankings[tg_str] = players_data
-    return rankings
+        result[tg_str] = players_data
+    return result
 
 
 def _try_advance_group(db, tg):
@@ -1303,6 +1315,8 @@ def _build_bracket_data():
                         p["points"] = rank_data["totalPoints"]
                         p["qualified"] = rank_data["qualified"]
                         p["eliminated"] = rank_data["eliminated"]
+                        p["chickens"] = rank_data.get("chickens", 0)
+                        p["lastGamePlacement"] = rank_data.get("lastGamePlacement", 999)
                     else:
                         p["totalPoints"] = 0
                         p["games"] = []
@@ -1310,14 +1324,20 @@ def _build_bracket_data():
                         p["points"] = None
                         p["qualified"] = False
                         p["eliminated"] = False
+                        p["chickens"] = 0
+                        p["lastGamePlacement"] = 999
                     p["empty"] = p.get("empty", False)
 
-        # done 组：按累计积分降序排列（_get_group_rankings 已设好 totalPoints，但顺序丢失）
+        # done 组：同分规则排序（总分降序 → 吃鸡数降序 → 最后一局排名升序）
         for r in sorted_rounds:
             for g in rounds_map[r]:
                 if g.get("status") == "done":
                     players = g.get("players", [])
-                    players.sort(key=lambda p: p.get("totalPoints", 0), reverse=True)
+                    players.sort(key=lambda p: (
+                        -(p.get("totalPoints", 0)),
+                        -(p.get("chickens", 0)),
+                        p.get("lastGamePlacement", 999),
+                    ))
 
         # waiting 组（BO 间歇期）：从 league_matches 聚合累计积分，按积分排序
         for r in sorted_rounds:
@@ -1346,8 +1366,12 @@ def _build_bracket_data():
                         elif not p.get("empty"):
                             p["totalPoints"] = 0
                             p["points"] = 0
-                    # 按累计积分降序排列
-                    players.sort(key=lambda p: p.get("totalPoints", 0), reverse=True)
+                    # 同分规则排序（总分降序 → 吃鸡数降序 → 最后一局排名升序）
+                    players.sort(key=lambda p: (
+                        -(p.get("totalPoints", 0)),
+                        -(p.get("chickens", 0)),
+                        p.get("lastGamePlacement", 999),
+                    ))
 
         # 为每个活跃组查询当前进行中对局，注入英雄和死亡状态
         active_tg_ids = []
