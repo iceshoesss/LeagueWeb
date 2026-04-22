@@ -3006,20 +3006,20 @@ def api_plugin_check_league():
         "status": {"$in": ["waiting", "active"]},
         "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
     }))
-    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, 请求Lo={sorted(account_ids)}")
+    # 过滤掉 Lo=0（bot 填充的位子）
+    game_los = {lo for lo in account_ids if lo and lo != "0"}
+    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, 游戏Lo={sorted(game_los)} (含bot共{len(account_ids)}个)")
     matched_tournament_group = None
     for tg in active_tournament_groups:
         tg_los = set()
-        valid = True
         for p in tg.get("players", []):
             lo = str(p.get("accountIdLo", ""))
             if lo and lo != "0":
                 tg_los.add(lo)
-            else:
-                valid = False
-                break
-        lo_match = valid and len(account_ids) == len(tg_los) and account_ids == tg_los
-        log.info(f"[check-league] 组 R{tg.get('round')}G{tg.get('groupIndex')} status={tg.get('status')} gp={tg.get('gamesPlayed')}/{tg.get('boN')} valid={valid} lo_match={lo_match} 组Lo={sorted(tg_los) if valid else 'INVALID'}")
+        # 匹配条件：组内所有有效 Lo 都在游戏中（支持少人开打，bot 填充）
+        # 要求组内至少 5 个有效 Lo（少于 5 人无法开打）
+        lo_match = len(tg_los) >= 5 and tg_los.issubset(game_los)
+        log.info(f"[check-league] 组 R{tg.get('round')}G{tg.get('groupIndex')} status={tg.get('status')} gp={tg.get('gamesPlayed')}/{tg.get('boN')} 组Lo={len(tg_los)} lo_match={lo_match}")
         if lo_match:
             matched_tournament_group = tg
             break
