@@ -38,15 +38,16 @@
 **BO 累计**：
 
 ```
-每个玩家的本局积分 → 累加到 totalPoints
-games[] 追加本局得分
-gamesPlayed + 1
+每个玩家的本局积分 → 写入 league_matches（players[].points）
+gamesPlayed + 1（tournament_groups 仅记元数据）
 
 if gamesPlayed < boN:
   status = "waiting"  → 等下一局，回到步骤 2
 if gamesPlayed == boN:
   status = "done"  → 触发晋级检查
 ```
+
+注意：totalPoints 和排名**不再存储在 tournament_groups 中**，而是从 league_matches 按 tournamentGroupId 聚合计算。tournament_groups 只存身份信息和元数据（boN/status/gamesPlayed）。
 
 ---
 
@@ -55,7 +56,7 @@ if gamesPlayed == boN:
 BO 全部打完后，系统检查本轮所有组是否都完成：
 
 - 未全部完成 → 等其他组打完
-- 全部完成 → 按 `ceil(groupIndex/2)` 分桶，每桶取前 4 名（按 totalPoints 降序），合并成 8 人，创建下一轮
+- 全部完成 → 按 `ceil(groupIndex/2)` 分桶，每桶取前 4 名（从 league_matches 聚合 totalPoints 降序），合并成 8 人，创建下一轮
 
 ```
 Round 1: 8 组 × BO3
