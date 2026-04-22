@@ -309,11 +309,25 @@ function renderCard(g, x, y, isFinal) {
   h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge ${g.status}">${labels[g.status] || g.status}</span></div></div>`;
   const isWaiting = g.status === 'waiting';
   const showHero = g.status === 'active';
-  (g.players || []).forEach((p, i) => {
-    const isDead = showHero && p.dead;
-    const cls = p.qualified ? 'q' : p.eliminated || isDead ? 'el' : '';
+
+  // 与首页一致的排序：存活玩家在前，淘汰玩家按排名排在后面
+  const sorted = (g.players || []).slice().sort((a, b) => {
+    const aDead = a.dead || a.eliminated || a.placement != null;
+    const bDead = b.dead || b.eliminated || b.placement != null;
+    if (aDead !== bDead) return aDead ? 1 : -1;
+    if (aDead && bDead) {
+      const ap = a.placement || a.currentPlacement || 999;
+      const bp = b.placement || b.currentPlacement || 999;
+      return ap - bp;
+    }
+    return 0;
+  });
+
+  sorted.forEach((p, i) => {
+    const isDead = showHero && (p.dead || p.eliminated || p.placement != null);
+    const cls = p.qualified ? 'q' : isDead ? 'el' : '';
     const pc = !isWaiting && i === 0 ? 'g' : !isWaiting && i === 1 ? 's' : !isWaiting && i === 2 ? 'b' : '';
-    const posText = isWaiting ? '' : (p.placement || (i + 1));
+    const posText = isWaiting ? '' : (p.currentPlacement || p.placement || (i + 1));
     const img = (showHero && !p.empty && p.heroCardId)
       ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
