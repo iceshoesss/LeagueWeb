@@ -2127,17 +2127,17 @@ def api_plugin_check_league():
     db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
 
     # 构建 players 数组
-    # HearthMirror 只有本地玩家有 Name，其他 7 人 battleTag 为空
-    # 三级 fallback：请求详细信息 → 等待组 name → league_players 查库
+    # HearthMirror 只有本地玩家有 Name（显示名，无 #tag），其他 7 人 battleTag 为空
+    # Fallback 顺序：请求详细信息 → 等待组 name → player_records.playerId（完整 battleTag）
     detailed_players = data.get("players", {})  # {accountIdLo: {heroCardId, heroName, battleTag, displayName}}
 
-    # 从 league_players 批量查 battleTag（兜底空值）
+    # 从 player_records 批量查完整 battleTag（插件上传的 playerId，带 #tag）
     group_los = [str(p.get("accountIdLo", "")) for p in matched_group.get("players", []) if p.get("accountIdLo")]
     tag_map = {}
     if group_los:
-        for lp in db.league_players.find({"accountIdLo": {"$in": group_los}}, {"accountIdLo": 1, "battleTag": 1}):
-            if lp.get("accountIdLo") and lp.get("battleTag"):
-                tag_map[str(lp["accountIdLo"])] = lp["battleTag"]
+        for rec in db.player_records.find({"accountIdLo": {"$in": group_los}}, {"accountIdLo": 1, "playerId": 1}):
+            if rec.get("accountIdLo") and rec.get("playerId"):
+                tag_map[str(rec["accountIdLo"])] = rec["playerId"]
 
     players = []
     for p in matched_group.get("players", []):
