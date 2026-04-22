@@ -1346,6 +1346,53 @@ def api_tournament_manage(tournament_name):
     return jsonify({"name": tournament_name, "groups": groups})
 
 
+@app.route("/api/tournament/shuffle", methods=["POST"])
+def api_tournament_shuffle():
+    """确定性随机洗牌 — 用公开 seed 做 Fisher-Yates，人人可验证"""
+    import hashlib
+    import struct
+
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    seed = data.get("seed", "").strip()
+    players = data.get("players", [])
+
+    if not seed:
+        return jsonify({"error": "seed 不能为空"}), 400
+    if len(players) < 2:
+        return jsonify({"error": "至少需要 2 位选手"}), 400
+
+    # SHA256(seed) → 32 字节 → 8 个 uint32 → 求和作为初始种子
+    h = hashlib.sha256(seed.encode("utf-8")).digest()
+    seed_int = sum(struct.unpack_from("<I", h, i)[0] for i in range(0, 32, 4))
+
+    # 确定性 PRNG（xorshift32）
+    def make_rng(s):
+        state = [s & 0xFFFFFFFF]
+        def next_int(max_val):
+            x = state[0]
+            x ^= (x << 13) & 0xFFFFFFFF
+            x ^= (x >> 17)
+            x ^= (x << 5) & 0xFFFFFFFF
+            state[0] = x & 0xFFFFFFFF
+            return x % max_val
+        return next_int
+
+    rng = make_rng(seed_int)
+
+    # Fisher-Yates shuffle
+    arr = list(players)
+    for i in range(len(arr) - 1, 0, -1):
+        j = rng(i + 1)
+        arr[i], arr[j] = arr[j], arr[i]
+
+    log.info(f"[tournament] 管理员 {admin_tag} 执行洗牌，seed=\"{seed}\"，{len(arr)} 位选手")
+    return jsonify({"ok": True, "seed": seed, "players": arr})
+
+
 @app.route("/api/tournament/group/<group_id>/update", methods=["PUT"])
 def api_tournament_group_update(group_id):
     """更新分组（玩家分配 + BO 设置，仅 waiting 状态可编辑）"""

@@ -212,8 +212,16 @@
             <div class="mb-4">
                 <label class="block text-xs text-hearth-dim mb-2">第一轮分组分配 <span class="text-hearth-dim/60">（从注册选手中选择）</span></label>
                 <div id="ct-groups" class="space-y-4"></div>
-                <button onclick="ctAddGroup()" class="mt-2 text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
-                <button onclick="ctAutoAssign()" class="mt-2 text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🪄 自动分组</button>
+                <div class="flex items-center gap-2 mt-2 flex-wrap">
+                    <button onclick="ctAddGroup()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
+                    <button onclick="ctAutoAssign()" class="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🪄 按序分配</button>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <input type="text" id="ct-seed" placeholder="随机种子（如：安德罗妮4月29日14:00第一句话）"
+                        class="flex-1 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    <button onclick="ctShuffle()" class="text-xs px-3 py-1 rounded bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">🎲 洗牌</button>
+                </div>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">SHA256 + Fisher-Yates，同一 seed 结果完全一致，人人可验证</span>
             </div>
 
             <!-- 已分配提示 -->
@@ -824,6 +832,42 @@ function ctAutoAssign() {
     });
 
     ctUpdateCounts();
+}
+
+async function ctShuffle() {
+    const seed = document.getElementById('ct-seed').value.trim();
+    if (!seed) { alert('请输入随机种子'); return; }
+    if (!ctAllPlayers.length) { alert('没有可分配的选手'); return; }
+
+    try {
+        const res = await fetch('/api/tournament/shuffle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seed, players: ctAllPlayers }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || '洗牌失败'); return; }
+
+        const shuffled = data.players;
+        const groupDivs = document.querySelectorAll('#ct-groups > div');
+        if (!groupDivs.length) { alert('请先添加分组'); return; }
+
+        const needed = groupDivs.length * 8;
+        if (shuffled.length < needed) {
+            alert(`需要 ${needed} 位选手（${groupDivs.length} 组 × 8），当前只有 ${shuffled.length} 位`);
+            return;
+        }
+
+        let idx = 0;
+        groupDivs.forEach(gd => {
+            gd.querySelectorAll('.ct-select').forEach(sel => {
+                const p = shuffled[idx++];
+                sel.value = p.accountIdLo;
+            });
+        });
+
+        ctUpdateCounts();
+    } catch (e) { alert('网络错误'); }
 }
 
 function ctAddGroup() {
