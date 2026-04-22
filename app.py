@@ -3135,9 +3135,10 @@ def api_plugin_update_placement():
 
     finalized = False
     if all_done:
+        now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
         db.league_matches.update_one(
             {"gameUuid": game_uuid},
-            {"$set": {"endedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")}}
+            {"$set": {"endedAt": now_str}}
         )
         finalized = True
         log.info(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
