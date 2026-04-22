@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}大安战棋邀请赛{% endblock %}
+{% block title %}大安战棋公开赛{% endblock %}
 
 {% block head %}
 <style>
@@ -20,29 +20,25 @@
     padding: 100px 20px 80px;
     text-align: center;
   }
-
-  /* 棋盘纹理底 */
   .hero::before {
     content: '';
     position: absolute; inset: 0;
     background:
-      radial-gradient(circle at 50% 50%, rgba(226,183,20,0.04) 0%, transparent 70%),
-      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(226,183,20,0.02) 59px, rgba(226,183,20,0.02) 60px),
-      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(226,183,20,0.02) 59px, rgba(226,183,20,0.02) 60px);
+      radial-gradient(circle at 50% 40%, rgba(226,183,20,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(226,183,20,0.015) 59px, rgba(226,183,20,0.015) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(226,183,20,0.015) 59px, rgba(226,183,20,0.015) 60px);
     pointer-events: none;
   }
-
-  /* 星尘 */
   .hero::after {
     content: '';
     position: absolute; inset: 0;
     background-image:
-      radial-gradient(1px 1px at 15% 25%, rgba(226,183,20,0.35), transparent),
-      radial-gradient(1px 1px at 45% 15%, rgba(226,183,20,0.2), transparent),
-      radial-gradient(1.5px 1.5px at 75% 35%, rgba(226,183,20,0.3), transparent),
-      radial-gradient(1px 1px at 25% 75%, rgba(226,183,20,0.15), transparent),
-      radial-gradient(1px 1px at 85% 65%, rgba(226,183,20,0.25), transparent),
-      radial-gradient(1.5px 1.5px at 55% 85%, rgba(226,183,20,0.2), transparent);
+      radial-gradient(1px 1px at 12% 22%, rgba(226,183,20,0.3), transparent),
+      radial-gradient(1px 1px at 42% 12%, rgba(226,183,20,0.18), transparent),
+      radial-gradient(1.5px 1.5px at 72% 32%, rgba(226,183,20,0.25), transparent),
+      radial-gradient(1px 1px at 22% 72%, rgba(226,183,20,0.12), transparent),
+      radial-gradient(1px 1px at 82% 62%, rgba(226,183,20,0.2), transparent),
+      radial-gradient(1.5px 1.5px at 52% 88%, rgba(226,183,20,0.15), transparent);
     animation: drift 10s ease-in-out infinite alternate;
     pointer-events: none;
   }
@@ -55,7 +51,6 @@
     position: relative; z-index: 1;
   }
 
-  /* 落子皆传说 — 核心 */
   .hero-slogan {
     font-size: clamp(1.8rem, 5vw, 3.2rem);
     font-weight: 900; line-height: 1.2;
@@ -80,62 +75,56 @@
     margin-bottom: 16px;
   }
 
-  .hero-line {
-    width: 80px; height: 1px; margin: 0 auto 16px;
-    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent);
-    position: relative; z-index: 1;
-  }
+  .hero-line { width: 80px; height: 1px; margin: 0 auto 16px; background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent); position: relative; z-index: 1; }
+  .hero-sub { font-size: 0.8rem; color: #6b7280; letter-spacing: 0.4em; position: relative; z-index: 1; margin-bottom: 56px; }
 
-  .hero-sub {
-    font-size: 0.8rem; color: #6b7280;
-    letter-spacing: 0.4em;
+  /* ════════ 进度环 + 倒计时 ════════ */
+  .progress-area {
     position: relative; z-index: 1;
-    margin-bottom: 56px;
-  }
-
-  /* ════════ 倒计时 ════════ */
-  .countdown {
-    display: flex; gap: 20px;
-    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 40px;
     margin-bottom: 48px;
-  }
-  .cd-unit { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
-  .cd-num {
-    font-size: 2.4rem; font-weight: 900; color: #e2b714;
-    font-variant-numeric: tabular-nums; line-height: 1;
-  }
-  .cd-label { font-size: 0.6rem; color: #4b5563; letter-spacing: 0.25em; margin-top: 4px; }
-  .cd-sep { font-size: 1.6rem; color: #1f2937; line-height: 1; padding-top: 2px; }
-
-  /* ════════ 落子按钮 ════════ */
-  .cta {
-    position: relative; z-index: 1;
-    display: flex; flex-direction: column; align-items: center; gap: 14px;
-    margin-bottom: 12px;
+    flex-wrap: wrap; justify-content: center;
   }
 
+  .ring-wrap { position: relative; width: 160px; height: 160px; flex-shrink: 0; }
+  .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: #111827; stroke-width: 6; }
+  .ring-fg {
+    fill: none; stroke: url(#rGrad); stroke-width: 6; stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1);
+    filter: drop-shadow(0 0 6px rgba(226,183,20,0.2));
+  }
+  .ring-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .ring-num { font-size: 2.2rem; font-weight: 900; color: #fff; line-height: 1; }
+  .ring-cap { font-size: 0.7rem; color: #6b7280; margin-top: 1px; }
+  .ring-label { font-size: 0.6rem; color: #e2b714; letter-spacing: 0.2em; margin-top: 4px; }
+
+  .countdown { display: flex; gap: 16px; }
+  .cd-unit { display: flex; flex-direction: column; align-items: center; min-width: 52px; }
+  .cd-num { font-size: 2rem; font-weight: 900; color: #e2b714; font-variant-numeric: tabular-nums; line-height: 1; }
+  .cd-label { font-size: 0.6rem; color: #4b5563; letter-spacing: 0.2em; margin-top: 3px; }
+  .cd-sep { font-size: 1.4rem; color: #1f2937; line-height: 1; padding-top: 2px; }
+
+  /* ════════ 按钮 ════════ */
+  .cta { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 12px; }
   .btn-enroll {
-    position: relative;
-    padding: 18px 64px; font-size: 1.05rem; font-weight: 900;
+    position: relative; padding: 16px 56px; font-size: 1rem; font-weight: 900;
     letter-spacing: 0.2em; color: #000;
     background: linear-gradient(135deg, #ffd700, #e2b714, #c9a84c);
     border: none; border-radius: 4px; cursor: pointer;
-    box-shadow: 0 0 0 1px rgba(226,183,20,0.3), 0 4px 24px rgba(226,183,20,0.15);
-    transition: all 0.3s;
-    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(226,183,20,0.3), 0 4px 20px rgba(226,183,20,0.12);
+    transition: all 0.3s; overflow: hidden;
   }
   .btn-enroll::before {
-    content: '';
-    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
     background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%);
-    transform: translateX(-100%);
-    transition: transform 0.6s;
+    transform: translateX(-100%); transition: transform 0.6s;
   }
   .btn-enroll:hover::before { transform: translateX(100%); }
-  .btn-enroll:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 0 1px rgba(226,183,20,0.5), 0 8px 32px rgba(226,183,20,0.25);
-  }
+  .btn-enroll:hover { transform: translateY(-2px); box-shadow: 0 0 0 1px rgba(226,183,20,0.5), 0 8px 28px rgba(226,183,20,0.2); }
   .btn-enroll:active { transform: translateY(0); }
   .btn-enroll:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
   .btn-enroll:disabled::before { display: none; }
@@ -160,158 +149,198 @@
   .status-badge.enrolled { background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.15); color: #34d399; }
   .status-badge.waitlist { background: rgba(226,183,20,0.06); border: 1px solid rgba(226,183,20,0.15); color: #e2b714; }
 
-  /* ════════ 棋盘碑林 ════════ */
+  /* ════════ 棋盘 ════════ */
   .board {
     position: relative; z-index: 1;
-    max-width: 1000px; margin: 0 auto;
+    max-width: 1100px; margin: 0 auto;
     padding: 0 20px 120px;
   }
 
   .board-header {
     display: flex; align-items: baseline; gap: 16px;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
     padding-bottom: 16px;
     border-bottom: 1px solid #111827;
   }
-  .board-title {
-    font-size: 1rem; font-weight: 800; color: #e2b714;
-    letter-spacing: 0.15em;
-  }
-  .board-count {
-    font-size: 0.75rem; color: #4b5563;
-  }
+  .board-title { font-size: 1rem; font-weight: 800; color: #e2b714; letter-spacing: 0.15em; }
+  .board-count { font-size: 0.75rem; color: #4b5563; }
   .board-count b { color: #9ca3af; }
 
-  /* 网格 */
-  .grid {
+  /* ── 对局卡片 ── */
+  .game-row {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 2px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .game-row.featured {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
   }
 
-  /* 每个棋子 / 碑 */
-  .cell {
+  .game-card {
     position: relative;
     background: #0d1117;
     border: 1px solid #111827;
-    padding: 20px 8px 14px;
-    text-align: center;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    cursor: default;
+    border-radius: 6px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .game-card:hover { border-color: #1f2937; }
+
+  /* 卡片头部 */
+  .gc-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid #111827;
+    font-size: 0.7rem; font-weight: 700;
+  }
+  .gc-label { color: #4b5563; letter-spacing: 0.1em; }
+  .gc-count { color: #6b7280; font-weight: 500; }
+
+  /* 玩家列表 */
+  .gc-players { padding: 4px 0; }
+  .gc-player {
+    display: flex; align-items: center;
+    padding: 6px 12px;
+    font-size: 0.8rem; color: #9ca3af;
+    border-bottom: 1px solid rgba(17,24,39,0.5);
+    transition: background 0.15s;
+  }
+  .gc-player:last-child { border-bottom: none; }
+  .gc-player:hover { background: rgba(226,183,20,0.02); }
+  .gc-player .slot {
+    width: 18px; font-size: 0.6rem; font-weight: 800; color: #1f2937;
+    text-align: center; flex-shrink: 0;
+    transition: color 0.15s;
+  }
+  .gc-player:hover .slot { color: #4b5563; }
+  .gc-player .pname {
+    flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* 序号 */
-  .cell-rank {
-    font-size: 0.55rem; font-weight: 800; color: #1f2937;
-    letter-spacing: 0.1em;
-    margin-bottom: 10px;
-    transition: color 0.3s;
-  }
-
-  /* 名字 */
-  .cell-name {
-    font-size: 0.8rem; font-weight: 700; color: #6b7280;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    line-height: 1.2;
-    transition: color 0.3s;
-  }
-
-  /* 时间 */
-  .cell-time {
-    font-size: 0.55rem; color: #1f2937; margin-top: 8px;
-    font-variant-numeric: tabular-nums;
-    transition: color 0.3s;
-  }
-
-  /* ── hover: 点亮碑文 ── */
-  .cell:hover {
-    border-color: #1f2937;
-    background: #111827;
-  }
-  .cell:hover .cell-rank { color: #4b5563; }
-  .cell:hover .cell-name { color: #d1d5db; }
-  .cell:hover .cell-time { color: #374151; }
-
-  /* ── 第一名: 传说金碑 ── */
-  .cell.legendary {
-    background: linear-gradient(180deg, #1a1508, #0d1117);
+  /* 传说卡（第一名） */
+  .game-card.legendary {
     border-color: rgba(226,183,20,0.3);
+    background: linear-gradient(180deg, #14110a 0%, #0d1117 100%);
   }
-  .cell.legendary::after {
+  .game-card.legendary .gc-head {
+    background: linear-gradient(90deg, rgba(226,183,20,0.08), rgba(226,183,20,0.02));
+    border-bottom-color: rgba(226,183,20,0.15);
+  }
+  .game-card.legendary .gc-label { color: #e2b714; }
+  .game-card.legendary .gc-count { color: rgba(226,183,20,0.5); }
+  .game-card.legendary .gc-player .slot { color: rgba(226,183,20,0.3); }
+  .game-card.legendary .gc-player .pname { color: #d4c48a; }
+  .game-card.legendary:hover { box-shadow: 0 0 24px rgba(226,183,20,0.04); }
+  /* 传说卡底部金线 */
+  .game-card.legendary::after {
     content: '';
-    position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
-    background: linear-gradient(90deg, transparent, #e2b714, transparent);
+    position: absolute; bottom: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent);
   }
-  .cell.legendary .cell-rank { color: rgba(226,183,20,0.6); }
-  .cell.legendary .cell-name { color: #ffd700; font-weight: 900; }
-  .cell.legendary .cell-time { color: rgba(226,183,20,0.3); }
-  .cell.legendary:hover { box-shadow: 0 0 30px rgba(226,183,20,0.06); }
 
-  /* ── 第二名 ── */
-  .cell.epic {
-    background: linear-gradient(180deg, #10121a, #0d1117);
+  /* 史诗卡（第二名） */
+  .game-card.epic {
     border-color: rgba(139,92,246,0.2);
+    background: linear-gradient(180deg, #100d16 0%, #0d1117 100%);
   }
-  .cell.epic .cell-name { color: #a78bfa; }
-  .cell.epic .cell-rank { color: rgba(139,92,246,0.4); }
+  .game-card.epic .gc-head { background: rgba(139,92,246,0.04); border-bottom-color: rgba(139,92,246,0.1); }
+  .game-card.epic .gc-label { color: #a78bfa; }
+  .game-card.epic .gc-player .slot { color: rgba(139,92,246,0.25); }
+  .game-card.epic .gc-player .pname { color: #b4a0d8; }
 
-  /* ── 第三名 ── */
-  .cell.rare {
-    background: linear-gradient(180deg, #0f1520, #0d1117);
+  /* 稀有卡（第三名） */
+  .game-card.rare {
     border-color: rgba(59,130,246,0.15);
+    background: linear-gradient(180deg, #0a0f18 0%, #0d1117 100%);
   }
-  .cell.rare .cell-name { color: #60a5fa; }
-  .cell.rare .cell-rank { color: rgba(59,130,246,0.35); }
+  .game-card.rare .gc-head { background: rgba(59,130,246,0.03); border-bottom-color: rgba(59,130,246,0.08); }
+  .game-card.rare .gc-label { color: #60a5fa; }
+  .game-card.rare .gc-player .slot { color: rgba(59,130,246,0.2); }
+  .game-card.rare .gc-player .pname { color: #8ab4d8; }
 
-  /* ── 正选 ── */
-  .cell.common .cell-name { color: #9ca3af; }
+  /* 普通卡 */
+  .game-card.common .gc-label { color: #4b5563; }
 
-  /* ── 替补分隔 ── */
-  .grid-divider {
-    grid-column: 1 / -1;
+  /* 替补分隔 */
+  .board-divider {
     display: flex; align-items: center; gap: 16px;
-    padding: 20px 0 10px;
+    padding: 24px 0 16px;
   }
-  .grid-divider::before, .grid-divider::after {
+  .board-divider::before, .board-divider::after {
     content: ''; flex: 1; height: 1px;
     background: linear-gradient(90deg, transparent, #111827, transparent);
   }
-  .grid-divider span {
-    font-size: 0.6rem; color: #374151;
+  .board-divider span {
+    font-size: 0.65rem; color: #374151;
     letter-spacing: 0.4em; font-weight: 800;
   }
 
-  /* ── 替补 ── */
-  .cell.waitlist .cell-name { color: #4b5563; font-style: italic; }
-  .cell.waitlist .cell-rank { color: #1f2937; }
-  .cell.waitlist .cell-time { color: #1f2937; }
-  .cell.waitlist:hover .cell-name { color: #6b7280; }
+  /* 替补卡 */
+  .game-card.waitlist .gc-label { color: #374151; }
+  .game-card.waitlist .gc-count { color: #1f2937; }
+  .game-card.waitlist .gc-player .pname { color: #4b5563; font-style: italic; }
+  .game-card.waitlist .gc-player .slot { color: #1f2937; }
+  .game-card.waitlist:hover .gc-player .pname { color: #6b7280; }
 
   /* 空 */
-  .grid-empty {
-    grid-column: 1 / -1;
+  .board-empty {
     text-align: center; padding: 80px 20px;
   }
-  .grid-empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.08; }
-  .grid-empty-text { font-size: 0.8rem; color: #374151; letter-spacing: 0.15em; }
+  .board-empty-icon {
+    font-size: 4rem; margin-bottom: 16px; opacity: 0.06;
+    /* 炉石酒馆图案 */
+    background: linear-gradient(180deg, #e2b714, #a07818);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .board-empty-text { font-size: 0.85rem; color: #374151; letter-spacing: 0.15em; }
 
   /* 底部渐隐 */
-  .board::after {
-    content: '';
+  .board-fade {
     position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
     background: linear-gradient(transparent, #07080c);
     pointer-events: none;
+  }
+
+  /* ════════ 炉石元素装饰 ════════ */
+  /* 英雄技能框 */
+  .hs-frame {
+    position: absolute; top: 20px; right: 20px;
+    width: 48px; height: 48px;
+    border: 2px solid #2a2a3a;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+    background: radial-gradient(circle, #1a1a2e, #0d1117);
+    box-shadow: 0 0 12px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.3);
+    z-index: 2;
+    opacity: 0.6;
+  }
+
+  /* 法力值水晶 */
+  .mana-crystal {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px;
+    background: radial-gradient(circle, #3b82f6, #1d4ed8);
+    border-radius: 50%;
+    font-size: 0.55rem; font-weight: 900; color: #fff;
+    box-shadow: 0 0 4px rgba(59,130,246,0.3);
+    flex-shrink: 0;
   }
 
   @media (max-width: 640px) {
     .hero { padding: 80px 16px 60px; }
     .hero-slogan { font-size: 1.5rem; }
     .hero-title { font-size: 3rem; }
-    .countdown { gap: 12px; }
-    .cd-num { font-size: 1.8rem; }
-    .grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
-    .cell { padding: 16px 6px 10px; }
-    .btn-enroll { padding: 16px 44px; font-size: 0.95rem; }
+    .progress-area { gap: 24px; }
+    .ring-wrap { width: 120px; height: 120px; }
+    .ring-num { font-size: 1.6rem; }
+    .cd-num { font-size: 1.6rem; }
+    .game-row, .game-row.featured { grid-template-columns: 1fr; }
+    .btn-enroll { padding: 14px 40px; font-size: 0.9rem; }
   }
 </style>
 {% endblock %}
@@ -321,21 +350,43 @@
 
   <!-- ════════ Hero ════════ -->
   <section class="hero">
-    <div class="hero-eyebrow">Hearthstone Battlegrounds Invitational</div>
+    <div class="hs-frame">🍺</div>
+    <div class="hero-eyebrow">Hearthstone Battlegrounds Open</div>
     <div class="hero-slogan">落 子 皆 <em>传 说</em></div>
-    <h1 class="hero-title">大安战棋邀请赛</h1>
+    <h1 class="hero-title">大安战棋公开赛</h1>
     <div class="hero-line"></div>
     <p class="hero-sub">每 一 步 落 子 ， 都 将 被 铭 记</p>
 
-    <!-- 倒计时 -->
-    <div id="countdown" class="countdown hidden">
-      <div class="cd-unit"><span id="cdD" class="cd-num">0</span><span class="cd-label">天</span></div>
-      <span class="cd-sep">:</span>
-      <div class="cd-unit"><span id="cdH" class="cd-num">00</span><span class="cd-label">时</span></div>
-      <span class="cd-sep">:</span>
-      <div class="cd-unit"><span id="cdM" class="cd-num">00</span><span class="cd-label">分</span></div>
-      <span class="cd-sep">:</span>
-      <div class="cd-unit"><span id="cdS" class="cd-num">00</span><span class="cd-label">秒</span></div>
+    <!-- 进度环 + 倒计时 -->
+    <div class="progress-area">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 160 160">
+          <defs>
+            <linearGradient id="rGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#ffd700"/>
+              <stop offset="100%" stop-color="#a07818"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="80" cy="80" r="70"/>
+          <circle id="ringFg" class="ring-fg" cx="80" cy="80" r="70"
+                  stroke-dasharray="439.8" stroke-dashoffset="439.8"/>
+        </svg>
+        <div class="ring-center">
+          <span id="ringNum" class="ring-num">0</span>
+          <span class="ring-cap">/ 1024</span>
+          <span class="ring-label">已 入 局</span>
+        </div>
+      </div>
+
+      <div id="countdown" class="countdown hidden">
+        <div class="cd-unit"><span id="cdD" class="cd-num">0</span><span class="cd-label">天</span></div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit"><span id="cdH" class="cd-num">00</span><span class="cd-label">时</span></div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit"><span id="cdM" class="cd-num">00</span><span class="cd-label">分</span></div>
+        <span class="cd-sep">:</span>
+        <div class="cd-unit"><span id="cdS" class="cd-num">00</span><span class="cd-label">秒</span></div>
+      </div>
     </div>
 
     <!-- 状态 -->
@@ -349,18 +400,19 @@
     <div id="enrollMsg" class="enroll-msg"></div>
   </section>
 
-  <!-- ════════ 棋盘碑林 ════════ -->
+  <!-- ════════ 棋盘 ════════ -->
   <section class="board">
     <div class="board-header">
-      <span class="board-title">棋 盘</span>
+      <span class="board-title">⚔ 棋 盘</span>
       <span class="board-count"><b id="lsEnrolled">0</b> 子已落 · <b id="lsWaitlist">0</b> 待入局</span>
     </div>
-    <div id="grid" class="grid">
-      <div class="grid-empty">
-        <div class="grid-empty-icon">♟</div>
-        <div class="grid-empty-text">棋盘尚空，等待落子</div>
+    <div id="boardContent">
+      <div class="board-empty">
+        <div class="board-empty-icon">🍺</div>
+        <div class="board-empty-text">棋盘尚空，等待落子</div>
       </div>
     </div>
+    <div class="board-fade"></div>
   </section>
 
 </div>
@@ -368,6 +420,7 @@
 
 {% block scripts %}
 <script>
+const RING_C = 2 * Math.PI * 70; // ~439.8
 let deadlineTs = null, cdTimer = null;
 
 /* ── 倒计时 ── */
@@ -380,19 +433,27 @@ function startCountdown(dl) {
 }
 function tick() {
   let d = Math.max(0, deadlineTs - Date.now());
-  const dd = Math.floor(d / 864e5); d %= 864e5;
-  const hh = Math.floor(d / 36e5);  d %= 36e5;
-  const mm = Math.floor(d / 6e4);   d %= 6e4;
-  const ss = Math.floor(d / 1e3);
+  const dd = Math.floor(d/864e5); d %= 864e5;
+  const hh = Math.floor(d/36e5);  d %= 36e5;
+  const mm = Math.floor(d/6e4);   d %= 6e4;
+  const ss = Math.floor(d/1e3);
   document.getElementById('cdD').textContent = dd;
-  document.getElementById('cdH').textContent = String(hh).padStart(2, '0');
-  document.getElementById('cdM').textContent = String(mm).padStart(2, '0');
-  document.getElementById('cdS').textContent = String(ss).padStart(2, '0');
-  if (dd + hh + mm + ss === 0) {
+  document.getElementById('cdH').textContent = String(hh).padStart(2,'0');
+  document.getElementById('cdM').textContent = String(mm).padStart(2,'0');
+  document.getElementById('cdS').textContent = String(ss).padStart(2,'0');
+  if (dd+hh+mm+ss === 0) {
     clearInterval(cdTimer);
     document.getElementById('countdown').innerHTML =
       '<span style="color:#ef4444;font-weight:800;font-size:0.9rem;letter-spacing:0.15em">报名已截止</span>';
   }
+}
+
+/* ── 进度环 ── */
+function setRing(n) {
+  const p = Math.min(1, n / 1024);
+  document.getElementById('ringFg').style.strokeDashoffset = RING_C * (1 - p);
+  document.getElementById('ringNum').textContent = n;
+  if (p >= 0.95) document.getElementById('ringFg').style.stroke = '#ef4444';
 }
 
 /* ── 状态 ── */
@@ -400,6 +461,7 @@ async function loadStatus() {
   try {
     const r = await fetch('/api/enroll/status');
     const d = await r.json();
+    setRing(d.enrolledCount || 0);
 
     if (d.deadline) {
       if (new Date() < new Date(d.deadline)) startCountdown(d.deadline);
@@ -430,7 +492,7 @@ async function loadStatus() {
   } catch(e) { console.error(e); }
 }
 
-/* ── 棋盘 ── */
+/* ── 棋盘：8 人一组 ── */
 async function loadList() {
   try {
     const r = await fetch('/api/enrollments');
@@ -438,42 +500,89 @@ async function loadList() {
     document.getElementById('lsEnrolled').textContent = d.enrolledCount || 0;
     document.getElementById('lsWaitlist').textContent = d.waitlistCount || 0;
 
-    const grid = document.getElementById('grid');
+    const container = document.getElementById('boardContent');
     if (!d.players || d.players.length === 0) {
-      grid.innerHTML = '<div class="grid-empty"><div class="grid-empty-icon">♟</div><div class="grid-empty-text">棋盘尚空，等待落子</div></div>';
+      container.innerHTML = '<div class="board-empty"><div class="board-empty-icon">🍺</div><div class="board-empty-text">棋盘尚空，等待落子</div></div>';
       return;
     }
 
+    // 分组：正选每 8 人一组，替补单独分组
+    const enrolled = d.players.filter(p => p.status === 'enrolled');
+    const waitlist = d.players.filter(p => p.status === 'waitlist');
+
+    const groups = [];
+    for (let i = 0; i < enrolled.length; i += 8) {
+      groups.push({ type: 'enrolled', players: enrolled.slice(i, i + 8), index: groups.length });
+    }
+    if (waitlist.length > 0) {
+      // 替补也每 8 人分组
+      for (let i = 0; i < waitlist.length; i += 8) {
+        groups.push({ type: 'waitlist', players: waitlist.slice(i, i + 8), index: groups.length });
+      }
+    }
+
     let html = '';
-    let wlShown = false;
-    d.players.forEach(p => {
-      const isWL = p.status === 'waitlist';
-      if (isWL && !wlShown) {
-        wlShown = true;
-        html += '<div class="grid-divider"><span>待 入 局</span></div>';
+    let wlDivider = false;
+
+    groups.forEach(g => {
+      // 替补分隔
+      if (g.type === 'waitlist' && !wlDivider) {
+        wlDivider = true;
+        html += '<div class="board-divider"><span>待 入 局</span></div>';
       }
-      let cls = 'cell';
-      if (isWL) {
-        cls += ' waitlist';
-      } else if (p.position === 1) {
-        cls += ' legendary';
-      } else if (p.position === 2) {
-        cls += ' epic';
-      } else if (p.position === 3) {
-        cls += ' rare';
+
+      // 卡片等级
+      let cardCls = 'game-card';
+      let label = `第 ${g.index + 1} 局`;
+      if (g.type === 'waitlist') {
+        cardCls += ' waitlist';
+        label = `替补 · 第 ${g.index + 1} 组`;
+      } else if (g.index === 0) {
+        cardCls += ' legendary'; label = '传说对局';
+      } else if (g.index === 1) {
+        cardCls += ' epic'; label = '史诗对局';
+      } else if (g.index === 2) {
+        cardCls += ' rare'; label = '稀有对局';
       } else {
-        cls += ' common';
+        cardCls += ' common';
       }
-      html += `<div class="${cls}">
-        <div class="cell-rank">${isWL ? '待 #' + p.position : '#' + p.position}</div>
-        <div class="cell-name" title="${esc(p.displayName)}">${esc(p.displayName)}</div>
-        <div class="cell-time">${fmtTime(p.enrollAt)}</div>
-      </div>`;
+
+      // 容器（前三局 featured）
+      const rowCls = g.index < 3 && g.type === 'enrolled' ? 'game-row featured' : 'game-row';
+      const isInFeatured = g.index < 3 && g.type === 'enrolled';
+      if (isInFeatured && (g.index === 0 || (g.index > 0 && groups[g.index-1].type !== 'enrolled' || g.index >= 3))) {
+        // featured 行开始
+      }
+
+      html += `<div class="${rowCls}"><div class="${cardCls}">
+        <div class="gc-head">
+          <span class="gc-label">${label}</span>
+          <span class="gc-count">${g.players.length}/8</span>
+        </div>
+        <div class="gc-players">`;
+
+      g.players.forEach((p, i) => {
+        html += `<div class="gc-player">
+          <span class="slot">${i + 1}</span>
+          <span class="pname" title="${esc(p.displayName)}">${esc(p.displayName)}</span>
+        </div>`;
+      });
+
+      // 空位
+      for (let i = g.players.length; i < 8; i++) {
+        html += `<div class="gc-player" style="opacity:0.3">
+          <span class="slot">${i + 1}</span>
+          <span class="pname" style="color:#1f2937;font-style:italic">空位</span>
+        </div>`;
+      }
+
+      html += '</div></div></div>';
     });
-    grid.innerHTML = html;
+
+    container.innerHTML = html;
   } catch(e) {
     console.error(e);
-    document.getElementById('grid').innerHTML = '<div class="grid-empty"><div class="grid-empty-text" style="color:#ef4444">加载失败</div></div>';
+    document.getElementById('boardContent').innerHTML = '<div class="board-empty"><div class="board-empty-text" style="color:#ef4444">加载失败</div></div>';
   }
 }
 
