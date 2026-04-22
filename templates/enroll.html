@@ -169,14 +169,14 @@
   /* ── 对局卡片 ── */
   .game-row {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 12px;
-    margin-bottom: 12px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 8px;
   }
   .game-row.featured {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 16px;
-    margin-bottom: 16px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
   }
   .game-row.featured .gc-head {
     padding: 10px 14px;
@@ -231,6 +231,11 @@
   .gc-player .pname {
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
+  .gc-player .ptime {
+    font-size: 0.6rem; color: #374151; margin-left: 8px; flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .gc-player:hover .ptime { color: #4b5563; }
 
   /* 第一局 */
   .game-card.legendary {
@@ -335,7 +340,8 @@
     .ring-wrap { width: 120px; height: 120px; }
     .ring-num { font-size: 1.6rem; }
     .cd-num { font-size: 1.6rem; }
-    .game-row, .game-row.featured { grid-template-columns: 1fr; }
+    .game-row { grid-template-columns: repeat(3, 1fr); }
+    .game-row.featured { grid-template-columns: 1fr; }
     .btn-enroll { padding: 14px 40px; font-size: 0.9rem; }
   }
 </style>
@@ -574,6 +580,7 @@ async function loadList() {
         html += `<div class="gc-player">
           <span class="slot">${i + 1}</span>
           <span class="pname" title="${esc(p.displayName)}">${esc(p.displayName)}</span>
+          <span class="ptime">${fmtTime(p.enrollAt)}</span>
         </div>`;
       });
 
