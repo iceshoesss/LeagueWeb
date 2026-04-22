@@ -56,6 +56,8 @@
     font-size: 12px; font-weight: 600;
   }
   .g-head .name { color: #e2b714; }
+  .g-head .right { display: flex; align-items: center; gap: 6px; }
+  .g-head .bo-info { font-size: 10px; color: #8b8b9e; font-weight: 500; }
 
   .badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
   .badge.active  { background: rgba(52,211,153,0.14); color: #34d399; }
@@ -298,8 +300,8 @@ function traceDest(flat, srcRi, si, dstRi) {
 function renderCard(g, x, y, isFinal) {
   const labels = { active: '进行中', done: '已结束', waiting: '等待中' };
   let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
-  const boInfo = (g.boN && g.boN > 1) ? ` BO${g.boN} ${g.gamesPlayed || 0}/${g.boN}` : '';
-  h += `<div class="g-head"><span class="name">${g.label}${boInfo}</span><span class="badge ${g.status}">${labels[g.status] || g.status}</span></div>`;
+  const boInfo = (g.boN && g.boN > 1) ? `<span class="bo-info">BO${g.boN} ${g.gamesPlayed || 0}/${g.boN}</span>` : '';
+  h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge ${g.status}">${labels[g.status] || g.status}</span></div></div>`;
   const isWaiting = g.status === 'waiting';
   (g.players || []).forEach((p, i) => {
     const cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
