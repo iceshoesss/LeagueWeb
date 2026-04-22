@@ -2,162 +2,101 @@
 
 > 基于 main 分支，改造联赛网站为淘汰赛赛制。插件(HDT_BGTracker)不需要改动。
 
-## 现状
-
-- main 分支是积分赛版本：排行榜 + 报名队列 + 等待队列 + 进行中对局
-- 对阵图 HTML 样式已完成（bracket.html 纯前端 mock）
-
 ## 改造目标
 
-- 首页从"排行榜+队列+对局"改为**纯对阵图**
-- 8 组 × 8 人 = 64 人，每组前 4 名晋级
-- 8 组 → 4 组 → 2 组 → 决赛 8 人
-- 匹配机制：按预分配的 tournament_group 匹配（不再用自由等待队列）
-- 自动晋级：两组都打完后自动创建下一轮分组
+- 首页改为**纯对阵图**
+- 预分组 BO N 赛制（每轮可配置不同 BO）
+- 匹配机制：按预分配的 tournament_group 匹配（Lo 集合子集匹配，支持少人开打）
+- 自动晋级：同轮所有组打完后自动创建下一轮分组
 
 ## 数据结构
 
-### 新增集合：`tournament_groups`
+### `tournament_groups`
 
 ```json
 {
-  "_id": ObjectId,
-  "round": 1,                    // 轮次 1/2/3/4
-  "groupIndex": 1,               // 组号 1-8/1-4/1-2/1
-  "status": "waiting",           // waiting / active / done
-  "players": [
-    {
-      "battleTag": "xxx#1234",
-      "accountIdLo": "1708070391",
-      "displayName": "xxx",
-      "placement": null,         // 1-8，null=未提交
-      "points": null,            // 积分
-      "qualified": false         // 是否晋级
-    }
-  ],
-  "startedAt": null,             // ISO string
-  "endedAt": null,
-  "nextRoundGroupId": null       // 晋级目标组 ObjectId
+  "tournamentName": "2026 春季赛",
+  "round": 1,
+  "groupIndex": 1,
+  "status": "waiting",        // waiting / active / done
+  "boN": 3,
+  "gamesPlayed": 1,
+  "players": [{ "battleTag", "accountIdLo", "displayName", ... }],
+  "nextRoundGroupId": null,
+  "startedAt": null,
+  "endedAt": null
 }
 ```
 
-### 改动：`league_matches`
+排名数据不存储在 tournament_groups 中，从 league_matches 按 tournamentGroupId 聚合计算。
 
-新增字段：
+### `league_matches` 新增字段
+
 - `tournamentGroupId` — 关联 tournament_groups._id
 - `tournamentRound` — 轮次
 
-原有字段不变，兼容积分赛历史数据。
-
 ### 不变的集合
 
-- `player_records` — 玩家记录+验证码，不变
-- `league_players` — 注册选手，不变
-- `league_admins` — 管理员，不变
+- `player_records`、`league_players`、`league_admins`
 
-## BO N 赛制设计
-
-### 概念
-
-每组不一定是单局定胜负，可以打 N 局（BO3/BO5/BO7），按 N 局总分排名。
-
-- `boN`：本组打几局（由管理员创建赛事时指定，可每轮不同）
-- `gamesPlayed`：已完成局数
-- `players[].totalPoints`：N 局累计积分
-- `players[].games[]`：每局得分明细，如 `[7, 5, 9]`
-
-### 流程
-
-```
-管理员创建赛事 → R1 boN=3, R2 boN=3, R3 boN=5, R4 boN=5
-R1 A 组第 1 局 → gamesPlayed=1, status=waiting
-R1 A 组第 2 局 → gamesPlayed=2, status=waiting
-R1 A 组第 3 局 → gamesPlayed=3, status=done → 晋级判定
-```
-
-### 匹配逻辑
+## 匹配逻辑
 
 BO 系列赛**不走 league_waiting_queue**，直接在 tournament_groups 内部匹配：
-- `check-league` 先查 `tournament_groups`（status=waiting + gamesPlayed < boN + Lo 集合匹配）
-- 匹配到 → 创建 league_matches（带 tournamentGroupId），累加积分
-- 没匹配到 → 走现有 waiting_queue 逻辑（积分赛）
 
-### 晋级
-
-- 每轮所有组的 boN 局全部打完（status=done）
-- 每组按 totalPoints 排名，前 4 名晋级
-- 自动创建下一轮分组
-
-### 每轮 boN 可配置
-
-创建赛事时每轮独立指定：
-```json
-{
-  "rounds": [
-    {"round": 1, "boN": 3, "groups": [...]},
-    {"round": 2, "boN": 3, "groups": [...]},
-    {"round": 3, "boN": 5, "groups": [...]},
-    {"round": 4, "boN": 5, "groups": [...]}
-  ]
-}
+```
+check-league → 查 tournament_groups（status=waiting + gamesPlayed < boN）
+  → 组内有效 Lo ⊆ 游戏 Lo（issubset，最少 5 个有效 Lo）
+  → 匹配到 → 创建 league_matches（带 tournamentGroupId）
+  → 没匹配到 → 查 league_waiting_queue（积分赛）
 ```
 
-## API 接口
+- 支持少人开打（5-8 人），缺失位由 bot 填充
+- 手机玩家（无 Lo）不影响匹配，相当于隐形人
+- 自动推算仅 7/8 触发，少人情况需管理员手动补录或等全员提交
 
-### 新增
+## 积分规则
 
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/bracket` | GET | 返回对阵图数据（所有轮次所有组） |
-| `/api/tournament/create` | POST | 管理员创建赛事（指定64人分组） |
-| `/api/tournament/group/<id>` | GET | 单组详情 |
+| 排名 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|------|---|---|---|---|---|---|---|---|
+| 积分 | 9 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
 
-### 改动
-
-| 端点 | 改动说明 |
-|------|----------|
-| `POST /api/plugin/check-league` | 匹配逻辑从"waiting_queue 重叠"改为"查玩家所在 tournament_group" |
-| `POST /api/plugin/update-placement` | 提交后检测该组是否全部完成 → 触发晋级逻辑 |
-
-### 退役（页面不再需要，API 保留兼容）
-
-- `GET /api/queue` / `POST /api/queue/join` / `POST /api/queue/leave`
-- `GET /api/waiting-queue`
-- `GET /api/active-games`
-- SSE 端点
-
-## 页面改动
-
-| 页面 | 改动 |
-|------|------|
-| `/` 首页 | 改为对阵图（bracket.html 模板） |
-| `/admin` | 新增「赛事管理」Tab：创建赛事、分配分组 |
-| 其他页面 | 不变 |
+BO N 下每局积分不变，N 局累加。
 
 ## 开发阶段
 
-### Phase 1 — 数据层 + API
+### Phase 1 — 数据层 + API ✅
 - [x] 创建 feat/knockout 分支
 - [x] 定义 tournament_groups 数据结构
-- [x] `GET /api/bracket` 接口（mock 数据）
-- [x] 对阵图模板集成到 Flask（数据驱动布局 + 折叠 + 连线）
+- [x] `GET /api/bracket` 接口
+- [x] 对阵图模板（数据驱动布局 + 折叠 + SVG 连线）
 
-### Phase 2 — 匹配改造
-- [x] 改造 check-league：按 tournament_groups 组匹配（Lo 集合匹配）
-- [x] 改造 update-placement：BO 累计积分 + 组级别结算
-- [x] 自动晋级逻辑：同轮全部 done → 创建下一轮分组
+### Phase 2 — 匹配改造 ✅
+- [x] check-league：按 tournament_groups 组匹配（Lo 集合子集匹配）
+- [x] update-placement：BO 累计积分 + 组级别结算
+- [x] 自动晋级：同轮全部 done → 创建下一轮分组
 
-### Phase 3 — 管理后台
-- [ ] 创建赛事表单（64 人分组）
-- [ ] 赛事管理 Tab（查看/编辑/强制结束）
-- [ ] 分组编辑（调整玩家到不同组）
+### Phase 3 — 管理后台 ✅
+- [x] 创建赛事表单（搜索选择选手，支持上千人）
+- [x] 赛事管理 Tab（查看/编辑分组/BO/删除赛事）
+- [x] 分组编辑（调整玩家到不同组）
+- [x] 确定性随机烟牌（SHA256 seed + Fisher-Yates）
+- [x] 管理员手动添加选手（手机玩家/无插件玩家）
+- [x] QQ 绑定码（导航栏全局入口）
 
-### Phase 4 — 首页整合
-- [ ] 对阵图接入真实数据
-- [ ] 去掉排行榜/报名/队列区块
-- [ ] SSE 推送对阵图状态变化
+### Phase 4 — 首页整合 ✅
+- [x] 首页改为对阵图（去掉排行榜/队列/对局）
+- [x] SSE 推送对阵图状态变化（`/api/events/bracket`）
+- [x] 积分赛首页备份为 `index_league.html`
 
-### Phase 5 — 边界处理
-- [ ] 弃赛/空位处理（轮空/递补）
-- [ ] 并行开打支持
-- [ ] 历史赛事归档
+### Phase 5 — 边界处理 🔶
+- [x] 少人开打支持（5-8 人，issubset 匹配）
+- [x] 手机玩家支持（无 Lo 不影响匹配，管理员手动补录排名）
+- [ ] 赛事报名系统（报名 + 名额上限 + 替补队列）
+- [ ] 赛事归档（当前单赛事场景暂不需要）
+
+## 待办
+
+- [ ] 赛事报名系统（报名入口 + 1024 人上限 + 替补）
+- [ ] 赛事归档（多赛事场景）
+- [ ] CSRF 防护
+- [ ] HTTPS（Cloudflare Tunnel）

@@ -164,14 +164,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.1.4`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.2.0`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.1.4 |
+| `feat/knockout` | 淘汰赛 | v0.2.0 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -181,6 +181,16 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.2.0 (2026-04-23) — 首页整合 + 少人开打 + 管理优化
+- 首页改为淘汰赛对阵图（积分赛首页备份为 index_league.html）
+- 去掉首页大标题，直接展示对阵图
+- 匹配逻辑改为 Lo 集合子集匹配（issubset），支持 5-8 人少人开打
+- 手机玩家支持（无 Lo 不影响匹配，管理员手动补录排名）
+- 管理员手动添加选手（POST /api/admin/player/add）
+- 创建/管理赛事选手选择从下拉条改为搜索输入框（支持上千人）
+- 导航栏添加 QQ 绑定按钮（全局可用，🔗 一键生成绑定码）
+- 删除按序分配功能
 
 ### v0.1.5 (2026-04-22) — Bug 修复
 - 修复 check-league 构建 players 时空 battleTag 覆盖 fallback：HearthMirror 只有本地玩家有 Name，插件发送的 players dict 中其他人 battleTag 为空串，服务端 `detail.get("battleTag", fallback)` 因 detail 存在返回空串覆盖了等待组的正确名字。改为三级 fallback（请求数据 → 等待组 name → player_records.playerId 查库，确保带 #tag 的完整 battleTag）
