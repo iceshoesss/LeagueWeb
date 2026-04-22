@@ -2868,6 +2868,7 @@ def api_plugin_check_league():
         "status": {"$in": ["waiting", "active"]},
         "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
     }))
+    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, 请求Lo={sorted(account_ids)}")
     matched_tournament_group = None
     for tg in active_tournament_groups:
         tg_los = set()
@@ -2879,7 +2880,9 @@ def api_plugin_check_league():
             else:
                 valid = False
                 break
-        if valid and len(account_ids) == len(tg_los) and account_ids == tg_los:
+        lo_match = valid and len(account_ids) == len(tg_los) and account_ids == tg_los
+        log.info(f"[check-league] 组 R{tg.get('round')}G{tg.get('groupIndex')} status={tg.get('status')} gp={tg.get('gamesPlayed')}/{tg.get('boN')} valid={valid} lo_match={lo_match} 组Lo={sorted(tg_los) if valid else 'INVALID'}")
+        if lo_match:
             matched_tournament_group = tg
             break
 
@@ -2922,11 +2925,12 @@ def api_plugin_check_league():
 
         # 更新 tournament_group 状态
         game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
+        old_status = matched_tournament_group.get("status")
         db.tournament_groups.update_one(
             {"_id": matched_tournament_group["_id"]},
             {"$set": {"status": "active", "startedAt": started_at}}
         )
-        log.info(f"[check-league] 淘汰赛匹配: group={matched_tournament_group.get('groupIndex')} round={matched_tournament_group.get('round')} 第{game_num}局 gameUuid={game_uuid}")
+        log.info(f"[check-league] 淘汰赛匹配: group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={game_uuid}")
 
         resp = {"isLeague": True}
         vc = _ensure_verification_code(
@@ -2938,6 +2942,9 @@ def api_plugin_check_league():
         if vc:
             resp["verificationCode"] = vc
         return jsonify(resp)
+
+    # 没匹配到淘汰赛组，走积分赛等待队列
+    log.info(f"[check-league] 未匹配淘汰赛组，尝试积分赛等待队列")
 
     # 遍历等待组，找完全匹配
     waiting_groups = list(db.league_waiting_queue.find().sort("createdAt", 1))
@@ -2963,6 +2970,8 @@ def api_plugin_check_league():
     if matched_group is None:
         # fallback：等待组已被队友匹配删除，但联赛对局已创建
         is_league = db.league_matches.find_one({"gameUuid": game_uuid}) is not None
+        if not is_league:
+            log.info(f"[check-league] 未匹配任何队列: gameUuid={game_uuid} isLeague=false")
         resp = {"isLeague": is_league}
         vc = _ensure_verification_code(
             db,
@@ -3139,7 +3148,8 @@ def api_plugin_update_placement():
             tg = db.tournament_groups.find_one({"_id": tg_id})
             if tg:
                 bo_n = tg.get("boN", 1)
-                games_played = tg.get("gamesPlayed", 0) + 1
+                old_gp = tg.get("gamesPlayed", 0)
+                games_played = old_gp + 1
 
                 # 累加每个玩家的本局积分到 totalPoints
                 # 不再写 totalPoints/games 到 tournament_groups，排名从 league_matches 聚合
@@ -3149,16 +3159,18 @@ def api_plugin_update_placement():
                     # BO 全部打完 → 标记 done，触发晋级
                     update_fields["status"] = "done"
                     update_fields["endedAt"] = now_str
-                    log.info(f"[update-placement] BO 完成: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n}")
+                    log.info(f"[update-placement] BO 完成: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n} → status=done")
                     # 晋级逻辑：检查同轮所有组是否都完成
                     group_rankings = _get_group_rankings(db, tg.get("tournamentName", "赛事"))
                     _try_advance_round(db, tg.get("round"), tg.get("tournamentName", "赛事"), group_rankings)
                 else:
                     # 还有下一局 → 回到 waiting
                     update_fields["status"] = "waiting"
-                    log.info(f"[update-placement] BO 进度: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={games_played}/{bo_n}")
+                    log.info(f"[update-placement] BO 进度: group={tg.get('groupIndex')} round={tg.get('round')} gamesPlayed={old_gp}→{games_played}/{bo_n} → status=waiting")
 
                 db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
+            else:
+                log.warning(f"[update-placement] tournament_group 不存在: tg_id={tg_id}")
 
     return jsonify({"ok": True, "finalized": finalized})
 
