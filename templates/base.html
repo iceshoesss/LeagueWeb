@@ -57,6 +57,8 @@
                 <span class="text-hearth-dim">|</span>
                 {% if current_user %}
                 <a href="/player/{{ current_user.battleTag|urlencode }}" class="text-hearth-gold font-medium hover:text-hearth-accent transition">{{ current_user.battleTag }}</a>
+                <button id="navBindBtn" onclick="navGenBindCode()" class="text-hearth-dim hover:text-hearth-gold transition text-xs" title="绑定 QQ">🔗</button>
+                <span id="navBindCode" class="hidden text-xs font-mono text-hearth-gold tracking-wider"></span>
                 {% if is_admin_user %}<a href="/admin" class="text-hearth-dim hover:text-hearth-gold transition text-xs" title="管理面板">⚙️</a>{% endif %}
                 <button onclick="logout()" class="text-hearth-dim hover:text-red-400 transition text-xs">退出</button>
                 {% else %}
@@ -76,6 +78,39 @@
     async function logout() {
         await fetch('/api/logout', { method: 'POST' });
         window.location.reload();
+    }
+    async function navGenBindCode() {
+        const btn = document.getElementById('navBindBtn');
+        const codeEl = document.getElementById('navBindCode');
+        btn.disabled = true;
+        btn.textContent = '⏳';
+        try {
+            const res = await fetch('/api/bind-code', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                codeEl.textContent = data.code;
+                codeEl.classList.remove('hidden');
+                btn.textContent = '✅';
+                codeEl.style.cursor = 'pointer';
+                codeEl.title = '点击复制';
+                codeEl.onclick = () => {
+                    navigator.clipboard.writeText(data.code);
+                    codeEl.textContent = data.code + ' ✓';
+                };
+                setTimeout(() => {
+                    codeEl.classList.add('hidden');
+                    codeEl.onclick = null;
+                    btn.textContent = '🔗';
+                    btn.disabled = false;
+                }, 10000);
+            } else {
+                btn.textContent = '🔗';
+                btn.disabled = false;
+            }
+        } catch {
+            btn.textContent = '🔗';
+            btn.disabled = false;
+        }
     }
     </script>
 </body>
