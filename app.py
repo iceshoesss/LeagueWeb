@@ -2086,8 +2086,11 @@ def api_plugin_check_league():
     account_ids = set(str(a) for a in data.get("accountIdLoList", []))
 
     if not game_uuid or not account_ids:
-        log.warning(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)}")
+        log.warning(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)} playerId={data.get('playerId','')!r}")
         return jsonify({"error": "参数不完整"}), 400
+    if all(a == "0" for a in account_ids):
+        log.warning(f"[check-league] 400: accountIdLo 全为 0（LobbyInfo 未就绪）playerId={data.get('playerId','')!r}")
+        return jsonify({"error": "LobbyInfo 未就绪"}), 400
     if not GAME_UUID_RE.match(game_uuid):
         log.warning(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
         return jsonify({"error": "gameUuid 格式无效"}), 400
