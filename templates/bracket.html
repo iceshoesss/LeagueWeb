@@ -311,7 +311,10 @@ function renderCard(g, x, y, isFinal) {
   const showHero = g.status === 'active';
 
   // 与首页一致的排序：存活玩家在前，淘汰玩家按排名排在后面
-  const sorted = (g.players || []).slice().sort((a, b) => {
+  // waiting 组已按累计积分排序（后端），不再重新排序
+  const sorted = g.status === 'waiting'
+    ? (g.players || []).slice()
+    : (g.players || []).slice().sort((a, b) => {
     const aDead = a.dead || a.eliminated || a.placement != null;
     const bDead = b.dead || b.eliminated || b.placement != null;
     if (aDead !== bDead) return aDead ? 1 : -1;
@@ -326,14 +329,14 @@ function renderCard(g, x, y, isFinal) {
   sorted.forEach((p, i) => {
     const isDead = showHero && (p.dead || p.eliminated || p.placement != null);
     const cls = p.qualified ? 'q' : isDead ? 'el' : '';
-    const pc = !isWaiting && i === 0 ? 'g' : !isWaiting && i === 1 ? 's' : !isWaiting && i === 2 ? 'b' : '';
-    const posText = isWaiting ? '' : (p.currentPlacement || p.placement || (i + 1));
+    const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
+    const posText = p.empty ? '' : (i + 1);
     const img = (showHero && !p.empty && p.heroCardId)
       ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
     h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.displayName || p.name || '')}</span>`;
-    if (p.points != null && !isWaiting) h += `<span class="pts">+${p.points}</span>`;
+    if (p.points != null && p.points > 0) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
   return h + `</div>`;

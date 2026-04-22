@@ -68,7 +68,7 @@ BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.1.4"
+WEB_VERSION = "1.1.0"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员（含超级管理员）"""
@@ -1311,6 +1311,36 @@ def _build_bracket_data():
                         p["qualified"] = False
                         p["eliminated"] = False
                     p["empty"] = p.get("empty", False)
+
+        # waiting 组（BO 间歇期）：从 league_matches 聚合累计积分，按积分排序
+        for r in sorted_rounds:
+            for g in rounds_map[r]:
+                if g.get("status") == "waiting" and g.get("gamesPlayed", 0) > 0:
+                    tg_id = g["_id"]
+                    agg_pipeline = [
+                        {"$match": {"tournamentGroupId": tg_id, "endedAt": {"$ne": None}}},
+                        {"$unwind": "$players"},
+                        {"$match": {"players.placement": {"$ne": None}}},
+                        {"$group": {
+                            "_id": "$players.accountIdLo",
+                            "totalPoints": {"$sum": "$players.points"},
+                        }},
+                    ]
+                    points_by_lo = {}
+                    for doc in db.league_matches.aggregate(agg_pipeline):
+                        points_by_lo[str(doc["_id"])] = doc["totalPoints"]
+
+                    players = g.get("players", [])
+                    for p in players:
+                        lo = str(p.get("accountIdLo", ""))
+                        if lo in points_by_lo:
+                            p["totalPoints"] = points_by_lo[lo]
+                            p["points"] = points_by_lo[lo]
+                        elif not p.get("empty"):
+                            p["totalPoints"] = 0
+                            p["points"] = 0
+                    # 按累计积分降序排列
+                    players.sort(key=lambda p: p.get("totalPoints", 0), reverse=True)
 
         # 为每个活跃组查询当前进行中对局，注入英雄和死亡状态
         active_tg_ids = []
