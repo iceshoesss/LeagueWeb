@@ -310,17 +310,17 @@ function renderCard(g, x, y, isFinal) {
   const isWaiting = g.status === 'waiting';
   const showHero = g.status === 'active';
 
-  // 与首页一致的排序：存活玩家在前，淘汰玩家按排名排在后面
-  // waiting 组已按累计积分排序（后端），不再重新排序
-  const sorted = g.status === 'waiting'
+  // waiting/done 组已按累计积分排序（后端），不再重新排序
+  // active 组只看当前小局：存活在前，已提交排名的按 currentPlacement 降序排最下方
+  const sorted = g.status !== 'active'
     ? (g.players || []).slice()
     : (g.players || []).slice().sort((a, b) => {
-    const aDead = a.dead || a.eliminated || a.placement != null;
-    const bDead = b.dead || b.eliminated || b.placement != null;
+    const aDead = a.dead === true;
+    const bDead = b.dead === true;
     if (aDead !== bDead) return aDead ? 1 : -1;
-    if (aDead && bDead) {
-      const ap = a.placement || a.currentPlacement || 999;
-      const bp = b.placement || b.currentPlacement || 999;
+    if (aDead) {
+      const ap = a.currentPlacement || 999;
+      const bp = b.currentPlacement || 999;
       return ap - bp;
     }
     return 0;
