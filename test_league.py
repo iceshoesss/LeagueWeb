@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 """
-炉石战棋联赛系统 — 全流程测试脚本
+炉石战棋联赛系统 — 全流程测试脚本（淘汰赛版）
 
 模拟 8 个玩家完成一整局联赛：
-  upload-rating → register → login → queue/join → check-league → update-placement
+  upload-rating → register → login → check-league → update-placement
 
 用法：
   python3 test_league.py                          # 默认参数
   python3 test_league.py --base https://xxx.com   # 指定 API 地址
   python3 test_league.py --prefix 测试玩家         # 自定义玩家名前缀
-  python3 test_league.py --skip-queue             # 跳过排队，直接测 check-league
   python3 test_league.py --skip-placement 3       # 跳过第4个玩家的排名提交，测试自动推算
   python3 test_league.py --with-errors            # 正常流程 + 错误场景测试
   python3 test_league.py --test-errors            # 仅运行错误场景测试
-  python3 test_league.py --demo                   # 演示模式，Step 5 每人间隔 3 秒（录视频用）
-  python3 test_league.py --interval 5             # 自定义 Step 5 间隔秒数
+  python3 test_league.py --demo                   # 演示模式，Step 4 每人间隔 3 秒（录视频用）
+  python3 test_league.py --interval 5             # 自定义 Step 4 间隔秒数
 """
 
 import argparse
@@ -152,34 +151,9 @@ def step_login(base, players, codes):
     return sessions
 
 
-def step_join_queue(base, players, sessions):
-    """Step 3: 每个玩家加入报名队列，满 8 人自动移入等待组"""
-    print("\n🎯 Step 3: queue/join")
-    for p in players:
-        s = sessions.get(p.battle_tag)
-        if not s:
-            print(f"  {p.battle_tag:24s} ⏭ 跳过（无 session）")
-            continue
-        status, data = api("POST", f"{base}/api/queue/join", session=s,
-                           json={}, headers=web_headers())
-        moved = data.get("moved", False)
-        label = f"{p.battle_tag} queue/join"
-        note = " → 移入等待组" if moved else ""
-        if note:
-            data = {**data, "_note": note}
-        print_step(label, status, data)
-        time.sleep(0.3)
-
-    # 查看队列状态
-    _, queue = api("GET", f"{base}/api/queue")
-    _, waiting = api("GET", f"{base}/api/waiting-queue")
-    print(f"\n  📋 报名队列: {len(queue)} 人 | 等待队列: {len(waiting)} 组")
-    return waiting
-
-
 def step_check_league(base, players):
-    """Step 4: check-league 创建联赛对局 + 竞争测试"""
-    print("\n🏁 Step 4: check-league")
+    """Step 3: check-league 创建联赛对局 + 竞争测试"""
+    print("\n🏁 Step 3: check-league")
     p0 = players[0]
     game_uuid = str(uuid.uuid4())
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -223,7 +197,6 @@ def step_check_league(base, players):
 
 def step_duplicate_test(base, game_uuid, player):
     """测试重复提交返回 409"""
-    print("\n🔒 重复提交测试")
     status, data = api("POST", f"{base}/api/plugin/update-placement",
                         json={
                             "playerId": player.battle_tag,
@@ -239,12 +212,12 @@ def step_duplicate_test(base, game_uuid, player):
 
 def step_submit_placements(base, players, game_uuid, placements=None, skip_player=None, interval=0.3):
     """
-    Step 5: 提交排名
+    Step 4: 提交排名
     placements: dict {accountIdLo: placement}，None 则自动分配 1-8
     skip_player: accountIdLo，跳过该玩家（测试自动推算）
     interval: 每个玩家提交之间的间隔秒数
     """
-    print("\n📊 Step 5: update-placement")
+    print("\n📊 Step 4: update-placement")
 
     if placements is None:
         placements = {p.account_id_lo: i + 1 for i, p in enumerate(players)}
@@ -278,8 +251,8 @@ def step_submit_placements(base, players, game_uuid, placements=None, skip_playe
 
 
 def step_verify(base, game_uuid):
-    """Step 6: 验证最终结果"""
-    print("\n✅ Step 6: 验证结果")
+    """Step 5: 验证最终结果"""
+    print("\n✅ Step 5: 验证结果")
 
     status, data = api("GET", f"{base}/api/match/{game_uuid}")
     if status != 200:
@@ -321,8 +294,8 @@ def step_verify(base, game_uuid):
 
 
 def step_test_errors(base):
-    """Step 7: 测试错误场景（认证失败、参数错误等）"""
-    print("\n🛡️ Step 7: 错误场景测试")
+    """Step 6: 测试错误场景（认证失败、参数错误等）"""
+    print("\n🛡️ Step 6: 错误场景测试")
     results = []
 
     def check(label, expect_status, actual_status, data):
@@ -429,7 +402,6 @@ def main():
     parser.add_argument("--prefix", default="衣锦夜行", help="玩家名前缀")
     parser.add_argument("--start-tag", type=int, default=1000, help="起始 #tag 编号")
     parser.add_argument("--start-lo", type=int, default=10000000, help="起始 accountIdLo")
-    parser.add_argument("--skip-queue", action="store_true", help="跳过排队")
     parser.add_argument("--skip-placement", type=int, default=None,
                         help="跳过第 N 个玩家(0-7)的排名提交，测试自动推算")
     parser.add_argument("--test-errors", action="store_true",
@@ -437,9 +409,9 @@ def main():
     parser.add_argument("--with-errors", action="store_true",
                         help="正常流程跑完后加测错误场景")
     parser.add_argument("--demo", action="store_true",
-                        help="演示模式，Step 5 每人间隔 3 秒，适合录制视频")
+                        help="演示模式，Step 4 每人间隔 3 秒，适合录制视频")
     parser.add_argument("--interval", type=float, default=None,
-                        help="Step 5 每人间隔秒数（覆盖默认值）")
+                        help="Step 4 每人间隔秒数（覆盖默认值）")
     args = parser.parse_args()
 
     base = args.base.rstrip("/")
@@ -465,16 +437,11 @@ def main():
     if args.skip_placement is not None:
         print(f"  跳过: {players[args.skip_placement].battle_tag}（测试自动推算）")
     if args.demo:
-        print(f"  🎬 演示模式（Step 5 间隔 3 秒）")
+        print(f"  🎬 演示模式（Step 4 间隔 3 秒）")
     print("=" * 60)
 
     codes = step_upload_rating(base, players)
     sessions = step_login(base, players, codes)
-
-    if not args.skip_queue:
-        step_join_queue(base, players, sessions)
-    else:
-        print("\n⏭ 跳过排队步骤")
 
     game_uuid = step_check_league(base, players)
 
