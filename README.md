@@ -164,14 +164,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.1.1`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.1.2`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.1.1 |
+| `feat/knockout` | 淘汰赛 | v0.1.2 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -181,6 +181,16 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.1.2 (2026-04-22)
+- BO 进度移到卡片头部右侧，和状态 badge 右对齐
+- 淘汰时头像一起变灰（grayscale + opacity）
+- done 状态淘汰者名字恢复白色，不再灰色
+- waiting/done 状态不显示英雄头像（不在游戏中无头像）
+- 积分在所有状态下都显示
+- nextRoundGroupId 改为自动计算（ceil(groupIndex/2)），管理员无需手动指定
+- 测试脚本移除报名步骤（淘汰赛不需要 queue/join）
+- 修复 mock 数据 R2 淘汰者未标记 eliminated
 
 ### v0.1.1 (2026-04-22) — Phase 2 完成
 - **check-league 淘汰赛匹配**：先查 tournament_groups（Lo 集合匹配 + gamesPlayed < boN），匹配不到再走 waiting_queue
@@ -207,7 +217,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 待办
 
-- [ ] Phase 3 — 管理后台（创建赛事表单、赛事管理 Tab）
+- [ ] Phase 3 — 管理后台（创建赛事表单、赛事管理 Tab）— 进行中
 - [ ] Phase 4 — 首页整合（对阵图接入真实数据、移除积分赛 UI）
 - [ ] Phase 5 — 边界处理（弃赛/递补/历史归档）
 - [ ] CSRF 防护
