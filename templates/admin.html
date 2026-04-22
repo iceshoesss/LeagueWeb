@@ -14,6 +14,7 @@
         <button onclick="switchTab('matches')" data-tab="matches" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">对局管理</button>
         <button onclick="switchTab('players')" data-tab="players" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">选手管理</button>
         <button onclick="switchTab('queue')" data-tab="queue" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">队列管理</button>
+        <button onclick="switchTab('tournament')" data-tab="tournament" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">赛事管理</button>
         {% if is_super_admin %}
         <button onclick="switchTab('admins')" data-tab="admins" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">管理员</button>
         {% endif %}
@@ -166,6 +167,61 @@
                 <div id="admin-waiting-list" class="divide-y divide-hearth-border">
                     <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  赛事管理                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-tournament" class="tab-panel hidden">
+        <!-- 赛事列表 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
+                <h3 class="text-sm font-bold text-hearth-gold">🏆 赛事列表</h3>
+                <button onclick="showCreateTournament()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 创建赛事</button>
+            </div>
+            <div id="tournament-list" class="divide-y divide-hearth-border">
+                <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建赛事弹窗 -->
+    <div id="create-tournament-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-hearth-card rounded-xl gold-border p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <h3 class="text-lg font-bold text-hearth-gold mb-4">创建赛事</h3>
+
+            <!-- 赛事名称 -->
+            <div class="mb-4">
+                <label class="block text-xs text-hearth-dim mb-1">赛事名称</label>
+                <input type="text" id="ct-name" placeholder="如：2026 春季赛"
+                    class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+            </div>
+
+            <!-- 轮次配置 -->
+            <div class="mb-4">
+                <label class="block text-xs text-hearth-dim mb-2">轮次配置</label>
+                <div id="ct-rounds" class="space-y-3"></div>
+                <button onclick="ctAddRound()" class="mt-2 text-xs px-3 py-1 rounded bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">+ 添加轮次</button>
+            </div>
+
+            <!-- 第一轮分组分配 -->
+            <div class="mb-4">
+                <label class="block text-xs text-hearth-dim mb-2">第一轮分组分配 <span class="text-hearth-dim/60">（从注册选手中选择）</span></label>
+                <div id="ct-groups" class="space-y-4"></div>
+                <button onclick="ctAddGroup()" class="mt-2 text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
+            </div>
+
+            <!-- 已分配提示 -->
+            <div class="mb-4 text-xs text-hearth-dim">
+                <span id="ct-assigned-count">0</span> 位选手已分配，<span id="ct-unassigned-count">0</span> 位未分配
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="flex gap-2 justify-end pt-3 border-t border-hearth-border">
+                <button onclick="document.getElementById('create-tournament-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-hearth-dim hover:text-white transition">取消</button>
+                <button onclick="ctSubmit()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">创建赛事</button>
             </div>
         </div>
     </div>
@@ -665,6 +721,198 @@ async function removeAdmin(battleTag) {
     } catch (e) { alert('网络错误'); }
 }
 {% endif %}
+
+// ── 赛事管理 ──────────────────────────────────────
+let tournamentLoaded = false;
+let ctAllPlayers = [];       // 所有注册选手
+let ctRoundIdx = 0;
+let ctGroupIdx = 0;
+
+async function loadTournaments() {
+    tournamentLoaded = true;
+    try {
+        const res = await fetch('/api/tournaments');
+        const data = await res.json();
+        const list = document.getElementById('tournament-list');
+        if (!data.length) {
+            list.innerHTML = '<div class="px-5 py-4 text-center text-sm text-hearth-dim">暂无赛事，点击右上角「创建赛事」开始</div>';
+            return;
+        }
+        list.innerHTML = data.map(t => {
+            const sc = t.statusCounts || {};
+            const badges = [];
+            if (sc.waiting) badges.push(`<span class="badge waiting">${sc.waiting} 等待</span>`);
+            if (sc.active) badges.push(`<span class="badge active">${sc.active} 进行中</span>`);
+            if (sc.done) badges.push(`<span class="badge done">${sc.done} 已完成</span>`);
+            const roundLabels = t.rounds.map(r => {
+                const label = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'}[r] || `第${r}轮`;
+                return `<a href="/bracket" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/10 text-hearth-gold/80 hover:bg-hearth-gold/20 transition">${label}</a>`;
+            }).join(' ');
+            return `<div class="flex items-center justify-between px-5 py-3">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium">${t.name}</span>
+                    <span class="text-xs text-hearth-dim">${t.totalGroups} 组</span>
+                </div>
+                <div class="flex items-center gap-2">${badges.join('')}</div>
+                <div class="flex items-center gap-1">${roundLabels}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        console.error('Load tournaments error:', e);
+    }
+}
+
+async function showCreateTournament() {
+    const modal = document.getElementById('create-tournament-modal');
+    modal.classList.remove('hidden');
+    // 重置
+    document.getElementById('ct-name').value = '';
+    document.getElementById('ct-rounds').innerHTML = '';
+    document.getElementById('ct-groups').innerHTML = '';
+    ctRoundIdx = 0;
+    ctGroupIdx = 0;
+
+    // 加载所有选手
+    try {
+        const res = await fetch('/api/admin/players-all');
+        ctAllPlayers = await res.json();
+    } catch (e) {
+        alert('加载选手列表失败');
+        return;
+    }
+
+    // 默认 1 个轮次（BO3）+ 2 个分组
+    ctAddRound();
+    ctAddGroup();
+    ctAddGroup();
+}
+
+function ctAddRound() {
+    const container = document.getElementById('ct-rounds');
+    const idx = ctRoundIdx++;
+    const label = {0:'小组赛',1:'第二轮',2:'半决赛',3:'决赛'}[idx] || `第${idx+1}轮`;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 bg-black/20 rounded-lg px-4 py-2';
+    div.id = `ct-round-${idx}`;
+    div.innerHTML = `
+        <span class="text-sm text-gray-300 flex-shrink-0">${label}</span>
+        <select class="bg-black/30 border border-hearth-border rounded px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50" data-round="${idx}">
+            <option value="1" ${idx===0?'':'selected'}>BO1</option>
+            <option value="3" ${idx===0?'selected':''}>BO3</option>
+            <option value="5">BO5</option>
+            <option value="7">BO7</option>
+        </select>
+        <button onclick="this.parentElement.remove()" class="ml-auto text-xs text-red-400 hover:text-red-300 transition">删除</button>
+    `;
+    container.appendChild(div);
+}
+
+function ctAddGroup() {
+    const container = document.getElementById('ct-groups');
+    const idx = ctGroupIdx++;
+    const labels = 'ABCDEFGH';
+    const glabel = labels[idx % 8] + ' 组';
+    const div = document.createElement('div');
+    div.className = 'bg-black/20 rounded-lg p-4';
+    div.id = `ct-group-${idx}`;
+    div.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-bold text-hearth-gold">${glabel}</span>
+            <button onclick="this.closest('.bg-black\\\\/20').remove();ctUpdateCounts()" class="text-xs text-red-400 hover:text-red-300 transition">删除分组</button>
+        </div>
+        <div class="grid grid-cols-4 gap-2" data-group="${idx}">
+            ${Array.from({length:8}, (_, i) => ctSlotHTML(idx, i)).join('')}
+        </div>
+    `;
+    container.appendChild(div);
+    ctUpdateCounts();
+}
+
+function ctSlotHTML(gi, si) {
+    return `<div class="ct-slot" data-gi="${gi}" data-si="${si}">
+        <select onchange="ctUpdateCounts()"
+            class="w-full bg-black/30 border border-hearth-border rounded px-2 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-hearth-gold/50 ct-select">
+            <option value="">空位 ${si+1}</option>
+            ${ctAllPlayers.map(p => `<option value="${p.accountIdLo}" data-tag="${p.battleTag}" data-name="${p.displayName}">${p.displayName}</option>`).join('')}
+        </select>
+    </div>`;
+}
+
+function ctUpdateCounts() {
+    const selects = document.querySelectorAll('#ct-groups .ct-select');
+    let assigned = 0;
+    selects.forEach(s => { if (s.value) assigned++; });
+    document.getElementById('ct-assigned-count').textContent = assigned;
+    document.getElementById('ct-unassigned-count').textContent = ctAllPlayers.length - assigned;
+}
+
+async function ctSubmit() {
+    const name = document.getElementById('ct-name').value.trim();
+    if (!name) { alert('请输入赛事名称'); return; }
+
+    // 收集轮次
+    const roundDivs = document.querySelectorAll('#ct-rounds > div');
+    const rounds = [];
+    roundDivs.forEach((div, i) => {
+        const sel = div.querySelector('select');
+        rounds.push({ round: i + 1, boN: parseInt(sel.value) });
+    });
+
+    // 收集第一轮分组
+    const groupDivs = document.querySelectorAll('#ct-groups > div');
+    if (!groupDivs.length) { alert('至少需要一个分组'); return; }
+
+    const groups = [];
+    for (const gd of groupDivs) {
+        const selects = gd.querySelectorAll('.ct-select');
+        const players = [];
+        for (const sel of selects) {
+            if (!sel.value) continue;
+            const opt = sel.options[sel.selectedIndex];
+            players.push({
+                battleTag: opt.dataset.tag,
+                accountIdLo: sel.value,
+                displayName: opt.dataset.name,
+                heroCardId: '',
+                heroName: '',
+            });
+        }
+        if (players.length === 0) { alert('每个分组至少需要 1 位选手'); return; }
+        groups.push({ groupIndex: groups.length + 1, players });
+    }
+
+    // 组装请求体
+    const body = {
+        tournamentName: name,
+        rounds: rounds.map((r, i) => ({
+            round: r.round,
+            boN: r.boN,
+            groups: i === 0 ? groups : groups.map((g, gi) => ({ groupIndex: gi + 1, players: [] })),
+        })),
+    };
+
+    try {
+        const res = await fetch('/api/tournament/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('create-tournament-modal').classList.add('hidden');
+            loadTournaments();
+        } else {
+            alert(data.error || '创建失败');
+        }
+    } catch (e) { alert('网络错误'); }
+}
+
+// Tab 切换时懒加载赛事
+const origSwitchTab2 = switchTab;
+switchTab = function(tab) {
+    origSwitchTab2(tab);
+    if (tab === 'tournament' && !tournamentLoaded) loadTournaments();
+};
 
 // 定时刷新总览（30s）
 setInterval(() => { if (currentTab === 'dashboard') loadDashboard(); }, 30000);

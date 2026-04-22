@@ -1323,6 +1323,58 @@ def api_tournament_group(group_id):
     return jsonify(group)
 
 
+@app.route("/api/tournaments")
+def api_tournaments():
+    """获取赛事列表（管理员）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    groups = list(db.tournament_groups.find().sort([("tournamentName", 1), ("round", 1), ("groupIndex", 1)]))
+
+    tournaments_map = {}
+    for g in groups:
+        tname = g.get("tournamentName", "未知赛事")
+        if tname not in tournaments_map:
+            tournaments_map[tname] = {"name": tname, "rounds": {}, "totalGroups": 0, "statusCounts": {}}
+        r = g.get("round", 1)
+        tournaments_map[tname]["rounds"].setdefault(r, []).append(g)
+        tournaments_map[tname]["totalGroups"] += 1
+        s = g.get("status", "waiting")
+        tournaments_map[tname]["statusCounts"][s] = tournaments_map[tname]["statusCounts"].get(s, 0) + 1
+
+    result = []
+    for tname, info in tournaments_map.items():
+        result.append({
+            "name": tname,
+            "totalGroups": info["totalGroups"],
+            "statusCounts": info["statusCounts"],
+            "rounds": sorted(info["rounds"].keys()),
+        })
+
+    return jsonify(result)
+
+
+@app.route("/api/admin/players-all")
+def api_admin_players_all():
+    """获取所有注册选手（创建赛事分组用，无分页）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    players = list(db.league_players.find({"verified": True}).sort("displayName", 1))
+    result = []
+    for p in players:
+        result.append({
+            "battleTag": p.get("battleTag", ""),
+            "displayName": p.get("displayName", ""),
+            "accountIdLo": str(p.get("accountIdLo", "")),
+        })
+    return jsonify(result)
+
+
 @app.route("/player/<path:battle_tag>")
 def player_page(battle_tag):
     player = get_player(battle_tag)
