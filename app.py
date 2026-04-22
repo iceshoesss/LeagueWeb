@@ -68,7 +68,7 @@ BIND_CODE_EXPIRE_MINUTES = 5                          # 绑定码有效期（分
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")  # emoji 或图片 URL
-WEB_VERSION = "0.5.2"
+WEB_VERSION = "0.5.3"
 
 def is_admin(battle_tag):
     """从数据库查询是否为管理员（含超级管理员）"""
@@ -2126,17 +2126,33 @@ def api_plugin_check_league():
     # 删除等待组
     db.league_waiting_queue.delete_one({"_id": matched_group["_id"]})
 
-    # 构建 players 数组（优先用请求体中的详细信息，fallback 到等待组数据）
+    # 构建 players 数组
+    # HearthMirror 只有本地玩家有 Name，其他 7 人 battleTag 为空
+    # 三级 fallback：请求详细信息 → 等待组 name → league_players 查库
     detailed_players = data.get("players", {})  # {accountIdLo: {heroCardId, heroName, battleTag, displayName}}
+
+    # 从 league_players 批量查 battleTag（兜底空值）
+    group_los = [str(p.get("accountIdLo", "")) for p in matched_group.get("players", []) if p.get("accountIdLo")]
+    tag_map = {}
+    if group_los:
+        for lp in db.league_players.find({"accountIdLo": {"$in": group_los}}, {"accountIdLo": 1, "battleTag": 1}):
+            if lp.get("accountIdLo") and lp.get("battleTag"):
+                tag_map[str(lp["accountIdLo"])] = lp["battleTag"]
 
     players = []
     for p in matched_group.get("players", []):
         lo = str(p.get("accountIdLo", ""))
         detail = detailed_players.get(lo, {})
+        queue_name = p.get("name", "")
+        tag = tag_map.get(lo, "")
+
+        bt = detail.get("battleTag") or queue_name or tag
+        dn = detail.get("displayName") or queue_name or tag
+
         players.append({
             "accountIdLo": lo,
-            "battleTag": detail.get("battleTag", p.get("name", "")),
-            "displayName": detail.get("displayName", p.get("name", "")),
+            "battleTag": bt,
+            "displayName": dn,
             "heroCardId": detail.get("heroCardId", ""),
             "heroName": detail.get("heroName", ""),
             "placement": None,
