@@ -1026,14 +1026,14 @@ def _build_bracket_mock():
         return g
 
     r1_groups = [
-        mk_group(1, 0, 8, 'done', 1, mk_players(4, True), bo_n=3),
-        mk_group(1, 1, 8, 'done', 1, mk_players(4, True), bo_n=3),
-        mk_group(1, 2, 8, 'done', 2, mk_players(4, True), bo_n=3),
-        mk_group(1, 3, 8, 'done', 2, mk_players(4, True), bo_n=3),
-        mk_group(1, 4, 8, 'done', 3, mk_players(4, True), bo_n=3),
-        mk_group(1, 5, 8, 'done', 3, mk_players(4, True), bo_n=3),
-        mk_group(1, 6, 8, 'done', 4, mk_players(4, True), bo_n=3),
-        mk_group(1, 7, 8, 'done', 4, mk_players(4, True), bo_n=3),
+        mk_group(1, 0, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 1, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 2, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 3, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 4, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 5, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 6, 8, 'done', mk_players(4, True), bo_n=3),
+        mk_group(1, 7, 8, 'done', mk_players(4, True), bo_n=3),
     ]
 
     def build_round(prev_groups, round_num):
