@@ -221,7 +221,7 @@
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* 传说卡（第一名） */
+  /* 第一局 */
   .game-card.legendary {
     border-color: rgba(226,183,20,0.3);
     background: linear-gradient(180deg, #14110a 0%, #0d1117 100%);
@@ -235,14 +235,13 @@
   .game-card.legendary .gc-player .slot { color: rgba(226,183,20,0.3); }
   .game-card.legendary .gc-player .pname { color: #d4c48a; }
   .game-card.legendary:hover { box-shadow: 0 0 24px rgba(226,183,20,0.04); }
-  /* 传说卡底部金线 */
   .game-card.legendary::after {
     content: '';
     position: absolute; bottom: 0; left: 10%; right: 10%; height: 1px;
     background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent);
   }
 
-  /* 史诗卡（第二名） */
+  /* 第二局 */
   .game-card.epic {
     border-color: rgba(139,92,246,0.2);
     background: linear-gradient(180deg, #100d16 0%, #0d1117 100%);
@@ -252,7 +251,7 @@
   .game-card.epic .gc-player .slot { color: rgba(139,92,246,0.25); }
   .game-card.epic .gc-player .pname { color: #b4a0d8; }
 
-  /* 稀有卡（第三名） */
+  /* 第三局 */
   .game-card.rare {
     border-color: rgba(59,130,246,0.15);
     background: linear-gradient(180deg, #0a0f18 0%, #0d1117 100%);
@@ -306,20 +305,6 @@
   }
 
   /* ════════ 炉石元素装饰 ════════ */
-  /* 英雄技能框 */
-  .hs-frame {
-    position: absolute; top: 20px; right: 20px;
-    width: 48px; height: 48px;
-    border: 2px solid #2a2a3a;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.4rem;
-    background: radial-gradient(circle, #1a1a2e, #0d1117);
-    box-shadow: 0 0 12px rgba(0,0,0,0.5), inset 0 0 8px rgba(0,0,0,0.3);
-    z-index: 2;
-    opacity: 0.6;
-  }
-
   /* 法力值水晶 */
   .mana-crystal {
     display: inline-flex; align-items: center; justify-content: center;
@@ -350,8 +335,7 @@
 
   <!-- ════════ Hero ════════ -->
   <section class="hero">
-    <div class="hs-frame">🍺</div>
-    <div class="hero-eyebrow">Hearthstone Battlegrounds Open</div>
+    <div class="hero-eyebrow">Da'an Hearthstone Battlegrounds Open</div>
     <div class="hero-slogan">落 子 皆 <em>传 说</em></div>
     <h1 class="hero-title">大安战棋公开赛</h1>
     <div class="hero-line"></div>
@@ -538,11 +522,11 @@ async function loadList() {
         cardCls += ' waitlist';
         label = `替补 · 第 ${g.index + 1} 组`;
       } else if (g.index === 0) {
-        cardCls += ' legendary'; label = '传说对局';
+        cardCls += ' legendary';
       } else if (g.index === 1) {
-        cardCls += ' epic'; label = '史诗对局';
+        cardCls += ' epic';
       } else if (g.index === 2) {
-        cardCls += ' rare'; label = '稀有对局';
+        cardCls += ' rare';
       } else {
         cardCls += ' common';
       }
