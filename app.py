@@ -17,6 +17,16 @@ import time
 import json
 import secrets
 
+# ── 加载 config.json ──────────────────────────────────
+# 本地开发用，环境变量优先级更高（不会被 config.json 覆盖）
+_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+if os.path.exists(_config_path):
+    with open(_config_path, "r", encoding="utf-8") as _f:
+        _cfg = json.load(_f)
+    for _k, _v in _cfg.items():
+        if _k not in os.environ:
+            os.environ[_k] = str(_v)
+
 # ── 日志配置 ────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,

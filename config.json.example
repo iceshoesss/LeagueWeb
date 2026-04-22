@@ -1,0 +1,14 @@
+{
+  "MONGO_URL": "mongodb://localhost:27017",
+  "DB_NAME": "hearthstone",
+  "FLASK_SECRET_KEY": "",
+  "MIN_PLUGIN_VERSION": "0.5.5",
+  "PLUGIN_API_KEY": "",
+  "WEBHOOK_URL": "",
+  "BOT_API_KEY": "",
+  "SITE_NAME": "酒馆战棋联赛",
+  "SITE_LOGO": "🍺",
+  "CLEANUP_INTERVAL": "60",
+  "ENROLL_DEADLINE": "",
+  "TOURNAMENT_PHASE": "auto"
+}
