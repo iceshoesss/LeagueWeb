@@ -164,14 +164,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.1.3`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.1.4`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.1.3 |
+| `feat/knockout` | 淘汰赛 | v0.1.4 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -181,6 +181,15 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.1.4 (2026-04-22) — Bug 修复
+- 修复 tournamentGroupId (ObjectId) 导致管理面板对局列表 JSON 序列化失败
+- 修复 BO 完成时 `now_str` 未定义导致 update-placement 500 错误（BO 进度卡住根因）
+- 对阵图卡片增大：CARD_W 200→280, ROW_H 38→48
+- 活跃组显示英雄头像（从当前 league_matches 注入）和死亡灰化
+- SSE 哈希比较改为确定性序列化（stableStringify），修复等待中→进行中不推送
+- 名称优先显示带 tag 的 battleTag
+- check-league / update-placement 增加 BO 进度诊断日志
 
 ### v0.1.3 (2026-04-22) — Phase 3 完成
 - **管理后台赛事管理 Tab**：创建赛事表单 + 赛事列表 + 管理/删除
