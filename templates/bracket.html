@@ -328,7 +328,8 @@ function renderCard(g, x, y, isFinal) {
 
   sorted.forEach((p, i) => {
     const isDead = showHero && (p.dead || p.eliminated || p.placement != null);
-    const cls = p.qualified ? 'q' : isDead ? 'el' : '';
+    // 绿色（qualified）只在 waiting 时显示（累计分前4），进行中和已结束不需要
+    const cls = isWaiting && i < 4 ? 'q' : isDead ? 'el' : '';
     const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
     const posText = p.empty ? '' : (i + 1);
     const img = (showHero && !p.empty && p.heroCardId)
