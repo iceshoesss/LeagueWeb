@@ -75,7 +75,7 @@ def main():
     # 显示 seed hash
     h = hashlib.sha256(seed.encode("utf-8")).hexdigest()
     print(f"\nSeed: \"{seed}\"")
-    print(f"SHA256: {h[:16]}...")
+    print(f"SHA256: {h}")
     print(f"选手数: {len(players)}，分组数: {args.groups}\n")
 
     result = shuffle(players, seed)

@@ -164,14 +164,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.1.2`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.1.3`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.1.2 |
+| `feat/knockout` | 淘汰赛 | v0.1.3 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -181,6 +181,17 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.1.3 (2026-04-22) — Phase 3 完成
+- **管理后台赛事管理 Tab**：创建赛事表单 + 赛事列表 + 管理/删除
+- **创建赛事简化**：只填第一轮分组 + BO，后续轮次自动 n/2 生成
+- **每轮独立 BO 设置**：创建时可为每轮指定不同 BO
+- **动态轮次名**：第 N 轮 → 半决赛 → 决赛，根据总轮数计算
+- **自动分组**：按组数×8 从注册选手列表顺序取人
+- **确定性随机烟牌**：SHA256 seed + Fisher-Yates，人人可验证
+- **窝要烟牌页面**：`/verify-shuffle` 公开验证页 + 独立 Python 脚本
+- **赛事管理**：编辑分组玩家/BO、删除赛事
+- 新增 API：`/api/tournaments`、`/api/admin/players-all`、`/api/tournament/manage/<name>`、`/api/tournament/group/<id>/update`、`/api/tournament/<name>` DELETE、`/api/tournament/shuffle`
 
 ### v0.1.2 (2026-04-22)
 - BO 进度移到卡片头部右侧，和状态 badge 右对齐

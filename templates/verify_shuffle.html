@@ -4,14 +4,14 @@
 {% block content %}
 <div class="max-w-3xl mx-auto">
     <h1 class="text-xl font-bold text-purple-400 mb-1">🎲 窝要烟牌</h1>
-    <p class="text-sm text-hearth-dim mb-6">确定性随机洗牌验证 — 同一个 seed，任何人都能跑出完全相同的结果</p>
+    <p class="text-sm text-hearth-dim mb-6">确定性随机烟牌验证 — 同一个 seed，任何人都能跑出完全相同的结果</p>
 
     <!-- 使用说明 -->
     <div class="bg-hearth-card rounded-xl gold-border p-5 mb-4">
         <h2 class="text-sm font-bold text-hearth-gold mb-2">怎么用</h2>
         <ol class="text-sm text-gray-300 space-y-1 list-decimal list-inside">
             <li>管理员和选手提前约定一个随机种子（比如"安德罗妮4月29日14:00第一句话"）</li>
-            <li>管理员用种子在后台执行洗牌，分配分组</li>
+            <li>管理员用种子在后台执行烟牌，分配分组</li>
             <li>任何人在这里输入同样的种子 + 同样的选手列表，验证结果是否一致</li>
         </ol>
     </div>
@@ -45,13 +45,13 @@
             </select>
         </div>
 
-        <button onclick="vRun()" class="px-4 py-2 text-sm rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition">🎲 验证洗牌</button>
+        <button onclick="vRun()" class="px-4 py-2 text-sm rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition">🎲 验证烟牌</button>
     </div>
 
     <!-- 结果 -->
     <div id="v-result" class="hidden bg-hearth-card rounded-xl gold-border p-5 mb-4">
-        <h2 class="text-sm font-bold text-hearth-gold mb-3">洗牌结果</h2>
-        <div class="text-xs text-hearth-dim mb-2">Seed hash: <code id="v-hash" class="text-purple-400"></code></div>
+        <h2 class="text-sm font-bold text-hearth-gold mb-3">烟牌结果</h2>
+        <div class="text-xs text-hearth-dim mb-2">Seed hash: <code id="v-hash" class="text-purple-400 break-all"></code></div>
         <div id="v-groups-result" class="space-y-3"></div>
     </div>
 
@@ -179,7 +179,7 @@ async function vRun() {
     const hashHex = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(seed))))
         .map(b => b.toString(16).padStart(2, '0')).join('');
 
-    document.getElementById('v-hash').textContent = hashHex.slice(0, 16) + '...';
+    document.getElementById('v-hash').textContent = hashHex;
     const container = document.getElementById('v-groups-result');
     container.innerHTML = '';
     for (let g = 0; g < groupCount; g++) {
