@@ -281,6 +281,83 @@ def _get_group_rankings(db, tournament_name=None):
     return rankings
 
 
+def _try_advance_group(db, tg):
+    """单组完成时立即晋级：将前 4 名放入下一轮分组"""
+    current_round = tg.get("round", 1)
+    gi = tg.get("groupIndex", 1)  # 1-based
+    tournament_name = tg.get("tournamentName", "赛事")
+    tg_id = tg["_id"]
+
+    # 计算下一轮目标组号：ceil(gi / 2)
+    groups_in_round = db.tournament_groups.count_documents({
+        "round": current_round, "tournamentName": tournament_name,
+    })
+    if groups_in_round > 1:
+        next_group_index = (gi + 1) // 2  # ceil
+    else:
+        next_group_index = 1
+
+    # 获取本组排名
+    group_rankings = _get_group_rankings(db, tournament_name)
+    rankings = group_rankings.get(str(tg_id), {})
+
+    ranked_players = sorted(
+        tg.get("players", []),
+        key=lambda p: rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
+        reverse=True,
+    )
+
+    quals = []
+    for p in ranked_players[:4]:
+        quals.append({
+            "battleTag": p.get("battleTag", ""),
+            "accountIdLo": p.get("accountIdLo", ""),
+            "displayName": p.get("displayName", ""),
+            "heroCardId": p.get("heroCardId", ""),
+            "heroName": p.get("heroName", ""),
+            "empty": False,
+        })
+
+    # 查目标组是否已存在
+    next_round = current_round + 1
+    existing = db.tournament_groups.find_one({
+        "round": next_round,
+        "groupIndex": next_group_index,
+        "tournamentName": tournament_name,
+    })
+
+    if existing:
+        # 填入空位
+        players = existing.get("players", [])
+        empty_indices = [i for i, p in enumerate(players) if p.get("empty")]
+        update_ops = {}
+        for i, q in enumerate(quals):
+            if i < len(empty_indices):
+                update_ops[f"players.{empty_indices[i]}"] = q
+        if update_ops:
+            db.tournament_groups.update_one({"_id": existing["_id"]}, {"$set": update_ops})
+        log.info(f"[advance] R{current_round}G{gi} → R{next_round}G{next_group_index}: 填入 {len(quals)} 人 (已有 {len(players) - len(empty_indices)} 人)")
+    else:
+        # 创建新组
+        all_players = quals + [{"battleTag": None, "accountIdLo": None, "displayName": "待定",
+                                "heroCardId": None, "heroName": None, "empty": True}] * 4
+        next_bo_n = tg.get("boN", 3)
+        new_group = {
+            "tournamentName": tournament_name,
+            "round": next_round,
+            "groupIndex": next_group_index,
+            "status": "waiting",
+            "boN": next_bo_n,
+            "gamesPlayed": 0,
+            "players": all_players,
+            "nextRoundGroupId": None,
+            "startedAt": None,
+            "endedAt": None,
+        }
+        db.tournament_groups.insert_one(new_group)
+        log.info(f"[advance] R{current_round}G{gi} → 创建 R{next_round}G{next_group_index}: {len(quals)} 人晋级")
+
+
 def _try_advance_round(db, current_round, tournament_name, group_rankings=None):
     """检查当前轮次是否全部完成，如果是则创建下一轮分组"""
     # 查当前轮所有组
@@ -3159,9 +3236,8 @@ def api_plugin_update_placement():
                     update_fields["status"] = "done"
                     update_fields["endedAt"] = now_str
                     log.info(f"[update-placement] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} {old_status}→done")
-                    # 晋级逻辑：检查同轮所有组是否都完成
-                    group_rankings = _get_group_rankings(db, tg.get("tournamentName", "赛事"))
-                    _try_advance_round(db, tg.get("round"), tg.get("tournamentName", "赛事"), group_rankings)
+                    # 晋级逻辑：单组完成立即晋级
+                    _try_advance_group(db, tg)
                 else:
                     # 还有下一局 → 回到 waiting
                     update_fields["status"] = "waiting"
