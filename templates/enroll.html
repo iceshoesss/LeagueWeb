@@ -507,11 +507,24 @@ async function loadList() {
 
     let html = '';
     let wlDivider = false;
+    let rowOpen = false;
+    let rowType = null; // 'featured' | 'normal' | 'waitlist'
+
+    function closeRow() {
+      if (rowOpen) { html += '</div>'; rowOpen = false; }
+    }
+
+    function openRow(cls) {
+      closeRow();
+      html += `<div class="${cls}">`;
+      rowOpen = true;
+    }
 
     groups.forEach(g => {
       // 替补分隔
       if (g.type === 'waitlist' && !wlDivider) {
         wlDivider = true;
+        closeRow();
         html += '<div class="board-divider"><span>待 入 局</span></div>';
       }
 
@@ -531,14 +544,15 @@ async function loadList() {
         cardCls += ' common';
       }
 
-      // 容器（前三局 featured）
-      const rowCls = g.index < 3 && g.type === 'enrolled' ? 'game-row featured' : 'game-row';
-      const isInFeatured = g.index < 3 && g.type === 'enrolled';
-      if (isInFeatured && (g.index === 0 || (g.index > 0 && groups[g.index-1].type !== 'enrolled' || g.index >= 3))) {
-        // featured 行开始
+      // 行管理：前 3 局 featured 行，其余普通行
+      const isFeatured = g.index < 3 && g.type === 'enrolled';
+      const newRowType = g.type === 'waitlist' ? 'waitlist' : (isFeatured ? 'featured' : 'normal');
+      if (newRowType !== rowType) {
+        rowType = newRowType;
+        openRow(newRowType === 'featured' ? 'game-row featured' : 'game-row');
       }
 
-      html += `<div class="${rowCls}"><div class="${cardCls}">
+      html += `<div class="${cardCls}">
         <div class="gc-head">
           <span class="gc-label">${label}</span>
           <span class="gc-count">${g.players.length}/8</span>
@@ -560,9 +574,10 @@ async function loadList() {
         </div>`;
       }
 
-      html += '</div></div></div>';
+      html += '</div></div>';
     });
 
+    closeRow();
     container.innerHTML = html;
   } catch(e) {
     console.error(e);
