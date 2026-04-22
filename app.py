@@ -1312,6 +1312,13 @@ def _build_bracket_data():
                         p["eliminated"] = False
                     p["empty"] = p.get("empty", False)
 
+        # done 组：按累计积分降序排列（_get_group_rankings 已设好 totalPoints，但顺序丢失）
+        for r in sorted_rounds:
+            for g in rounds_map[r]:
+                if g.get("status") == "done":
+                    players = g.get("players", [])
+                    players.sort(key=lambda p: p.get("totalPoints", 0), reverse=True)
+
         # waiting 组（BO 间歇期）：从 league_matches 聚合累计积分，按积分排序
         for r in sorted_rounds:
             for g in rounds_map[r]:
