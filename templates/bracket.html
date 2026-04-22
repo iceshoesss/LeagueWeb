@@ -356,33 +356,84 @@ function buildFlat(rounds) {
 
 const container = document.getElementById('brackets-container');
 
-DATA.tournaments.forEach((t, tIdx) => {
-  const flat = buildFlat(t.rounds);
-  const r1Count = t.rounds[0].groups.length;
-  const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
-  const areaH = Math.max(minH, 600);
+function initBrackets(data) {
+  // 清空旧 DOM 和状态
+  container.innerHTML = '';
+  tournaments.length = 0;
 
-  // 创建 DOM
-  const scroll = document.createElement('div');
-  scroll.className = 'bracket-scroll';
-  const area = document.createElement('div');
-  area.className = 'bracket-area';
-  area.style.height = areaH + 'px';
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.classList.add('svg-layer');
-  area.appendChild(svg);
-  scroll.appendChild(area);
-  container.appendChild(scroll);
+  data.tournaments.forEach((t, tIdx) => {
+    const flat = buildFlat(t.rounds);
+    const r1Count = t.rounds[0].groups.length;
+    const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
+    const areaH = Math.max(minH, 600);
 
-  tournaments.push({
-    rounds: t.rounds,
-    flat,
-    collapsed: new Set(),
-    areaEl: area,
-    svgEl: svg,
+    // 创建 DOM
+    const scroll = document.createElement('div');
+    scroll.className = 'bracket-scroll';
+    const area = document.createElement('div');
+    area.className = 'bracket-area';
+    area.style.height = areaH + 'px';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('svg-layer');
+    area.appendChild(svg);
+    scroll.appendChild(area);
+    container.appendChild(scroll);
+
+    tournaments.push({
+      rounds: t.rounds,
+      flat,
+      collapsed: new Set(),
+      areaEl: area,
+      svgEl: svg,
+    });
+
+    render(tIdx);
   });
+}
 
-  render(tIdx);
+// 首次渲染
+initBrackets(DATA);
+
+/* ══════════════════════════════════════════
+   SSE 实时更新
+   ══════════════════════════════════════════ */
+let bracketSse = null;
+let lastBracketHash = '';
+
+function connectBracketSse() {
+  if (bracketSse) bracketSse.close();
+  bracketSse = new EventSource('/api/events/bracket');
+
+  bracketSse.onmessage = function(e) {
+    if (!e.data) return;
+    try {
+      const data = JSON.parse(e.data);
+      // 指纹比对，有变化才重渲染
+      const hash = JSON.stringify(data);
+      if (hash !== lastBracketHash) {
+        lastBracketHash = hash;
+        initBrackets(data);
+      }
+    } catch(err) { /* ignore parse errors */ }
+  };
+
+  bracketSse.onerror = function() {
+    bracketSse.close();
+    // EventSource 自动重连
+  };
+}
+
+// 首次连接
+lastBracketHash = JSON.stringify(DATA);
+connectBracketSse();
+
+// 切 tab 时断开/重连，省资源
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (bracketSse) { bracketSse.close(); bracketSse = null; }
+  } else {
+    connectBracketSse();
+  }
 });
 </script>
 {% endblock %}

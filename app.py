@@ -2603,6 +2603,17 @@ def sse_problem_matches():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+
+
+@app.route("/api/events/bracket")
+def sse_bracket():
+    """SSE: 对阵图数据变化推送（淘汰赛状态实时更新）"""
+    def fetch():
+        return _build_bracket_data()
+    return Response(_sse_generate(fetch, poll_interval=2, max_lifetime=120),
+                    mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
 # ── 插件专用 API（C# 插件通过 HTTP 调用，替代直连 MongoDB）──────────
 
 def _generate_verification_code(oid):
