@@ -251,12 +251,11 @@ def _try_advance_round(db, current_round, tournament_name):
     if existing > 0:
         return  # 下一轮已创建，跳过
 
-    # 收集每组前 4 名，按 nextRoundGroupId 分桶
+    # 收集每组前 4 名，按 ceil(groupIndex/2) 分桶
     buckets = {}
     for g in sorted(round_groups, key=lambda x: x.get("groupIndex", 0)):
-        nrg = g.get("nextRoundGroupId")
-        if nrg is None:
-            continue
+        gi = g.get("groupIndex", 0)
+        nrg = (gi + 1) // 2 if len(round_groups) > 1 else None
         quals = []
         # 按 totalPoints 降序取前 4
         sorted_players = sorted(g.get("players", []), key=lambda p: p.get("totalPoints", 0), reverse=True)
@@ -290,9 +289,8 @@ def _try_advance_round(db, current_round, tournament_name):
                 "qualified": False, "eliminated": False, "empty": True,
             })
 
-        # 下一轮的 nextRoundGroupId
-        total_buckets = len(buckets)
-        next_nrg = (gid - 1) // 2 + 1 if total_buckets > 1 else None
+        # 自动计算 nextRoundGroupId
+        next_nrg = (gid + 1) // 2 if len(buckets) > 1 else None
 
         # 从当前轮的组继承 boN（可改为管理员配置）
         src_bo_n = round_groups[0].get("boN", 1)
@@ -1012,7 +1010,7 @@ def _build_bracket_mock():
                  'placement': None, 'points': None,
                  'qualified': False, 'eliminated': False, 'empty': True}] * 8
 
-    def mk_group(round_num, gi, total, status, next_round_gid=None, players=None, bo_n=1):
+    def mk_group(round_num, gi, total, status, players=None, bo_n=1):
         g = {
             'round': round_num,
             'groupIndex': gi + 1,
@@ -1023,9 +1021,8 @@ def _build_bracket_mock():
             'players': players or empty_players(),
             'startedAt': '2026-04-21T20:00:00Z' if status != 'waiting' else None,
             'endedAt': '2026-04-21T20:45:00Z' if status == 'done' else None,
+            'nextRoundGroupId': (gi + 2) // 2 if total > 1 else None,
         }
-        if next_round_gid is not None:
-            g['nextRoundGroupId'] = next_round_gid
         return g
 
     r1_groups = [
@@ -1042,7 +1039,8 @@ def _build_bracket_mock():
     def build_round(prev_groups, round_num):
         buckets = {}
         for g in prev_groups:
-            nrg = g.get('nextRoundGroupId')
+            gi = g.get('groupIndex', 0)
+            nrg = (gi + 1) // 2 if len(prev_groups) > 1 else None
             if nrg is None:
                 continue
             buckets.setdefault(nrg, []).append(g)
@@ -1063,11 +1061,9 @@ def _build_bracket_mock():
                                   'heroCardId': None, 'heroName': None,
                                   'placement': None, 'points': None,
                                   'qualified': False, 'eliminated': False, 'empty': True})
-                nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, quals, bo_n=5))
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', quals, bo_n=5))
             else:
-                nrg = (gid - 1) // 2 + 1 if total > 1 else None
-                groups.append(mk_group(round_num, gid - 1, total, 'waiting', nrg, bo_n=5))
+                groups.append(mk_group(round_num, gid - 1, total, 'waiting', bo_n=5))
         return groups
 
     r2_groups = build_round(r1_groups, 2)
@@ -1233,8 +1229,7 @@ def api_tournament_create():
                         "players": [
                             {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."},
                             ...
-                        ],
-                        "nextRoundGroupId": 1
+                        ]
                     }
                 ]
             }
@@ -1285,15 +1280,20 @@ def api_tournament_create():
                     "qualified": False, "eliminated": False, "empty": True,
                 })
 
+            # 自动计算 nextRoundGroupId
+            gi = g.get("groupIndex", 1)
+            total_groups = len(rd.get("groups", []))
+            nrg = (gi + 1) // 2 if total_groups > 1 else None
+
             groups_to_insert.append({
                 "tournamentName": tname,
                 "round": r,
-                "groupIndex": g.get("groupIndex", 1),
+                "groupIndex": gi,
                 "status": "waiting",
                 "boN": bo_n,
                 "gamesPlayed": 0,
                 "players": players,
-                "nextRoundGroupId": g.get("nextRoundGroupId"),
+                "nextRoundGroupId": nrg,
                 "startedAt": None,
                 "endedAt": None,
             })
