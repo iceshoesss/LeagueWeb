@@ -1110,10 +1110,8 @@ def get_problem_matches():
 
 @app.route("/")
 def index():
-    players = get_players()
-    matches = get_completed_matches(limit=5)
-    active_games = get_active_games()
-    return render_template("index.html", players=players, matches=matches, active_games=active_games)
+    data = _build_bracket_data()
+    return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
 def _build_bracket_mock():
