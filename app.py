@@ -1239,11 +1239,8 @@ def _build_bracket_data():
         active_tg_ids = []
         for r in sorted_rounds:
             for g in rounds_map[r]:
-                bo_n = g.get("boN", 1)
-                games_played = g.get("gamesPlayed", 0)
                 status = g.get("status", "waiting")
-                is_active = status == "active" or (status == "waiting" and games_played > 0 and games_played < bo_n)
-                if is_active:
+                if status == "active":
                     active_tg_ids.append(g["_id"])
 
         active_matches_by_tg = {}
@@ -1265,14 +1262,13 @@ def _build_bracket_data():
                 bo_n = g.get("boN", 1)
                 games_played = g.get("gamesPlayed", 0)
                 status = g.get("status", "waiting")
-                if status == "waiting" and games_played > 0 and games_played < bo_n:
-                    status = "active"  # BO 进行中
 
                 # 活跃组：从当前对局注入英雄 + 死亡状态
                 tg_str = str(g["_id"])
                 current_match = active_matches_by_tg.get(tg_str)
                 match_players_by_lo = {}
                 if current_match:
+                    status = "active"  # 有未结束对局 → 进行中
                     for mp in current_match.get("players", []):
                         match_players_by_lo[str(mp.get("accountIdLo", ""))] = mp
 
