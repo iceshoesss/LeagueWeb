@@ -338,15 +338,8 @@ function renderCard(g, x, y, isFinal) {
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
     h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.displayName || p.name || '')}</span>`;
-    // active 中死亡：累计总分 = 之前总分 + 当前局积分；waiting/done：显示累计积分
-    let pts = p.points;
-    if (g.status === 'active' && p.currentPlacement) {
-      const thisGamePts = p.currentPlacement === 1 ? 9 : Math.max(1, 9 - p.currentPlacement);
-      pts = (p.points || 0) + thisGamePts;
-    }
-    if (g.status === 'active' && p.dead && !p.currentPlacement) {
-      console.warn('[DEBUG] dead but no currentPlacement:', p.displayName || p.battleTag, 'points:', p.points, 'dead:', p.dead, 'currentPlacement:', p.currentPlacement);
-    }
+    // 后端已算好累计积分（active 死亡玩家 = 之前+当前局），前端直接显示
+    const pts = p.points;
     if (pts != null && pts > 0) h += `<span class="pts">${pts}</span>`;
     h += `</div>`;
   });

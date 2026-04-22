@@ -1396,8 +1396,12 @@ def _build_bracket_data():
                             p["heroName"] = mp.get("heroName", p.get("heroName", ""))
                             p["dead"] = mp.get("placement") is not None
                             p["currentPlacement"] = mp.get("placement")
-                            if p["dead"]:
-                                log.info(f"[bracket] active player dead: {p.get('displayName','')} placement={p['currentPlacement']} lo={lo}")
+                            # 死亡时直接算出累计积分（之前 + 当前局）
+                            if p["dead"] and p["currentPlacement"]:
+                                cp = p["currentPlacement"]
+                                this_game_pts = 9 if cp == 1 else max(1, 9 - cp)
+                                prev_pts = p.get("points") or 0
+                                p["points"] = prev_pts + this_game_pts
                         else:
                             p["dead"] = False
 
