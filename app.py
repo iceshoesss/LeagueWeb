@@ -406,6 +406,8 @@ def get_completed_matches(limit=10):
     matches = list(db.league_matches.aggregate(pipeline))
     for m in matches:
         m["_id"] = str(m["_id"])
+        if m.get("tournamentGroupId"):
+            m["tournamentGroupId"] = str(m["tournamentGroupId"])
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["startedAt"] = to_iso_str(m.get("startedAt"))
         # 按排名排序（1-8）
@@ -440,6 +442,8 @@ def get_active_games():
     games = list(db.league_matches.find(query).sort("startedAt", -1))
     for g in games:
         g["_id"] = str(g["_id"])
+        if g.get("tournamentGroupId"):
+            g["tournamentGroupId"] = str(g["tournamentGroupId"])
         g["startedAtEpoch"] = to_epoch(g.get("startedAt"))
         g["startedAt"] = to_iso_str(g.get("startedAt"))
     return games
@@ -834,6 +838,8 @@ def get_match(game_uuid):
     match = db.league_matches.find_one({"gameUuid": game_uuid})
     if match:
         match["_id"] = str(match["_id"])
+        if match.get("tournamentGroupId"):
+            match["tournamentGroupId"] = str(match["tournamentGroupId"])
         match["endedAt"] = to_iso_str(match.get("endedAt"))
         match["startedAt"] = to_iso_str(match.get("startedAt"))
         # 按排名排序（null 排最后）
@@ -860,6 +866,8 @@ def get_problem_matches():
     matches = list(db.league_matches.aggregate(pipeline))
     for m in matches:
         m["_id"] = str(m["_id"])
+        if m.get("tournamentGroupId"):
+            m["tournamentGroupId"] = str(m["tournamentGroupId"])
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["startedAt"] = to_iso_str(m.get("startedAt"))
         # 比赛编号：gameUuid 前 8 位
@@ -1039,6 +1047,8 @@ def get_admin_matches(page=1, per_page=20, status_filter="all"):
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     for m in matches:
         m["_id"] = str(m["_id"])
+        if m.get("tournamentGroupId"):
+            m["tournamentGroupId"] = str(m["tournamentGroupId"])
         m["startedAt"] = to_iso_str(m.get("startedAt"))
         m["endedAt"] = to_iso_str(m.get("endedAt"))
         m["matchId"] = (m.get("gameUuid") or "")[:8].upper()
