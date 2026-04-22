@@ -1235,6 +1235,27 @@ def _build_bracket_data():
                         p["eliminated"] = False
                     p["empty"] = p.get("empty", False)
 
+        # 为每个活跃组查询当前进行中对局，注入英雄和死亡状态
+        active_tg_ids = []
+        for r in sorted_rounds:
+            for g in rounds_map[r]:
+                bo_n = g.get("boN", 1)
+                games_played = g.get("gamesPlayed", 0)
+                status = g.get("status", "waiting")
+                is_active = status == "active" or (status == "waiting" and games_played > 0 and games_played < bo_n)
+                if is_active:
+                    active_tg_ids.append(g["_id"])
+
+        active_matches_by_tg = {}
+        if active_tg_ids:
+            for m in db.league_matches.find({
+                "tournamentGroupId": {"$in": active_tg_ids},
+                "$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}],
+            }):
+                tg_id = m.get("tournamentGroupId")
+                if tg_id:
+                    active_matches_by_tg[str(tg_id)] = m
+
         for r in sorted_rounds:
             rgroups = sorted(rounds_map[r], key=lambda g: g.get("groupIndex", 0))
             total = len(rgroups)
@@ -1247,6 +1268,27 @@ def _build_bracket_data():
                 if status == "waiting" and games_played > 0 and games_played < bo_n:
                     status = "active"  # BO 进行中
 
+                # 活跃组：从当前对局注入英雄 + 死亡状态
+                tg_str = str(g["_id"])
+                current_match = active_matches_by_tg.get(tg_str)
+                match_players_by_lo = {}
+                if current_match:
+                    for mp in current_match.get("players", []):
+                        match_players_by_lo[str(mp.get("accountIdLo", ""))] = mp
+
+                players = g.get("players", [])
+                if match_players_by_lo:
+                    for p in players:
+                        lo = str(p.get("accountIdLo", ""))
+                        mp = match_players_by_lo.get(lo)
+                        if mp:
+                            p["heroCardId"] = mp.get("heroCardId", p.get("heroCardId", ""))
+                            p["heroName"] = mp.get("heroName", p.get("heroName", ""))
+                            p["dead"] = mp.get("placement") is not None
+                            p["currentPlacement"] = mp.get("placement")
+                        else:
+                            p["dead"] = False
+
                 gd = {
                     "round": r,
                     "groupIndex": gi + 1,
@@ -1254,7 +1296,7 @@ def _build_bracket_data():
                     "status": status,
                     "boN": bo_n,
                     "gamesPlayed": games_played,
-                    "players": g.get("players", []),
+                    "players": players,
                     "startedAt": g.get("startedAt"),
                     "endedAt": g.get("endedAt"),
                 }

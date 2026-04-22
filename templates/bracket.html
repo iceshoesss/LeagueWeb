@@ -66,7 +66,7 @@
 
   .p-row {
     display: flex; align-items: center;
-    padding: 0 10px; height: 38px; font-size: 12.5px; color: #d1d5db;
+    padding: 0 12px; height: 48px; font-size: 13.5px; color: #d1d5db;
     border-bottom: 1px solid rgba(42,42,74,0.4);
   }
   .p-row:last-child { border-bottom: none; }
@@ -104,9 +104,9 @@
 const DATA = {{ data_json | safe }};
 
 /* ── 常量 ── */
-const HEADER_H = 34, ROW_H = 38, CARD_W = 200;
-const CARD_H = HEADER_H + 8 * ROW_H;      // 338
-const COL_GAP = 60, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
+const HEADER_H = 38, ROW_H = 48, CARD_W = 280;
+const CARD_H = HEADER_H + 8 * ROW_H;      // 422
+const COL_GAP = 70, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
 const COLLAPSED_W = 24;                       // 折叠指示条宽度
 
 /* ── 赛事状态 ── */
@@ -308,15 +308,16 @@ function renderCard(g, x, y, isFinal) {
   const isWaiting = g.status === 'waiting';
   const showHero = g.status === 'active';
   (g.players || []).forEach((p, i) => {
-    const cls = p.qualified ? 'q' : p.eliminated ? 'el' : '';
+    const isDead = showHero && p.dead;
+    const cls = p.qualified ? 'q' : p.eliminated || isDead ? 'el' : '';
     const pc = !isWaiting && i === 0 ? 'g' : !isWaiting && i === 1 ? 's' : !isWaiting && i === 2 ? 'b' : '';
     const posText = isWaiting ? '' : (p.placement || (i + 1));
     const img = (showHero && !p.empty && p.heroCardId)
-      ? `<div class="w-[22px] h-[22px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+      ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
-    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.name || '')}</span>`;
-    if (p.points != null) h += `<span class="pts">+${p.points}</span>`;
+    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '')}</span>`;
+    if (p.points != null && !isWaiting) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
   return h + `</div>`;
