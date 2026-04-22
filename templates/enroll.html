@@ -6,79 +6,91 @@
 <style>
   main { max-width: none !important; padding: 0 !important; }
 
-  /* ════════ 全页背景 ════════ */
   .enroll-page {
-    background: #08090d;
+    background: #07080c;
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
-  }
-
-  /* 环境光 */
-  .enroll-page::before {
-    content: '';
-    position: fixed; inset: 0;
-    background:
-      radial-gradient(ellipse 60% 40% at 50% 0%, rgba(226,183,20,0.06), transparent),
-      radial-gradient(ellipse 50% 50% at 50% 100%, rgba(15,52,96,0.15), transparent);
-    pointer-events: none; z-index: 0;
   }
 
   /* ════════ Hero ════════ */
   .hero {
     position: relative; z-index: 1;
     display: flex; flex-direction: column; align-items: center;
-    padding: 80px 20px 60px;
+    padding: 100px 20px 80px;
     text-align: center;
   }
 
-  /* 星空 */
+  /* 棋盘纹理底 */
   .hero::before {
     content: '';
     position: absolute; inset: 0;
-    background-image:
-      radial-gradient(1px 1px at 10% 20%, rgba(226,183,20,0.3), transparent),
-      radial-gradient(1px 1px at 30% 60%, rgba(226,183,20,0.15), transparent),
-      radial-gradient(1.5px 1.5px at 50% 10%, rgba(226,183,20,0.4), transparent),
-      radial-gradient(1px 1px at 70% 40%, rgba(226,183,20,0.1), transparent),
-      radial-gradient(1px 1px at 90% 70%, rgba(226,183,20,0.2), transparent),
-      radial-gradient(1.5px 1.5px at 15% 80%, rgba(226,183,20,0.15), transparent),
-      radial-gradient(1px 1px at 85% 15%, rgba(226,183,20,0.25), transparent);
-    animation: twinkle 6s ease-in-out infinite alternate;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(226,183,20,0.04) 0%, transparent 70%),
+      repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(226,183,20,0.02) 59px, rgba(226,183,20,0.02) 60px),
+      repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(226,183,20,0.02) 59px, rgba(226,183,20,0.02) 60px);
     pointer-events: none;
   }
-  @keyframes twinkle {
-    0% { opacity: 0.4; } 100% { opacity: 1; }
+
+  /* 星尘 */
+  .hero::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 15% 25%, rgba(226,183,20,0.35), transparent),
+      radial-gradient(1px 1px at 45% 15%, rgba(226,183,20,0.2), transparent),
+      radial-gradient(1.5px 1.5px at 75% 35%, rgba(226,183,20,0.3), transparent),
+      radial-gradient(1px 1px at 25% 75%, rgba(226,183,20,0.15), transparent),
+      radial-gradient(1px 1px at 85% 65%, rgba(226,183,20,0.25), transparent),
+      radial-gradient(1.5px 1.5px at 55% 85%, rgba(226,183,20,0.2), transparent);
+    animation: drift 10s ease-in-out infinite alternate;
+    pointer-events: none;
   }
+  @keyframes drift { 0% { opacity: 0.5; } 100% { opacity: 1; } }
 
   .hero-eyebrow {
-    font-size: 0.75rem; color: #8b8b9e;
-    letter-spacing: 0.5em; text-transform: uppercase;
-    margin-bottom: 16px;
+    font-size: 0.7rem; color: #4b5563;
+    letter-spacing: 0.6em; text-transform: uppercase;
+    margin-bottom: 24px;
     position: relative; z-index: 1;
+  }
+
+  /* 落子皆传说 — 核心 */
+  .hero-slogan {
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    font-weight: 900; line-height: 1.2;
+    color: #fff;
+    position: relative; z-index: 1;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+  .hero-slogan em {
+    font-style: normal;
+    background: linear-gradient(135deg, #ffd700, #e2b714);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
   }
 
   .hero-title {
-    font-size: clamp(3rem, 8vw, 5.5rem);
-    font-weight: 900; line-height: 1.1;
-    background: linear-gradient(180deg, #ffd700 0%, #e2b714 30%, #a07818 100%);
+    font-size: clamp(3.5rem, 9vw, 6rem);
+    font-weight: 900; line-height: 1;
+    background: linear-gradient(180deg, #ffd700 0%, #e2b714 35%, #a07818 100%);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    filter: drop-shadow(0 0 40px rgba(226,183,20,0.15));
+    filter: drop-shadow(0 0 50px rgba(226,183,20,0.12));
     position: relative; z-index: 1;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
   }
 
-  .hero-divider {
-    width: 120px; height: 1px; margin: 0 auto 20px;
-    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.5), transparent);
+  .hero-line {
+    width: 80px; height: 1px; margin: 0 auto 16px;
+    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent);
     position: relative; z-index: 1;
   }
 
   .hero-sub {
-    font-size: 0.85rem; color: #6b7280;
-    letter-spacing: 0.3em;
+    font-size: 0.8rem; color: #6b7280;
+    letter-spacing: 0.4em;
     position: relative; z-index: 1;
-    margin-bottom: 48px;
+    margin-bottom: 56px;
   }
 
   /* ════════ 倒计时 ════════ */
@@ -87,55 +99,54 @@
     position: relative; z-index: 1;
     margin-bottom: 48px;
   }
-  .cd-unit { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+  .cd-unit { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
   .cd-num {
-    font-size: 2.5rem; font-weight: 900; color: #e2b714;
+    font-size: 2.4rem; font-weight: 900; color: #e2b714;
     font-variant-numeric: tabular-nums; line-height: 1;
   }
-  .cd-label { font-size: 0.65rem; color: #6b7280; letter-spacing: 0.2em; margin-top: 4px; }
-  .cd-sep { font-size: 1.8rem; color: #2a2a3a; line-height: 1; padding-top: 2px; }
+  .cd-label { font-size: 0.6rem; color: #4b5563; letter-spacing: 0.25em; margin-top: 4px; }
+  .cd-sep { font-size: 1.6rem; color: #1f2937; line-height: 1; padding-top: 2px; }
 
-  /* ════════ 环形进度 ════════ */
-  .ring-wrap {
+  /* ════════ 落子按钮 ════════ */
+  .cta {
     position: relative; z-index: 1;
-    width: 220px; height: 220px; margin-bottom: 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    margin-bottom: 12px;
   }
-  .ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .ring-bg { fill: none; stroke: #111827; stroke-width: 6; }
-  .ring-fg {
-    fill: none; stroke: url(#rGrad); stroke-width: 6; stroke-linecap: round;
-    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-    filter: drop-shadow(0 0 6px rgba(226,183,20,0.25));
-  }
-  .ring-center {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-  }
-  .ring-num { font-size: 3rem; font-weight: 900; color: #fff; line-height: 1; }
-  .ring-cap { font-size: 0.8rem; color: #6b7280; margin-top: 2px; }
-  .ring-label { font-size: 0.65rem; color: #e2b714; letter-spacing: 0.25em; margin-top: 6px; }
 
-  /* ════════ 按钮区 ════════ */
-  .cta { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 12px; }
   .btn-enroll {
-    padding: 16px 56px; font-size: 1rem; font-weight: 800;
-    letter-spacing: 0.12em; color: #000;
+    position: relative;
+    padding: 18px 64px; font-size: 1.05rem; font-weight: 900;
+    letter-spacing: 0.2em; color: #000;
     background: linear-gradient(135deg, #ffd700, #e2b714, #c9a84c);
-    border: none; border-radius: 10px; cursor: pointer;
-    box-shadow: 0 4px 24px rgba(226,183,20,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+    border: none; border-radius: 4px; cursor: pointer;
+    box-shadow: 0 0 0 1px rgba(226,183,20,0.3), 0 4px 24px rgba(226,183,20,0.15);
     transition: all 0.3s;
+    overflow: hidden;
   }
-  .btn-enroll:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(226,183,20,0.35); }
+  .btn-enroll::before {
+    content: '';
+    position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.15) 50%, transparent 60%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  .btn-enroll:hover::before { transform: translateX(100%); }
+  .btn-enroll:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px rgba(226,183,20,0.5), 0 8px 32px rgba(226,183,20,0.25);
+  }
   .btn-enroll:active { transform: translateY(0); }
-  .btn-enroll:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-enroll:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-enroll:disabled::before { display: none; }
 
   .btn-withdraw {
-    padding: 8px 28px; font-size: 0.75rem; font-weight: 600;
-    color: #6b7280; background: transparent;
-    border: 1px solid #2a2a3a; border-radius: 6px; cursor: pointer;
-    transition: all 0.2s;
+    padding: 8px 24px; font-size: 0.7rem; font-weight: 600;
+    color: #4b5563; background: transparent;
+    border: 1px solid #1f2937; border-radius: 3px; cursor: pointer;
+    transition: all 0.2s; letter-spacing: 0.05em;
   }
-  .btn-withdraw:hover { color: #ef4444; border-color: rgba(239,68,68,0.3); }
+  .btn-withdraw:hover { color: #ef4444; border-color: rgba(239,68,68,0.25); }
 
   .enroll-msg { font-size: 0.8rem; min-height: 18px; position: relative; z-index: 1; }
   .enroll-msg.ok { color: #34d399; } .enroll-msg.err { color: #ef4444; }
@@ -146,153 +157,161 @@
     font-weight: 700; font-size: 0.85rem;
     position: relative; z-index: 1; margin-bottom: 12px;
   }
-  .status-badge.enrolled { background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); color: #34d399; }
-  .status-badge.waitlist { background: rgba(226,183,20,0.08); border: 1px solid rgba(226,183,20,0.2); color: #e2b714; }
+  .status-badge.enrolled { background: rgba(52,211,153,0.06); border: 1px solid rgba(52,211,153,0.15); color: #34d399; }
+  .status-badge.waitlist { background: rgba(226,183,20,0.06); border: 1px solid rgba(226,183,20,0.15); color: #e2b714; }
 
-  /* ════════ 丰碑区 ════════ */
-  .monuments {
+  /* ════════ 棋盘碑林 ════════ */
+  .board {
     position: relative; z-index: 1;
-    max-width: 960px; margin: 0 auto;
-    padding: 0 20px 100px;
+    max-width: 1000px; margin: 0 auto;
+    padding: 0 20px 120px;
   }
 
-  .mo-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 24px;
+  .board-header {
+    display: flex; align-items: baseline; gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #111827;
   }
-  .mo-title {
-    font-size: 0.85rem; font-weight: 700; color: #e2b714;
+  .board-title {
+    font-size: 1rem; font-weight: 800; color: #e2b714;
     letter-spacing: 0.15em;
   }
-  .mo-stats { font-size: 0.75rem; color: #6b7280; }
-  .mo-stats b { color: #e2b714; }
+  .board-count {
+    font-size: 0.75rem; color: #4b5563;
+  }
+  .board-count b { color: #9ca3af; }
 
-  /* 丰碑网格 */
-  .mo-grid {
+  /* 网格 */
+  .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 3px;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 2px;
   }
 
-  .mo-stone {
+  /* 每个棋子 / 碑 */
+  .cell {
     position: relative;
-    background: linear-gradient(180deg, #111827 0%, #0d1117 100%);
-    border: 1px solid #1f2937;
-    border-radius: 4px;
-    padding: 18px 10px 14px;
+    background: #0d1117;
+    border: 1px solid #111827;
+    padding: 20px 8px 14px;
     text-align: center;
-    transition: all 0.3s;
-    overflow: hidden;
-  }
-  .mo-stone::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, transparent, #1f2937, transparent);
-    transition: background 0.3s;
-  }
-  .mo-stone:hover {
-    border-color: #374151;
-    background: linear-gradient(180deg, #1a1f2e 0%, #0d1117 100%);
-  }
-  .mo-stone:hover::before {
-    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.3), transparent);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: default;
   }
 
-  /* 前三名 — 金色丰碑 */
-  .mo-stone.gold {
-    background: linear-gradient(180deg, #1a1508 0%, #0d1117 100%);
-    border-color: rgba(226,183,20,0.25);
+  /* 序号 */
+  .cell-rank {
+    font-size: 0.55rem; font-weight: 800; color: #1f2937;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    transition: color 0.3s;
   }
-  .mo-stone.gold::before {
-    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.5), transparent);
-    height: 2px;
-  }
-  .mo-stone.gold:hover {
-    border-color: rgba(226,183,20,0.5);
-    box-shadow: 0 0 20px rgba(226,183,20,0.06);
-  }
-  .mo-stone.gold .mo-name { color: #e2b714; }
 
-  .mo-stone.silver {
-    background: linear-gradient(180deg, #131518 0%, #0d1117 100%);
-    border-color: rgba(192,192,192,0.15);
-  }
-  .mo-stone.silver .mo-name { color: #c0c0c0; }
-
-  .mo-stone.bronze {
-    background: linear-gradient(180deg, #15110d 0%, #0d1117 100%);
-    border-color: rgba(205,127,50,0.15);
-  }
-  .mo-stone.bronze .mo-name { color: #cd7f32; }
-
-  .mo-pos {
-    font-size: 0.6rem; font-weight: 800; color: #4b5563;
-    letter-spacing: 0.1em; margin-bottom: 8px;
-  }
-  .mo-stone.gold .mo-pos { color: rgba(226,183,20,0.5); }
-  .mo-stone.silver .mo-pos { color: rgba(192,192,192,0.4); }
-  .mo-stone.bronze .mo-pos { color: rgba(205,127,50,0.4); }
-
-  .mo-name {
-    font-size: 0.85rem; font-weight: 700; color: #9ca3af;
+  /* 名字 */
+  .cell-name {
+    font-size: 0.8rem; font-weight: 700; color: #6b7280;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    line-height: 1.3;
+    line-height: 1.2;
+    transition: color 0.3s;
   }
 
-  .mo-time {
-    font-size: 0.6rem; color: #4b5563; margin-top: 6px;
+  /* 时间 */
+  .cell-time {
+    font-size: 0.55rem; color: #1f2937; margin-top: 8px;
     font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
   }
 
-  /* 替补分隔 */
-  .mo-divider {
-    grid-column: 1 / -1;
-    display: flex; align-items: center; gap: 12px;
-    padding: 16px 0 8px;
+  /* ── hover: 点亮碑文 ── */
+  .cell:hover {
+    border-color: #1f2937;
+    background: #111827;
   }
-  .mo-divider::before, .mo-divider::after {
+  .cell:hover .cell-rank { color: #4b5563; }
+  .cell:hover .cell-name { color: #d1d5db; }
+  .cell:hover .cell-time { color: #374151; }
+
+  /* ── 第一名: 传说金碑 ── */
+  .cell.legendary {
+    background: linear-gradient(180deg, #1a1508, #0d1117);
+    border-color: rgba(226,183,20,0.3);
+  }
+  .cell.legendary::after {
+    content: '';
+    position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, #e2b714, transparent);
+  }
+  .cell.legendary .cell-rank { color: rgba(226,183,20,0.6); }
+  .cell.legendary .cell-name { color: #ffd700; font-weight: 900; }
+  .cell.legendary .cell-time { color: rgba(226,183,20,0.3); }
+  .cell.legendary:hover { box-shadow: 0 0 30px rgba(226,183,20,0.06); }
+
+  /* ── 第二名 ── */
+  .cell.epic {
+    background: linear-gradient(180deg, #10121a, #0d1117);
+    border-color: rgba(139,92,246,0.2);
+  }
+  .cell.epic .cell-name { color: #a78bfa; }
+  .cell.epic .cell-rank { color: rgba(139,92,246,0.4); }
+
+  /* ── 第三名 ── */
+  .cell.rare {
+    background: linear-gradient(180deg, #0f1520, #0d1117);
+    border-color: rgba(59,130,246,0.15);
+  }
+  .cell.rare .cell-name { color: #60a5fa; }
+  .cell.rare .cell-rank { color: rgba(59,130,246,0.35); }
+
+  /* ── 正选 ── */
+  .cell.common .cell-name { color: #9ca3af; }
+
+  /* ── 替补分隔 ── */
+  .grid-divider {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 0 10px;
+  }
+  .grid-divider::before, .grid-divider::after {
     content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, transparent, #1f2937, transparent);
+    background: linear-gradient(90deg, transparent, #111827, transparent);
   }
-  .mo-divider span {
-    font-size: 0.65rem; color: #4b5563;
-    letter-spacing: 0.3em; font-weight: 700;
+  .grid-divider span {
+    font-size: 0.6rem; color: #374151;
+    letter-spacing: 0.4em; font-weight: 800;
   }
 
-  /* 替补 — 暗色 */
-  .mo-stone.waitlist .mo-name { color: #6b7280; font-style: italic; }
-  .mo-stone.waitlist .mo-pos { color: #374151; }
-  .mo-stone.waitlist .mo-time { color: #374151; }
+  /* ── 替补 ── */
+  .cell.waitlist .cell-name { color: #4b5563; font-style: italic; }
+  .cell.waitlist .cell-rank { color: #1f2937; }
+  .cell.waitlist .cell-time { color: #1f2937; }
+  .cell.waitlist:hover .cell-name { color: #6b7280; }
 
-  /* 空状态 */
-  .mo-empty {
+  /* 空 */
+  .grid-empty {
     grid-column: 1 / -1;
-    text-align: center; padding: 60px 20px;
-    color: #4b5563;
+    text-align: center; padding: 80px 20px;
   }
-  .mo-empty-icon { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.2; }
-  .mo-empty-text { font-size: 0.85rem; letter-spacing: 0.1em; }
+  .grid-empty-icon { font-size: 3rem; margin-bottom: 16px; opacity: 0.08; }
+  .grid-empty-text { font-size: 0.8rem; color: #374151; letter-spacing: 0.15em; }
 
-  /* 滚动提示 */
-  .scroll-hint {
-    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-    color: #4b5563; font-size: 0.7rem; letter-spacing: 0.2em;
-    animation: bounce 2.5s ease-in-out infinite;
-  }
-  @keyframes bounce {
-    0%,100% { opacity: 0.3; transform: translateX(-50%) translateY(0); }
-    50% { opacity: 0.7; transform: translateX(-50%) translateY(6px); }
+  /* 底部渐隐 */
+  .board::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 80px;
+    background: linear-gradient(transparent, #07080c);
+    pointer-events: none;
   }
 
   @media (max-width: 640px) {
-    .hero { padding: 60px 16px 40px; }
-    .hero-title { font-size: 2.5rem; }
+    .hero { padding: 80px 16px 60px; }
+    .hero-slogan { font-size: 1.5rem; }
+    .hero-title { font-size: 3rem; }
     .countdown { gap: 12px; }
     .cd-num { font-size: 1.8rem; }
-    .ring-wrap { width: 180px; height: 180px; }
-    .ring-num { font-size: 2.2rem; }
-    .mo-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-    .btn-enroll { padding: 14px 40px; font-size: 0.9rem; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .cell { padding: 16px 6px 10px; }
+    .btn-enroll { padding: 16px 44px; font-size: 0.95rem; }
   }
 </style>
 {% endblock %}
@@ -303,9 +322,10 @@
   <!-- ════════ Hero ════════ -->
   <section class="hero">
     <div class="hero-eyebrow">Hearthstone Battlegrounds Invitational</div>
+    <div class="hero-slogan">落 子 皆 <em>传 说</em></div>
     <h1 class="hero-title">大安战棋邀请赛</h1>
-    <div class="hero-divider"></div>
-    <p class="hero-sub">每 一 位 选 手 ， 都 是 一 座 丰 碑</p>
+    <div class="hero-line"></div>
+    <p class="hero-sub">每 一 步 落 子 ， 都 将 被 铭 记</p>
 
     <!-- 倒计时 -->
     <div id="countdown" class="countdown hidden">
@@ -318,49 +338,27 @@
       <div class="cd-unit"><span id="cdS" class="cd-num">00</span><span class="cd-label">秒</span></div>
     </div>
 
-    <!-- 环形进度 -->
-    <div class="ring-wrap">
-      <svg class="ring-svg" viewBox="0 0 220 220">
-        <defs>
-          <linearGradient id="rGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#ffd700"/>
-            <stop offset="100%" stop-color="#a07818"/>
-          </linearGradient>
-        </defs>
-        <circle class="ring-bg" cx="110" cy="110" r="100"/>
-        <circle id="ringFg" class="ring-fg" cx="110" cy="110" r="100"
-                stroke-dasharray="628.3" stroke-dashoffset="628.3"/>
-      </svg>
-      <div class="ring-center">
-        <span id="ringNum" class="ring-num">0</span>
-        <span class="ring-cap">/ 1024</span>
-        <span class="ring-label">碑 林</span>
-      </div>
-    </div>
-
     <!-- 状态 -->
     <div id="yourBadge" class="hidden"></div>
 
     <!-- 操作 -->
     <div class="cta">
-      <button id="enrollBtn" onclick="doEnroll()" class="btn-enroll">铭 刻 你 的 名 字</button>
-      <button id="withdrawBtn" onclick="doWithdraw()" class="btn-withdraw hidden">取消报名</button>
+      <button id="enrollBtn" onclick="doEnroll()" class="btn-enroll">落 子</button>
+      <button id="withdrawBtn" onclick="doWithdraw()" class="btn-withdraw hidden">悔棋</button>
     </div>
     <div id="enrollMsg" class="enroll-msg"></div>
-
-    <div class="scroll-hint">▼ 碑 林</div>
   </section>
 
-  <!-- ════════ 丰碑区 ════════ -->
-  <section class="monuments">
-    <div class="mo-header">
-      <span class="mo-title">碑 林</span>
-      <span class="mo-stats">正选 <b id="lsEnrolled">0</b> · 替补 <b id="lsWaitlist">0</b></span>
+  <!-- ════════ 棋盘碑林 ════════ -->
+  <section class="board">
+    <div class="board-header">
+      <span class="board-title">棋 盘</span>
+      <span class="board-count"><b id="lsEnrolled">0</b> 子已落 · <b id="lsWaitlist">0</b> 待入局</span>
     </div>
-    <div id="moGrid" class="mo-grid">
-      <div class="mo-empty">
-        <div class="mo-empty-icon">⚔️</div>
-        <div class="mo-empty-text">尚无丰碑</div>
+    <div id="grid" class="grid">
+      <div class="grid-empty">
+        <div class="grid-empty-icon">♟</div>
+        <div class="grid-empty-text">棋盘尚空，等待落子</div>
       </div>
     </div>
   </section>
@@ -370,7 +368,6 @@
 
 {% block scripts %}
 <script>
-const RING_C = 2 * Math.PI * 100; // ~628.3
 let deadlineTs = null, cdTimer = null;
 
 /* ── 倒计时 ── */
@@ -394,16 +391,8 @@ function tick() {
   if (dd + hh + mm + ss === 0) {
     clearInterval(cdTimer);
     document.getElementById('countdown').innerHTML =
-      '<span style="color:#ef4444;font-weight:800;font-size:1rem;letter-spacing:0.15em">报名已截止</span>';
+      '<span style="color:#ef4444;font-weight:800;font-size:0.9rem;letter-spacing:0.15em">报名已截止</span>';
   }
-}
-
-/* ── 环形进度 ── */
-function setRing(n) {
-  const p = Math.min(1, n / 1024);
-  document.getElementById('ringFg').style.strokeDashoffset = RING_C * (1 - p);
-  document.getElementById('ringNum').textContent = n;
-  if (p >= 0.95) document.getElementById('ringFg').style.stroke = '#ef4444';
 }
 
 /* ── 状态 ── */
@@ -411,14 +400,13 @@ async function loadStatus() {
   try {
     const r = await fetch('/api/enroll/status');
     const d = await r.json();
-    setRing(d.enrolledCount || 0);
 
     if (d.deadline) {
       if (new Date() < new Date(d.deadline)) startCountdown(d.deadline);
       else {
         document.getElementById('countdown').classList.remove('hidden');
         document.getElementById('countdown').innerHTML =
-          '<span style="color:#ef4444;font-weight:800;font-size:1rem;letter-spacing:0.15em">报名已截止</span>';
+          '<span style="color:#ef4444;font-weight:800;font-size:0.9rem;letter-spacing:0.15em">报名已截止</span>';
       }
     }
 
@@ -429,10 +417,10 @@ async function loadStatus() {
       badge.classList.remove('hidden');
       if (d.status === 'enrolled') {
         badge.className = 'status-badge enrolled';
-        badge.innerHTML = '✅ 已铭刻 · 正选 #' + d.position;
+        badge.innerHTML = '♟ 已落子 · #' + d.position;
       } else {
         badge.className = 'status-badge waitlist';
-        badge.innerHTML = '⏳ 已铭刻 · 替补 #' + d.position;
+        badge.innerHTML = '⏳ 待入局 · #' + d.position;
       }
       eb.classList.add('hidden'); wb.classList.remove('hidden');
     } else {
@@ -442,7 +430,7 @@ async function loadStatus() {
   } catch(e) { console.error(e); }
 }
 
-/* ── 碑林 ── */
+/* ── 棋盘 ── */
 async function loadList() {
   try {
     const r = await fetch('/api/enrollments');
@@ -450,9 +438,9 @@ async function loadList() {
     document.getElementById('lsEnrolled').textContent = d.enrolledCount || 0;
     document.getElementById('lsWaitlist').textContent = d.waitlistCount || 0;
 
-    const grid = document.getElementById('moGrid');
+    const grid = document.getElementById('grid');
     if (!d.players || d.players.length === 0) {
-      grid.innerHTML = '<div class="mo-empty"><div class="mo-empty-icon">⚔️</div><div class="mo-empty-text">尚无丰碑</div></div>';
+      grid.innerHTML = '<div class="grid-empty"><div class="grid-empty-icon">♟</div><div class="grid-empty-text">棋盘尚空，等待落子</div></div>';
       return;
     }
 
@@ -462,52 +450,56 @@ async function loadList() {
       const isWL = p.status === 'waitlist';
       if (isWL && !wlShown) {
         wlShown = true;
-        html += '<div class="mo-divider"><span>替 补</span></div>';
+        html += '<div class="grid-divider"><span>待 入 局</span></div>';
       }
-      let cls = 'mo-stone';
-      if (!isWL) {
-        if (p.position === 1) cls += ' gold';
-        else if (p.position === 2) cls += ' silver';
-        else if (p.position === 3) cls += ' bronze';
-      } else {
+      let cls = 'cell';
+      if (isWL) {
         cls += ' waitlist';
+      } else if (p.position === 1) {
+        cls += ' legendary';
+      } else if (p.position === 2) {
+        cls += ' epic';
+      } else if (p.position === 3) {
+        cls += ' rare';
+      } else {
+        cls += ' common';
       }
       html += `<div class="${cls}">
-        <div class="mo-pos">${isWL ? '替补 #' + (p.position) : '#' + p.position}</div>
-        <div class="mo-name" title="${esc(p.displayName)}">${esc(p.displayName)}</div>
-        <div class="mo-time">${fmtTime(p.enrollAt)}</div>
+        <div class="cell-rank">${isWL ? '待 #' + p.position : '#' + p.position}</div>
+        <div class="cell-name" title="${esc(p.displayName)}">${esc(p.displayName)}</div>
+        <div class="cell-time">${fmtTime(p.enrollAt)}</div>
       </div>`;
     });
     grid.innerHTML = html;
   } catch(e) {
     console.error(e);
-    document.getElementById('moGrid').innerHTML = '<div class="mo-empty"><div class="mo-empty-text" style="color:#ef4444">加载失败</div></div>';
+    document.getElementById('grid').innerHTML = '<div class="grid-empty"><div class="grid-empty-text" style="color:#ef4444">加载失败</div></div>';
   }
 }
 
 /* ── 操作 ── */
 async function doEnroll() {
   const btn = document.getElementById('enrollBtn');
-  btn.disabled = true; btn.textContent = '铭刻中...';
+  btn.disabled = true; btn.textContent = '落子中...';
   try {
     const r = await fetch('/api/enroll', { method: 'POST' });
     const d = await r.json();
     showMsg(d.message || d.error, r.ok);
     if (r.ok) { loadStatus(); loadList(); }
   } catch(e) { showMsg('网络错误', false); }
-  btn.disabled = false; btn.textContent = '铭 刻 你 的 名 字';
+  btn.disabled = false; btn.textContent = '落 子';
 }
 async function doWithdraw() {
-  if (!confirm('确定要取消铭刻吗？')) return;
+  if (!confirm('确定要悔棋吗？')) return;
   const btn = document.getElementById('withdrawBtn');
-  btn.disabled = true; btn.textContent = '取消中...';
+  btn.disabled = true; btn.textContent = '悔棋中...';
   try {
     const r = await fetch('/api/enroll/withdraw', { method: 'POST' });
     const d = await r.json();
     showMsg(d.message || d.error, r.ok);
     if (r.ok) { loadStatus(); loadList(); }
   } catch(e) { showMsg('网络错误', false); }
-  btn.disabled = false; btn.textContent = '取消报名';
+  btn.disabled = false; btn.textContent = '悔棋';
 }
 function showMsg(m, ok) {
   const el = document.getElementById('enrollMsg');
