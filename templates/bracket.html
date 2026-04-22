@@ -316,7 +316,7 @@ function renderCard(g, x, y, isFinal) {
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
     h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.name || '')}</span>`;
-    if (!isWaiting && p.points != null) h += `<span class="pts">+${p.points}</span>`;
+    if (p.points != null) h += `<span class="pts">+${p.points}</span>`;
     h += `</div>`;
   });
   return h + `</div>`;
