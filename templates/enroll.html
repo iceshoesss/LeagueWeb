@@ -174,20 +174,20 @@
   .game-row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
   .game-row.featured {
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 16px;
+    margin-bottom: 16px;
   }
   .game-row.featured .gc-head {
-    padding: 10px 14px;
+    padding: 12px 16px;
     font-size: 0.78rem;
   }
   .game-row.featured .gc-player {
-    padding: 8px 14px;
+    padding: 8px 16px;
     font-size: 0.88rem;
   }
   .game-row.featured .gc-player .slot {
@@ -196,114 +196,123 @@
 
   .game-card {
     position: relative;
-    background: #0d1117;
-    border: 1px solid #111827;
-    border-radius: 6px;
+    background: #0c1018;
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px;
     overflow: hidden;
-    transition: border-color 0.3s;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
-  .game-card:hover { border-color: #1f2937; }
+  .game-card:hover {
+    border-color: rgba(255,255,255,0.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transform: translateY(-1px);
+  }
 
   /* 卡片头部 */
   .gc-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 12px;
-    background: rgba(0,0,0,0.25);
-    border-bottom: 1px solid #111827;
+    padding: 10px 14px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
     font-size: 0.7rem; font-weight: 700;
   }
   .gc-label { color: #4b5563; letter-spacing: 0.1em; }
-  .gc-count { color: #6b7280; font-weight: 500; }
+  .gc-count { color: #374151; font-weight: 500; font-size: 0.65rem; }
 
   /* 玩家列表 */
-  .gc-players { padding: 4px 0; }
+  .gc-players { padding: 6px 0; }
   .gc-player {
     display: flex; align-items: center;
-    padding: 6px 12px;
+    padding: 7px 14px;
     font-size: 0.8rem; color: #9ca3af;
-    border-bottom: 1px solid rgba(17,24,39,0.5);
+    border-bottom: 1px solid rgba(255,255,255,0.02);
     transition: background 0.15s;
   }
   .gc-player:last-child { border-bottom: none; }
-  .gc-player:hover { background: rgba(226,183,20,0.02); }
+  .gc-player:hover { background: rgba(255,255,255,0.015); }
   .gc-player .slot {
-    width: 18px; font-size: 0.6rem; font-weight: 800; color: #1f2937;
+    width: 22px; font-size: 0.6rem; font-weight: 800; color: #1e293b;
     text-align: center; flex-shrink: 0;
     transition: color 0.15s;
   }
-  .gc-player:hover .slot { color: #4b5563; }
+  .gc-player:hover .slot { color: #475569; }
   .gc-player .pname {
     flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .gc-player .ptime {
-    font-size: 0.6rem; color: #374151; margin-left: 8px; flex-shrink: 0;
+    font-size: 0.6rem; color: #1e293b; margin-left: 8px; flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
-  .gc-player:hover .ptime { color: #4b5563; }
+  .gc-player:hover .ptime { color: #374151; }
 
   /* 第一局 */
   .game-card.legendary {
-    border-color: rgba(226,183,20,0.3);
-    background: linear-gradient(180deg, #14110a 0%, #0d1117 100%);
+    border-color: rgba(226,183,20,0.25);
+    background: linear-gradient(180deg, #15120a 0%, #0c1018 100%);
+    box-shadow: 0 2px 12px rgba(226,183,20,0.06);
   }
   .game-card.legendary .gc-head {
-    background: linear-gradient(90deg, rgba(226,183,20,0.08), rgba(226,183,20,0.02));
-    border-bottom-color: rgba(226,183,20,0.15);
+    background: linear-gradient(90deg, rgba(226,183,20,0.06), transparent);
+    border-bottom-color: rgba(226,183,20,0.1);
   }
   .game-card.legendary .gc-label { color: #e2b714; }
-  .game-card.legendary .gc-count { color: rgba(226,183,20,0.5); }
-  .game-card.legendary .gc-player .slot { color: rgba(226,183,20,0.3); }
+  .game-card.legendary .gc-count { color: rgba(226,183,20,0.4); }
+  .game-card.legendary .gc-player .slot { color: rgba(226,183,20,0.25); }
   .game-card.legendary .gc-player .pname { color: #d4c48a; }
-  .game-card.legendary:hover { box-shadow: 0 0 24px rgba(226,183,20,0.04); }
+  .game-card.legendary:hover {
+    border-color: rgba(226,183,20,0.35);
+    box-shadow: 0 4px 20px rgba(226,183,20,0.08);
+  }
   .game-card.legendary::after {
     content: '';
-    position: absolute; bottom: 0; left: 10%; right: 10%; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.4), transparent);
+    position: absolute; bottom: 0; left: 15%; right: 15%; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(226,183,20,0.35), transparent);
   }
 
   /* 第二局 */
   .game-card.epic {
-    border-color: rgba(139,92,246,0.2);
-    background: linear-gradient(180deg, #100d16 0%, #0d1117 100%);
+    border-color: rgba(139,92,246,0.15);
+    background: linear-gradient(180deg, #100d16 0%, #0c1018 100%);
   }
-  .game-card.epic .gc-head { background: rgba(139,92,246,0.04); border-bottom-color: rgba(139,92,246,0.1); }
+  .game-card.epic .gc-head { background: linear-gradient(90deg, rgba(139,92,246,0.03), transparent); border-bottom-color: rgba(139,92,246,0.06); }
   .game-card.epic .gc-label { color: #a78bfa; }
-  .game-card.epic .gc-player .slot { color: rgba(139,92,246,0.25); }
+  .game-card.epic .gc-player .slot { color: rgba(139,92,246,0.2); }
   .game-card.epic .gc-player .pname { color: #b4a0d8; }
 
   /* 第三局 */
   .game-card.rare {
-    border-color: rgba(59,130,246,0.15);
-    background: linear-gradient(180deg, #0a0f18 0%, #0d1117 100%);
+    border-color: rgba(59,130,246,0.12);
+    background: linear-gradient(180deg, #0a0f18 0%, #0c1018 100%);
   }
-  .game-card.rare .gc-head { background: rgba(59,130,246,0.03); border-bottom-color: rgba(59,130,246,0.08); }
+  .game-card.rare .gc-head { background: linear-gradient(90deg, rgba(59,130,246,0.02), transparent); border-bottom-color: rgba(59,130,246,0.05); }
   .game-card.rare .gc-label { color: #60a5fa; }
-  .game-card.rare .gc-player .slot { color: rgba(59,130,246,0.2); }
+  .game-card.rare .gc-player .slot { color: rgba(59,130,246,0.15); }
   .game-card.rare .gc-player .pname { color: #8ab4d8; }
 
   /* 普通卡 */
-  .game-card.common .gc-label { color: #4b5563; }
+  .game-card.common .gc-label { color: #475569; }
 
   /* 替补分隔 */
   .board-divider {
     display: flex; align-items: center; gap: 16px;
-    padding: 24px 0 16px;
+    padding: 28px 0 18px;
   }
   .board-divider::before, .board-divider::after {
     content: ''; flex: 1; height: 1px;
-    background: linear-gradient(90deg, transparent, #111827, transparent);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
   }
   .board-divider span {
-    font-size: 0.65rem; color: #374151;
-    letter-spacing: 0.4em; font-weight: 800;
+    font-size: 0.6rem; color: #334155;
+    letter-spacing: 0.5em; font-weight: 800;
   }
 
   /* 替补卡 */
-  .game-card.waitlist .gc-label { color: #374151; }
-  .game-card.waitlist .gc-count { color: #1f2937; }
-  .game-card.waitlist .gc-player .pname { color: #4b5563; font-style: italic; }
-  .game-card.waitlist .gc-player .slot { color: #1f2937; }
-  .game-card.waitlist:hover .gc-player .pname { color: #6b7280; }
+  .game-card.waitlist .gc-label { color: #334155; }
+  .game-card.waitlist .gc-count { color: #1e293b; }
+  .game-card.waitlist .gc-player .pname { color: #475569; font-style: italic; }
+  .game-card.waitlist .gc-player .slot { color: #1e293b; }
+  .game-card.waitlist:hover .gc-player .pname { color: #64748b; }
 
   /* 空 */
   .board-empty {
@@ -590,9 +599,9 @@ async function loadList() {
 
       // 空位
       for (let i = g.players.length; i < 8; i++) {
-        html += `<div class="gc-player" style="opacity:0.3">
-          <span class="slot">-</span>
-          <span class="pname" style="color:#1f2937;font-style:italic">空位</span>
+        html += `<div class="gc-player" style="opacity:0.2">
+          <span class="slot" style="color:transparent">-</span>
+          <span class="pname" style="color:#1e293b;font-style:italic;font-size:0.7rem">空位</span>
         </div>`;
       }
 
