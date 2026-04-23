@@ -3,12 +3,22 @@
 模块拆分：db / auth / cleanup / data / routes_* / sse
 """
 
+import json
 import logging
 import os
 import secrets
 import threading
 from datetime import datetime, timedelta, UTC
 from flask import Flask, session
+
+# ── 加载 config.json（本地开发用，环境变量优先级更高）──
+_config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+if os.path.exists(_config_path):
+    with open(_config_path, "r", encoding="utf-8") as _f:
+        _cfg = json.load(_f)
+    for _k, _v in _cfg.items():
+        if _k not in os.environ:
+            os.environ[_k] = str(_v)
 
 # ── 日志配置 ────────────────────────────────────────
 logging.basicConfig(
