@@ -179,19 +179,19 @@
   }
   .game-row.featured {
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    margin-bottom: 16px;
+    gap: 18px;
+    margin-bottom: 18px;
   }
   .game-row.featured .gc-head {
-    padding: 12px 16px;
-    font-size: 0.78rem;
+    padding: 14px 18px;
+    font-size: 0.82rem;
   }
   .game-row.featured .gc-player {
-    padding: 8px 16px;
-    font-size: 0.88rem;
+    padding: 10px 18px;
+    font-size: 0.92rem;
   }
   .game-row.featured .gc-player .slot {
-    width: 22px; font-size: 0.65rem;
+    width: 24px; font-size: 0.7rem;
   }
 
   .game-card {
@@ -582,10 +582,6 @@ async function loadList() {
       }
 
       html += `<div class="${cardCls}">
-        <div class="gc-head">
-          <span class="gc-label">${g.type === 'waitlist' ? '替补' : '正选'}</span>
-          <span class="gc-count">${g.players.length}/8</span>
-        </div>
         <div class="gc-players">`;
 
       g.players.forEach((p) => {
