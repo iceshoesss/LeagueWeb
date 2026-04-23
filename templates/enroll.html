@@ -152,8 +152,12 @@
   /* ════════ 棋盘 ════════ */
   .board {
     position: relative; z-index: 1;
-    max-width: 1100px; margin: 0 auto;
+    max-width: 1400px; margin: 0 auto;
     padding: 0 20px 120px;
+  }
+  .game-row.featured {
+    max-width: 900px;
+    margin-left: auto; margin-right: auto;
   }
 
   .board-header {
@@ -526,6 +530,7 @@ async function loadList() {
     let wlDivider = false;
     let rowOpen = false;
     let rowType = null; // 'featured' | 'normal' | 'waitlist'
+    let globalIdx = 0; // 全局编号
 
     function closeRow() {
       if (rowOpen) { html += '</div>'; rowOpen = false; }
@@ -547,10 +552,8 @@ async function loadList() {
 
       // 卡片等级
       let cardCls = 'game-card';
-      let label = `第 ${g.index + 1} 局`;
       if (g.type === 'waitlist') {
         cardCls += ' waitlist';
-        label = `替补 · 第 ${g.index + 1} 组`;
       } else if (g.index === 0) {
         cardCls += ' legendary';
       } else if (g.index === 1) {
@@ -571,14 +574,15 @@ async function loadList() {
 
       html += `<div class="${cardCls}">
         <div class="gc-head">
-          <span class="gc-label">${label}</span>
+          <span class="gc-label">${g.type === 'waitlist' ? '替补' : '正选'}</span>
           <span class="gc-count">${g.players.length}/8</span>
         </div>
         <div class="gc-players">`;
 
-      g.players.forEach((p, i) => {
+      g.players.forEach((p) => {
+        globalIdx++;
         html += `<div class="gc-player">
-          <span class="slot">${i + 1}</span>
+          <span class="slot">${globalIdx}</span>
           <span class="pname" title="${esc(p.displayName)}">${esc(p.displayName)}</span>
           <span class="ptime">${fmtTime(p.enrollAt)}</span>
         </div>`;
@@ -587,7 +591,7 @@ async function loadList() {
       // 空位
       for (let i = g.players.length; i < 8; i++) {
         html += `<div class="gc-player" style="opacity:0.3">
-          <span class="slot">${i + 1}</span>
+          <span class="slot">-</span>
           <span class="pname" style="color:#1f2937;font-style:italic">空位</span>
         </div>`;
       }
