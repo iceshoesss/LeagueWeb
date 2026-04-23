@@ -116,14 +116,8 @@ def sse_problem_matches():
 
 @sse_bp.route("/api/events/bracket")
 def sse_bracket():
-    from data import get_group_rankings
     def fetch():
-        db = get_db()
-        groups = list(db.tournament_groups.find().sort([("round", 1), ("groupIndex", 1)]))
-        if not groups:
-            return {"tournaments": []}
-        # 返回简化的状态快照用于变化检测
-        return [{"id": str(g["_id"]), "status": g.get("status"), "gp": g.get("gamesPlayed")}
-                for g in groups]
+        from routes_tournament import build_bracket_data
+        return build_bracket_data()
     return Response(_sse_generate(fetch), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
