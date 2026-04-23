@@ -373,7 +373,7 @@ def api_admin_player_add():
     db.league_players.insert_one({
         "battleTag": battle_tag,
         "displayName": display_name,
-        "accountIdLo": "",
+        "accountIdLo": battle_tag,  # 手机玩家用 battleTag 作为伪 Lo
         "verified": True,
         "verifiedAt": now_str,
         "createdAt": now_str,

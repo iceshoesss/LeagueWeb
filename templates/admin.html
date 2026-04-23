@@ -1054,8 +1054,11 @@ function ctRefreshBoRounds() {
             <span class="text-sm text-gray-300 flex-shrink-0 w-36">${rd.label}</span>
             <select class="bg-black/30 border border-hearth-border rounded px-2 py-1 text-sm text-gray-200 ct-bo-select" data-round="${i+1}">
                 <option value="1">BO1</option>
+                <option value="2">BO2</option>
                 <option value="3" ${i < 2 ? 'selected' : ''}>BO3</option>
+                <option value="4">BO4</option>
                 <option value="5" ${i >= 2 ? 'selected' : ''}>BO5</option>
+                <option value="6">BO6</option>
                 <option value="7">BO7</option>
             </select>
         </div>
@@ -1184,8 +1187,11 @@ function renderManageTournament(data) {
                         <label class="text-xs text-hearth-dim">BO</label>
                         <select class="bg-black/30 border border-hearth-border rounded px-1.5 py-0.5 text-xs text-gray-200 mt-bo-select" data-gid="${gid}">
                             <option value="1" ${boN===1?'selected':''}>1</option>
+                            <option value="2" ${boN===2?'selected':''}>2</option>
                             <option value="3" ${boN===3?'selected':''}>3</option>
+                            <option value="4" ${boN===4?'selected':''}>4</option>
                             <option value="5" ${boN===5?'selected':''}>5</option>
+                            <option value="6" ${boN===6?'selected':''}>6</option>
                             <option value="7" ${boN===7?'selected':''}>7</option>
                         </select>
                         <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>

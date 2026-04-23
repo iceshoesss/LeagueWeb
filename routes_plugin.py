@@ -130,7 +130,7 @@ def api_plugin_check_league():
         tg_los = set()
         for p in tg.get("players", []):
             lo = str(p.get("accountIdLo", ""))
-            if lo and lo != "0":
+            if lo and lo != "0" and lo.isdigit():  # 只取真实数字 Lo，跳过手机玩家伪 Lo
                 tg_los.add(lo)
         lo_match = len(tg_los) >= 5 and tg_los.issubset(game_los)
         log.info(f"[check-league] 组 R{tg.get('round')}G{tg.get('groupIndex')} status={tg.get('status')} gp={tg.get('gamesPlayed')}/{tg.get('boN')} 组Lo={len(tg_los)} lo_match={lo_match}")
