@@ -117,5 +117,42 @@
         }
     }
     </script>
+
+    <!-- ═══ 全局确认弹窗 ═══ -->
+    <div id="confirmModal" class="fixed inset-0 z-[9999] hidden flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="confirmOverlay"></div>
+        <div class="relative bg-[#1a1a2e] border border-[#2a2a4a] rounded-xl shadow-2xl max-w-md w-[90%] mx-4 p-6">
+            <p id="confirmMsg" class="text-gray-200 text-sm leading-relaxed whitespace-pre-line"></p>
+            <div class="flex justify-end gap-3 mt-5">
+                <button id="confirmCancel" class="px-4 py-2 text-sm text-gray-400 hover:text-white border border-[#2a2a4a] hover:border-[#4a4a6a] rounded-lg transition">取消</button>
+                <button id="confirmOk" class="px-4 py-2 text-sm text-white bg-red-500/80 hover:bg-red-500 rounded-lg transition font-medium">确定</button>
+            </div>
+        </div>
+    </div>
+    <script>
+    function showConfirm(msg) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('confirmModal');
+            const msgEl = document.getElementById('confirmMsg');
+            const okBtn = document.getElementById('confirmOk');
+            const cancelBtn = document.getElementById('confirmCancel');
+            const overlay = document.getElementById('confirmOverlay');
+            msgEl.textContent = msg;
+            modal.classList.remove('hidden');
+            function close(result) {
+                modal.classList.add('hidden');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                overlay.onclick = null;
+                document.onkeydown = null;
+                resolve(result);
+            }
+            okBtn.onclick = () => close(true);
+            cancelBtn.onclick = () => close(false);
+            overlay.onclick = () => close(false);
+            document.onkeydown = e => { if (e.key === 'Escape') close(false); };
+        });
+    }
+    </script>
 </body>
 </html>

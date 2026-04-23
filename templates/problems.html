@@ -89,7 +89,7 @@
 {% block scripts %}
 <script>
 async function deleteMatch(gameUuid, matchId) {
-    if (!confirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销，对局数据将被永久删除。`)) return;
+    if (!await showConfirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销，对局数据将被永久删除。`)) return;
     try {
         const res = await fetch(`/api/match/${gameUuid}`, { method: 'DELETE' });
         const data = await res.json();

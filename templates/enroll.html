@@ -626,7 +626,7 @@ async function doEnroll() {
   btn.disabled = false; btn.textContent = '报 名';
 }
 async function doWithdraw() {
-  if (!confirm('确定要取消报名吗？')) return;
+  if (!await showConfirm('确定要取消报名吗？')) return;
   const btn = document.getElementById('withdrawBtn');
   btn.disabled = true; btn.textContent = '取消报名中...';
   try {

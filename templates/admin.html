@@ -632,7 +632,7 @@ switchTab = function(tab) {
 
 async function forceEnd(gameUuid, type) {
     const label = type === 'timeout' ? '超时' : '掉线';
-    if (!confirm(`确定将此对局标记为${label}？`)) return;
+    if (!await showConfirm(`确定将此对局标记为${label}？`)) return;
     const endpoint = type === 'timeout' ? 'force-end' : 'force-abandon';
     try {
         const res = await fetch(`/api/admin/match/${gameUuid}/${endpoint}`, { method: 'POST' });
@@ -647,7 +647,7 @@ async function forceEnd(gameUuid, type) {
 }
 
 async function resetMatch(gameUuid) {
-    if (!confirm('确定重置此对局？将清除结束状态，回到进行中。')) return;
+    if (!await showConfirm('确定重置此对局？将清除结束状态，回到进行中。')) return;
     try {
         const res = await fetch(`/api/admin/match/${gameUuid}/reset`, { method: 'POST' });
         if (res.ok) {
@@ -661,7 +661,7 @@ async function resetMatch(gameUuid) {
 }
 
 async function deleteMatch(gameUuid, matchId) {
-    if (!confirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销。`)) return;
+    if (!await showConfirm(`确定删除对局 #${matchId}？\n\n此操作不可撤销。`)) return;
     try {
         const res = await fetch(`/api/match/${gameUuid}`, { method: 'DELETE' });
         if (res.ok) {
@@ -675,7 +675,7 @@ async function deleteMatch(gameUuid, matchId) {
 }
 
 async function adminQueueRemove(name) {
-    if (!confirm(`确定将 ${name} 踢出报名队列？`)) return;
+    if (!await showConfirm(`确定将 ${name} 踢出报名队列？`)) return;
     try {
         await fetch('/api/admin/queue/remove', {
             method: 'POST',
@@ -686,7 +686,7 @@ async function adminQueueRemove(name) {
 }
 
 async function adminWaitingRemove(name) {
-    if (!confirm(`确定将 ${name} 踢出等待组？`)) return;
+    if (!await showConfirm(`确定将 ${name} 踢出等待组？`)) return;
     try {
         await fetch('/api/admin/waiting/remove', {
             method: 'POST',
@@ -785,7 +785,7 @@ async function addAdmin() {
 }
 
 async function removeAdmin(battleTag) {
-    if (!confirm(`确定移除管理员 ${battleTag}？`)) return;
+    if (!await showConfirm(`确定移除管理员 ${battleTag}？`)) return;
     try {
         const res = await fetch('/api/admin/admins/remove', {
             method: 'POST',
@@ -1264,7 +1264,7 @@ async function mtSave(gid) {
 }
 
 async function deleteTournament(name) {
-    if (!confirm(`确定删除赛事「${name}」？\n\n只有全部分组都未开始比赛才能删除。`)) return;
+    if (!await showConfirm(`确定删除赛事「${name}」？\n\n只有全部分组都未开始比赛才能删除。`)) return;
     try {
         const res = await fetch(`/api/tournament/${encodeURIComponent(name)}`, { method: 'DELETE' });
         const data = await res.json();
