@@ -14,6 +14,33 @@ log = logging.getLogger("bgtracker")
 league_bp = Blueprint("league", __name__)
 
 
+def _migrate_player_lo(db, battle_tag, old_lo, new_lo):
+    """玩家 Lo 变更时（伪 Lo → 真 Lo），同步更新 tournament_groups 和 league_matches 中的旧记录"""
+    if not old_lo or old_lo == new_lo:
+        return
+    # 只在伪 Lo（= battleTag）→ 真 Lo 时触发
+    if old_lo != battle_tag:
+        return
+
+    log.info(f"[lo-migrate] {battle_tag}: '{old_lo}' → '{new_lo}'，同步历史记录")
+
+    # 1. tournament_groups: players 中匹配伪 Lo 的更新为真 Lo
+    r1 = db.tournament_groups.update_many(
+        {"players.accountIdLo": old_lo},
+        {"$set": {"players.$[elem].accountIdLo": new_lo}},
+        array_filters=[{"elem.accountIdLo": old_lo}],
+    )
+
+    # 2. league_matches: players 中匹配伪 Lo 的更新为真 Lo
+    r2 = db.league_matches.update_many(
+        {"players.accountIdLo": old_lo},
+        {"$set": {"players.$[elem].accountIdLo": new_lo}},
+        array_filters=[{"elem.accountIdLo": old_lo}],
+    )
+
+    log.info(f"[lo-migrate] 完成: tournament_groups={r1.modified_count}, league_matches={r2.modified_count}")
+
+
 # ── API 路由 ──────────────────────────────────────────
 
 @league_bp.route("/api/players")
@@ -314,6 +341,10 @@ def api_register():
     if hash_idx > 0:
         display_name = battle_tag[:hash_idx]
 
+    # 读取旧 Lo，用于判断是否需要迁移
+    old_player = db.league_players.find_one({"battleTag": battle_tag}, {"accountIdLo": 1})
+    old_lo = str(old_player.get("accountIdLo", "")) if old_player else ""
+
     db.league_players.update_one(
         {"battleTag": battle_tag},
         {"$set": {
@@ -328,6 +359,9 @@ def api_register():
         }},
         upsert=True,
     )
+
+    # 伪 Lo → 真 Lo 时同步历史记录
+    _migrate_player_lo(db, battle_tag, old_lo, account_id_lo)
 
     session["battleTag"] = battle_tag
     session["displayName"] = display_name
@@ -382,6 +416,10 @@ def api_login():
     raw_lo = rating.get("accountIdLo")
     account_id_lo = str(raw_lo) if raw_lo else ""
 
+    # 读取旧 Lo，用于判断是否需要迁移
+    old_player = db.league_players.find_one({"battleTag": battle_tag}, {"accountIdLo": 1})
+    old_lo = str(old_player.get("accountIdLo", "")) if old_player else ""
+
     db.league_players.update_one(
         {"battleTag": battle_tag},
         {"$set": {
@@ -396,6 +434,9 @@ def api_login():
         }},
         upsert=True,
     )
+
+    # 伪 Lo → 真 Lo 时同步历史记录
+    _migrate_player_lo(db, battle_tag, old_lo, account_id_lo)
 
     session["battleTag"] = battle_tag
     session["displayName"] = display_name
