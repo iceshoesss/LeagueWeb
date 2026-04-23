@@ -586,9 +586,10 @@ async function loadList() {
 
       g.players.forEach((p) => {
         globalIdx++;
+        const name = p.battleTag || p.displayName;
         html += `<div class="gc-player">
           <span class="slot">${globalIdx}</span>
-          <span class="pname" title="${esc(p.displayName)}">${esc(p.displayName)}</span>
+          <span class="pname" title="${esc(name)}">${esc(name)}</span>
           <span class="ptime">${fmtTime(p.enrollAt)}</span>
         </div>`;
       });
