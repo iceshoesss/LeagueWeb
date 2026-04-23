@@ -720,6 +720,7 @@ def api_enroll_status():
 
     db = get_db()
     existing = db.tournament_enrollments.find_one({"battleTag": battle_tag})
+    enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
     if existing:
         return jsonify({
             "enrolled": True,
@@ -727,10 +728,10 @@ def api_enroll_status():
             "position": existing.get("position"),
             "enrollAt": to_iso_str(existing.get("enrollAt")),
             "cap": ENROLL_CAP,
+            "enrolledCount": enrolled_count,
             "deadline": ENROLL_DEADLINE,
         })
 
-    enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
     return jsonify({"enrolled": False, "cap": ENROLL_CAP, "enrolledCount": enrolled_count, "deadline": ENROLL_DEADLINE})
 
 

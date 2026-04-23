@@ -408,8 +408,8 @@
 
     <!-- 操作 -->
     <div class="cta">
-      <button id="enrollBtn" onclick="doEnroll()" class="btn-enroll">落 子</button>
-      <button id="withdrawBtn" onclick="doWithdraw()" class="btn-withdraw hidden">悔棋</button>
+      <button id="enrollBtn" onclick="doEnroll()" class="btn-enroll">报 名</button>
+      <button id="withdrawBtn" onclick="doWithdraw()" class="btn-withdraw hidden">取消报名</button>
     </div>
     <div id="enrollMsg" class="enroll-msg"></div>
   </section>
@@ -418,12 +418,12 @@
   <section class="board">
     <div class="board-header">
       <span class="board-title">⚔ 棋 盘</span>
-      <span class="board-count"><b id="lsEnrolled">0</b> 子已落 · <b id="lsWaitlist">0</b> 待入局</span>
+      <span class="board-count"><b id="lsEnrolled">0</b> 已报名 · <b id="lsWaitlist">0</b> 替补</span>
     </div>
     <div id="boardContent">
       <div class="board-empty">
         <div class="board-empty-icon">🍺</div>
-        <div class="board-empty-text">棋盘尚空，等待落子</div>
+        <div class="board-empty-text">暂无报名</div>
       </div>
     </div>
     <div class="board-fade"></div>
@@ -493,10 +493,10 @@ async function loadStatus() {
       badge.classList.remove('hidden');
       if (d.status === 'enrolled') {
         badge.className = 'status-badge enrolled';
-        badge.innerHTML = '♟ 已落子 · #' + d.position;
+        badge.innerHTML =   '✅ 已报名 · #' + d.position;
       } else {
         badge.className = 'status-badge waitlist';
-        badge.innerHTML = '⏳ 待入局 · #' + d.position;
+        badge.innerHTML = '⏳ 替补 · #' + d.position;
       }
       eb.classList.add('hidden'); wb.classList.remove('hidden');
     } else {
@@ -516,7 +516,7 @@ async function loadList() {
 
     const container = document.getElementById('boardContent');
     if (!d.players || d.players.length === 0) {
-      container.innerHTML = '<div class="board-empty"><div class="board-empty-icon">🍺</div><div class="board-empty-text">棋盘尚空，等待落子</div></div>';
+      container.innerHTML = '<div class="board-empty"><div class="board-empty-icon">🍺</div><div class="board-empty-text">暂无报名</div></div>';
       return;
     }
 
@@ -616,26 +616,26 @@ async function loadList() {
 /* ── 操作 ── */
 async function doEnroll() {
   const btn = document.getElementById('enrollBtn');
-  btn.disabled = true; btn.textContent = '落子中...';
+  btn.disabled = true; btn.textContent = '报名中...';
   try {
     const r = await fetch('/api/enroll', { method: 'POST' });
     const d = await r.json();
     showMsg(d.message || d.error, r.ok);
     if (r.ok) { loadStatus(); loadList(); }
   } catch(e) { showMsg('网络错误', false); }
-  btn.disabled = false; btn.textContent = '落 子';
+  btn.disabled = false; btn.textContent = '报 名';
 }
 async function doWithdraw() {
-  if (!confirm('确定要悔棋吗？')) return;
+  if (!confirm('确定要取消报名吗？')) return;
   const btn = document.getElementById('withdrawBtn');
-  btn.disabled = true; btn.textContent = '悔棋中...';
+  btn.disabled = true; btn.textContent = '取消报名中...';
   try {
     const r = await fetch('/api/enroll/withdraw', { method: 'POST' });
     const d = await r.json();
     showMsg(d.message || d.error, r.ok);
     if (r.ok) { loadStatus(); loadList(); }
   } catch(e) { showMsg('网络错误', false); }
-  btn.disabled = false; btn.textContent = '悔棋';
+  btn.disabled = false; btn.textContent = '取消报名';
 }
 function showMsg(m, ok) {
   const el = document.getElementById('enrollMsg');
