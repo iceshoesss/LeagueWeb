@@ -16,6 +16,10 @@ services:
       # QQ 机器人集成（部署 bot 后取消注释）
       # - WEBHOOK_URL=http://bg-qqbot:8080/webhook/league
       # - BOT_API_KEY=与bot的BOT_API_KEY一致
+      # 赛事报名截止时间（ISO 格式，含时区）
+      # - ENROLL_DEADLINE=2026-05-01T20:00:00+08:00
+      # 赛事阶段：auto（自动判断）/ enroll（强制报名页）/ bracket（强制对阵图）
+      # - TOURNAMENT_PHASE=auto
     depends_on:
       mongo:
         condition: service_started
