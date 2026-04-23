@@ -404,7 +404,14 @@ def api_tournament_create():
         bo_n = rd.get("boN", 1)
         for g in rd.get("groups", []):
             players = []
+            seen_los = set()
             for p in g.get("players", []):
+                lo = str(p.get("accountIdLo", ""))
+                if lo and lo in seen_los:
+                    log.warning(f"[tournament] 跳过重复选手: {p.get('battleTag')} (Lo={lo})")
+                    continue
+                if lo:
+                    seen_los.add(lo)
                 players.append({
                     "battleTag": p.get("battleTag", ""),
                     "accountIdLo": str(p.get("accountIdLo", "")),
@@ -641,11 +648,20 @@ def api_admin_players_all():
 
     db = get_db()
     players = list(db.league_players.find({"verified": True}).sort("displayName", 1))
-    return jsonify([{
-        "battleTag": p.get("battleTag", ""),
-        "displayName": p.get("displayName", ""),
-        "accountIdLo": str(p.get("accountIdLo", "")),
-    } for p in players])
+    seen = set()
+    result = []
+    for p in players:
+        lo = str(p.get("accountIdLo", ""))
+        if lo and lo in seen:
+            continue
+        if lo:
+            seen.add(lo)
+        result.append({
+            "battleTag": p.get("battleTag", ""),
+            "displayName": p.get("displayName", ""),
+            "accountIdLo": lo,
+        })
+    return jsonify(result)
 
 
 # ── 报名 API ──────────────────────────────────────────

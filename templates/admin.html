@@ -963,19 +963,26 @@ async function ctShuffle() {
         if (!res.ok) { alert(data.error || '洗牌失败'); return; }
 
         const shuffled = data.players;
+        // 去重：按 accountIdLo 去重，防止重复分配
+        const seen = new Set();
+        const deduped = [];
+        for (const p of shuffled) {
+            const lo = String(p.accountIdLo);
+            if (!seen.has(lo)) { seen.add(lo); deduped.push(p); }
+        }
         const groupDivs = document.querySelectorAll('#ct-groups > div');
         if (!groupDivs.length) { alert('请先添加分组'); return; }
 
         const needed = groupDivs.length * 8;
-        if (shuffled.length < needed) {
-            alert(`需要 ${needed} 位选手（${groupDivs.length} 组 × 8），当前只有 ${shuffled.length} 位`);
+        if (deduped.length < needed) {
+            alert(`需要 ${needed} 位选手（${groupDivs.length} 组 × 8），去重后只有 ${deduped.length} 位`);
             return;
         }
 
         let idx = 0;
         groupDivs.forEach(gd => {
             gd.querySelectorAll('.ct-search-wrap').forEach(wrap => {
-                const p = shuffled[idx++];
+                const p = deduped[idx++];
                 const key = wrap.dataset.gi + '-' + wrap.dataset.si;
                 if (ctSearchSlots[key]) ctSearchSlots[key].setValue(p.accountIdLo);
             });
