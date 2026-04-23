@@ -933,6 +933,7 @@ async function showCreateTournament() {
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-groups').innerHTML = '';
     ctGroupIdx = 0;
+    Object.keys(ctSearchSlots).forEach(k => delete ctSearchSlots[k]);
 
     // 加载所有选手
     try {
