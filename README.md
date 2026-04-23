@@ -172,7 +172,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.4.0 |
+| `feat/knockout` | 淘汰赛 | v0.5.0 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -182,6 +182,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.5.0 (2026-04-23) — 手机玩家支持 + BO 选项扩展
+- 手机玩家注册时 accountIdLo 用 battleTag 作为伪 Lo，对阵图正常显示
+- check-league 匹配时跳过非数字 Lo（`lo.isdigit()`），不影响子集匹配
+- 登录/注册时伪 Lo 变真 Lo 自动同步 tournament_groups + league_matches 历史记录
+- BO 选项扩展到 1-7（创建赛事 + 编辑分组）
+- 新增 migrate_mobile_lo.py 迁移脚本（修复已有空 Lo 数据）
 
 ### v0.4.0 (2026-04-23) — 代码重构 + Bug 修复
 - app.py 拆分为 11 个模块（Blueprint 架构），最大单文件 797 行
