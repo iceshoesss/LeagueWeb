@@ -421,7 +421,7 @@ def api_admin_seed_players():
 
 @admin_bp.route("/api/admin/group/<group_id>/advance", methods=["POST"])
 def api_admin_manual_advance(group_id):
-    """手动晋级：管理员指定晋级者列表，跳过自动晋级"""
+    """手动晋级：管理员从等待中/进行中的组指定晋级者"""
     admin_tag = _admin_required()
     if not admin_tag:
         return jsonify({"error": "需要管理员权限"}), 403
@@ -435,9 +435,6 @@ def api_admin_manual_advance(group_id):
     group = db.tournament_groups.find_one({"_id": oid})
     if not group:
         return jsonify({"error": "分组不存在"}), 404
-
-    if group.get("status") != "done":
-        return jsonify({"error": "分组未完成，不能晋级"}), 400
 
     data = request.get_json() or {}
     advance_los = data.get("players", [])
@@ -503,5 +500,12 @@ def api_admin_manual_advance(group_id):
             "endedAt": None,
         })
         log.info(f"[manual-advance] 管理员 {admin_tag} 手动晋级 R{current_round}G{gi} → 创建 R{next_round}G{next_group_index}: {len(quals)} 人")
+
+    # 标记源组为已完成（如果还不是 done）
+    if group.get("status") != "done":
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        db.tournament_groups.update_one({"_id": oid}, {"$set": {"status": "done", "endedAt": now_str}})
+        log.info(f"[manual-advance] 源组 R{current_round}G{gi} 标记为 done")
 
     return jsonify({"ok": True, "advanced": len(quals)})
