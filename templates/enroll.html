@@ -387,7 +387,7 @@
         </svg>
         <div class="ring-center">
           <span id="ringNum" class="ring-num">0</span>
-          <span class="ring-cap">/ 1024</span>
+          <span class="ring-cap">/ {{ enroll_slots }}</span>
           <span class="ring-label">已 入 局</span>
         </div>
       </div>
@@ -463,8 +463,9 @@ function tick() {
 }
 
 /* ── 进度环 ── */
+const ENROLL_SLOTS = {{ enroll_slots }};
 function setRing(n) {
-  const p = Math.min(1, n / 1024);
+  const p = Math.min(1, n / ENROLL_SLOTS);
   document.getElementById('ringFg').style.strokeDashoffset = RING_C * (1 - p);
   document.getElementById('ringNum').textContent = n;
   if (p >= 0.95) document.getElementById('ringFg').style.stroke = '#ef4444';
