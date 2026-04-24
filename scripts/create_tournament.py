@@ -130,8 +130,7 @@ def run(base, mode, total_players, bo_n, admin_tag, num_groups, name):
 
     # 计算分组
     if mode == "bracket":
-        all_p = make_players("选手", total_players, start_tag=1000)
-        groups = split_groups(all_p, 8)
+        groups = split_groups(total_players, 8)
         num_groups = len(groups)
         layout = None  # 默认 bracket
     else:
@@ -140,6 +139,11 @@ def run(base, mode, total_players, bo_n, admin_tag, num_groups, name):
         all_p = make_players("选手", total_players, start_tag=1000)
         groups = split_groups(all_p, group_size)
         layout = "grid"
+
+    if mode == "bracket":
+        all_p = []
+        for g in groups:
+            all_p.extend(g)
 
     print("=" * 60)
     print(f"  创建{('淘汰赛' if mode == 'bracket' else '海选赛')} — {name}")
