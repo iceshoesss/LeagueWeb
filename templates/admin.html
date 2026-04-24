@@ -957,6 +957,10 @@ async function showCreateTournament() {
     document.querySelectorAll('input[name="ct-layout"]').forEach(radio => {
         radio.onchange = () => ctLoadPlayers();
     });
+
+    // 默认 2 个分组
+    ctAddGroup();
+    ctAddGroup();
 }
 
 async function ctLoadPlayers() {
@@ -969,11 +973,6 @@ async function ctLoadPlayers() {
     } catch (e) {
         alert('加载选手列表失败');
     }
-    }
-
-    // 默认 2 个分组
-    ctAddGroup();
-    ctAddGroup();
 }
 
 async function ctShuffle() {
