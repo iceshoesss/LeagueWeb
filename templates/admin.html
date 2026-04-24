@@ -1404,6 +1404,14 @@ async function mtSave(gid) {
     } catch (e) { alert('网络错误'); }
 }
 
+function mtEnforceMax4(cb) {
+    const checked = document.querySelectorAll('.mt-advance-cb:checked');
+    if (checked.length > 4) {
+        cb.checked = false;
+        alert('最多只能选 4 人');
+    }
+}
+
 async function mtManualAdvance(gid) {
     // 获取分组数据，展示玩家列表供管理员选择晋级者
     try {
@@ -1416,13 +1424,14 @@ async function mtManualAdvance(gid) {
 
         // 弹出选择界面
         let html = '<div style="text-align:left;max-height:400px;overflow-y:auto">';
-        html += '<p style="margin-bottom:8px;color:#aaa;font-size:12px">勾选要晋级的玩家：</p>';
+        html += '<p style="margin-bottom:8px;color:#aaa;font-size:12px">勾选要晋级的玩家（最多 4 人）：</p>';
         players.forEach((p, i) => {
             const pts = p.totalPoints || 0;
             const games = (p.games || []).join(', ');
+            const tag = p.battleTag || '';
             html += `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer">
-                <input type="checkbox" class="mt-advance-cb" value="${p.accountIdLo}" ${i < 4 ? 'checked' : ''}>
-                <span style="flex:1;font-size:13px">${p.displayName || p.battleTag}</span>
+                <input type="checkbox" class="mt-advance-cb" value="${p.accountIdLo}" onchange="mtEnforceMax4(this)" ${i < 4 ? 'checked' : ''}>
+                <span style="flex:1;font-size:13px">${tag}${p.displayName && tag.indexOf(p.displayName) === -1 ? ' (' + p.displayName + ')' : ''}</span>
                 <span style="font-size:12px;color:#d4a847">${pts}分</span>
                 ${games ? `<span style="font-size:11px;color:#666">[${games}]</span>` : ''}
             </label>`;
@@ -1434,6 +1443,7 @@ async function mtManualAdvance(gid) {
 
         const selected = Array.from(document.querySelectorAll('.mt-advance-cb:checked')).map(cb => cb.value);
         if (!selected.length) { alert('请至少选择一个玩家'); return; }
+        if (selected.length > 4) { alert('最多只能选 4 人晋级'); return; }
 
         const advRes = await fetch(`/api/admin/group/${gid}/advance`, {
             method: 'POST',

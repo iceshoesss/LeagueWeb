@@ -440,6 +440,8 @@ def api_admin_manual_advance(group_id):
     advance_los = data.get("players", [])
     if not advance_los:
         return jsonify({"error": "请指定晋级者 accountIdLo 列表"}), 400
+    if len(advance_los) > 4:
+        return jsonify({"error": "最多只能选 4 人晋级"}), 400
 
     # 从分组 players 中找到对应的玩家信息
     group_players = {str(p.get("accountIdLo", "")): p for p in group.get("players", []) if p.get("accountIdLo")}
