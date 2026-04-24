@@ -346,9 +346,11 @@ def api_plugin_update_placement():
 
     if not all_done:
         null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
+        log.info(f"[update-placement] 自动推算检查: len(players)={len(players)} null_count={len(null_indices)} null_indices={null_indices}")
         if len(null_indices) == 1:
             used = {p["placement"] for p in players if p.get("placement") is not None}
             remaining = set(range(1, len(players) + 1)) - used
+            log.info(f"[update-placement] 自动推算检查: used={sorted(used)} remaining={sorted(remaining)}")
             if len(remaining) == 1:
                 auto_placement = remaining.pop()
                 auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
