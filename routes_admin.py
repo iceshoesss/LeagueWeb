@@ -2,10 +2,12 @@
 
 import logging
 from datetime import datetime, timedelta, UTC
+from bson import ObjectId
 from flask import Blueprint, jsonify, request, session
 
 from db import get_db, to_iso_str, to_cst_str, GAME_TIMEOUT_MINUTES
 from auth import _admin_required, is_super_admin, is_admin
+from data import get_group_rankings
 
 log = logging.getLogger("bgtracker")
 admin_bp = Blueprint("admin", __name__)
@@ -415,3 +417,91 @@ def api_admin_seed_players():
         "displayName": p.get("displayName", ""),
         "accountIdLo": str(p.get("accountIdLo", "")),
     } for p in seeds])
+
+
+@admin_bp.route("/api/admin/group/<group_id>/advance", methods=["POST"])
+def api_admin_manual_advance(group_id):
+    """手动晋级：管理员指定晋级者列表，跳过自动晋级"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    try:
+        oid = ObjectId(group_id)
+    except Exception:
+        return jsonify({"error": "无效的 group ID"}), 400
+
+    group = db.tournament_groups.find_one({"_id": oid})
+    if not group:
+        return jsonify({"error": "分组不存在"}), 404
+
+    if group.get("status") != "done":
+        return jsonify({"error": "分组未完成，不能晋级"}), 400
+
+    data = request.get_json() or {}
+    advance_los = data.get("players", [])
+    if not advance_los:
+        return jsonify({"error": "请指定晋级者 accountIdLo 列表"}), 400
+
+    # 从分组 players 中找到对应的玩家信息
+    group_players = {str(p.get("accountIdLo", "")): p for p in group.get("players", []) if p.get("accountIdLo")}
+    quals = []
+    for lo in advance_los:
+        p = group_players.get(str(lo))
+        if not p:
+            return jsonify({"error": f"accountIdLo={lo} 不在此分组中"}), 400
+        quals.append({
+            "battleTag": p.get("battleTag", ""),
+            "accountIdLo": p.get("accountIdLo", ""),
+            "displayName": p.get("displayName", ""),
+            "heroCardId": p.get("heroCardId", ""),
+            "heroName": p.get("heroName", ""),
+            "empty": False,
+        })
+
+    current_round = group.get("round", 1)
+    gi = group.get("groupIndex", 1)
+    tournament_name = group.get("tournamentName", "赛事")
+
+    groups_in_round = db.tournament_groups.count_documents({
+        "round": current_round, "tournamentName": tournament_name,
+    })
+    next_group_index = (gi + 1) // 2 if groups_in_round > 1 else 1
+    next_round = current_round + 1
+
+    existing = db.tournament_groups.find_one({
+        "round": next_round,
+        "groupIndex": next_group_index,
+        "tournamentName": tournament_name,
+    })
+
+    if existing:
+        players = existing.get("players", [])
+        empty_indices = [i for i, p in enumerate(players) if p.get("empty")]
+        update_ops = {}
+        for i, q in enumerate(quals):
+            if i < len(empty_indices):
+                update_ops[f"players.{empty_indices[i]}"] = q
+        if update_ops:
+            db.tournament_groups.update_one({"_id": existing["_id"]}, {"$set": update_ops})
+        log.info(f"[manual-advance] 管理员 {admin_tag} 手动晋级 R{current_round}G{gi} → R{next_round}G{next_group_index}: {len(quals)} 人")
+    else:
+        all_players = quals + [{"battleTag": None, "accountIdLo": None, "displayName": "待定",
+                                "heroCardId": None, "heroName": None, "empty": True}] * 4
+        next_bo_n = group.get("boN", 3)
+        db.tournament_groups.insert_one({
+            "tournamentName": tournament_name,
+            "round": next_round,
+            "groupIndex": next_group_index,
+            "status": "waiting",
+            "boN": next_bo_n,
+            "gamesPlayed": 0,
+            "players": all_players,
+            "nextRoundGroupId": None,
+            "startedAt": None,
+            "endedAt": None,
+        })
+        log.info(f"[manual-advance] 管理员 {admin_tag} 手动晋级 R{current_round}G{gi} → 创建 R{next_round}G{next_group_index}: {len(quals)} 人")
+
+    return jsonify({"ok": True, "advanced": len(quals)})

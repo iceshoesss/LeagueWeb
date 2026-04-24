@@ -610,6 +610,9 @@ def api_tournament_group_update(group_id):
             return jsonify({"error": "boN 必须在 1-20 之间"}), 400
         update["boN"] = bo_n
 
+    if "manualAdvance" in data:
+        update["manualAdvance"] = bool(data["manualAdvance"])
+
     if "players" in data:
         players = []
         for p in data["players"]:

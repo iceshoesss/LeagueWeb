@@ -153,6 +153,31 @@
             document.onkeydown = e => { if (e.key === 'Escape') close(false); };
         });
     }
+    function showConfirmHTML(html, okLabel) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('confirmModal');
+            const msgEl = document.getElementById('confirmMsg');
+            const okBtn = document.getElementById('confirmOk');
+            const cancelBtn = document.getElementById('confirmCancel');
+            const overlay = document.getElementById('confirmOverlay');
+            msgEl.innerHTML = html;
+            if (okLabel) okBtn.textContent = okLabel;
+            modal.classList.remove('hidden');
+            function close(result) {
+                modal.classList.add('hidden');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+                overlay.onclick = null;
+                document.onkeydown = null;
+                okBtn.textContent = '确定';
+                resolve(result);
+            }
+            okBtn.onclick = () => close(true);
+            cancelBtn.onclick = () => close(false);
+            overlay.onclick = () => close(false);
+            document.onkeydown = e => { if (e.key === 'Escape') close(false); };
+        });
+    }
     </script>
 </body>
 </html>
