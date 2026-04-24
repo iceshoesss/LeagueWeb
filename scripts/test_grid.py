@@ -2,12 +2,14 @@
 """
 海选赛（平铺网格）测试 — 模拟 bg_tool 完整流程
 
-创建 grid 布局的海选赛事，2 组 × 7 人（各含 1 个 bot 空位），
-模拟 BO1 全流程：每个玩家独立 check-league + update-placement。
+创建 grid 布局的海选赛事，2 组 × (8-bots) 人（含 bot 空位），
+模拟 BO 全流程：每个玩家独立 check-league + update-placement。
 
 用法：
-  python scripts/test_grid.py
-  python scripts/test_grid.py --base http://xxx:5000 --bo 2 --admin "衣锦夜行#1000"
+  python scripts/test_grid.py                           # 2 组 × 7 人，各 1 个 bot
+  python scripts/test_grid.py --bots 2                  # 2 组 × 6 人，各 2 个 bot
+  python scripts/test_grid.py --bots 3 --bo 2           # 2 组 × 5 人，各 3 个 bot，BO2
+  python scripts/test_grid.py --groups 3 --bots 1 --bo 2
 """
 
 import argparse
@@ -125,10 +127,10 @@ def sim_update_placement(base, sender, game_uuid, placement):
     return api("POST", f"{base}/api/plugin/update-placement", json=body, headers=plugin_headers())
 
 
-def play_game(base, group, group_name, game_num, bo_n):
+def play_game(base, group, group_name, game_num, bo_n, bot_count=1):
     """模拟一组打一局，返回 [(battleTag, placement, points), ...]"""
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    game_los = [p["accountIdLo"] for p in group] + ["0"]  # bot Lo=0
+    game_los = [p["accountIdLo"] for p in group] + ["0"] * bot_count  # bot Lo=0
 
     # ── check-league ──
     game_uuid = None
@@ -148,13 +150,15 @@ def play_game(base, group, group_name, game_num, bo_n):
         return []
 
     # ── update-placement ──
-    placements = list(range(1, len(group) + 1))
+    # 8 人排名：前 N 个给真实玩家，剩余给 bot
+    placements = list(range(1, 9))  # 总是 1-8
     random.shuffle(placements)
+    player_placements = placements[:len(group)]
 
     results = []
     finalized = False
     for i, p in enumerate(group):
-        placement = placements[i]
+        placement = player_placements[i]
         s, d = sim_update_placement(base, p, game_uuid, placement)
         points = calc_points(placement)
         finalized = d.get("finalized", False)
@@ -177,11 +181,12 @@ def play_game(base, group, group_name, game_num, bo_n):
     return results
 
 
-def run(base, prefix, start_tag, bo_n, admin_tag, num_groups):
+def run(base, prefix, start_tag, bo_n, admin_tag, num_groups, bot_count=1):
     base = base.rstrip("/")
+    players_per_group = 8 - bot_count
 
     print("=" * 60)
-    print(f"  海选赛（平铺网格）测试 — {num_groups} 组 × 7 人, BO{bo_n}")
+    print(f"  海选赛（平铺网格）测试 — {num_groups} 组 × {players_per_group} 人, 每组 {bot_count} 个 bot 空位, BO{bo_n}")
     print(f"  API: {base}  管理员: {admin_tag}")
     print("=" * 60)
 
@@ -189,11 +194,11 @@ def run(base, prefix, start_tag, bo_n, admin_tag, num_groups):
     all_groups = []
     all_players = []
     for gi in range(num_groups):
-        group = make_players(f"G{gi+1}{prefix}", start_tag + gi * 100, count=7)
+        group = make_players(f"G{gi+1}{prefix}", start_tag + gi * 100, count=players_per_group)
         all_groups.append(group)
         all_players.extend(group)
 
-    print(f"\n📦 生成 {num_groups} 组 × 7 人 = {len(all_players)} 个测试玩家")
+    print(f"\n📦 生成 {num_groups} 组 × {players_per_group} 人 = {len(all_players)} 个测试玩家（{bot_count} bot 空位/组）")
     for gi, group in enumerate(all_groups):
         print(f"  组 {gi+1}:")
         for p in group:
@@ -276,7 +281,7 @@ def run(base, prefix, start_tag, bo_n, admin_tag, num_groups):
 
         for gi, group in enumerate(all_groups):
             group_name = f"组{gi+1}"
-            results = play_game(base, group, group_name, game, bo_n)
+            results = play_game(base, group, group_name, game, bo_n, bot_count)
             if not results:
                 print(f"  ❌ [{group_name}] 对局未正常结束")
                 continue
@@ -321,8 +326,9 @@ def main():
     parser.add_argument("--bo", type=int, default=1, help="BO N")
     parser.add_argument("--admin", default="衣锦夜行#1000", help="管理员 battleTag")
     parser.add_argument("--groups", type=int, default=2, help="分组数")
+    parser.add_argument("--bots", type=int, default=1, choices=[1, 2, 3], help="每组 bot 空位数 (1/2/3)")
     args = parser.parse_args()
-    run(args.base, args.prefix, args.players, args.bo, args.admin, args.groups)
+    run(args.base, args.prefix, args.players, args.bo, args.admin, args.groups, args.bots)
 
 
 if __name__ == "__main__":
