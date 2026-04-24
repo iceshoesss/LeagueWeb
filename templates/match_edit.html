@@ -130,7 +130,7 @@ async function submitPlacements() {
     try {
         const endpoint = {{ edit_mode | tojson }} ? `/api/admin/match/${encodeURIComponent(GAME_UUID)}/edit-placement` : `/api/match/${encodeURIComponent(GAME_UUID)}/update-placement`;
         const res = await fetch(endpoint, {
-            method: {{ 'PUT' if edit_mode else 'POST' }},
+            method: {{ ('PUT' if edit_mode else 'POST') | tojson }},
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ placements }),
         });
