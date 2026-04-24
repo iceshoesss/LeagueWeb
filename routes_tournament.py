@@ -660,6 +660,31 @@ def api_admin_players_all():
     } for p in players])
 
 
+@tournament_bp.route("/api/admin/enrolled-players")
+def api_admin_enrolled_players():
+    """报名选手列表（用于创建赛事分组，格式同 players-all）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    enrollments = list(db.tournament_enrollments.find(
+        {"status": "enrolled"}
+    ).sort("position", 1))
+
+    result = []
+    for p in enrollments:
+        bt = p.get("battleTag", "")
+        lp = db.league_players.find_one({"battleTag": bt})
+        result.append({
+            "battleTag": bt,
+            "displayName": p.get("displayName", ""),
+            "accountIdLo": str(lp.get("accountIdLo", "")) if lp else "",
+        })
+
+    return jsonify(result)
+
+
 # ── 报名 API ──────────────────────────────────────────
 
 @tournament_bp.route("/api/enroll", methods=["POST"])

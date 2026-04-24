@@ -237,7 +237,7 @@
                         <span class="text-sm text-gray-300">平铺网格（海选赛）</span>
                     </label>
                 </div>
-                <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛卡片每行 4 个平铺显示，无连线，只有一轮</span>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛从报名选手中选择，卡片每行 4 个平铺，无连线，只有一轮</span>
             </div>
 
             <!-- 轮次配置 -->
@@ -950,13 +950,25 @@ async function showCreateTournament() {
     document.getElementById('ct-groups').innerHTML = '';
     ctGroupIdx = 0;
 
-    // 加载所有选手
+    // 加载选手（根据布局方式选择数据源）
+    await ctLoadPlayers();
+
+    // 布局切换时重新加载选手
+    document.querySelectorAll('input[name="ct-layout"]').forEach(radio => {
+        radio.onchange = () => ctLoadPlayers();
+    });
+}
+
+async function ctLoadPlayers() {
+    const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
+    const url = layout === 'grid' ? '/api/admin/enrolled-players' : '/api/admin/players-all';
     try {
-        const res = await fetch('/api/admin/players-all');
+        const res = await fetch(url);
         ctAllPlayers = await res.json();
+        document.getElementById('ct-unassigned-count').textContent = ctAllPlayers.length;
     } catch (e) {
         alert('加载选手列表失败');
-        return;
+    }
     }
 
     // 默认 2 个分组
