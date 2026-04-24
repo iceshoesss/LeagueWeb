@@ -99,6 +99,7 @@ def main():
             "gamesPlayed": 1,
             "players": group_players,
             "nextRoundGroupId": (gi + 2) // 2,
+            "createdAt": "2026-01-01T00:00:00Z",
             "startedAt": now_str,
             "endedAt": now_str,
         }

@@ -367,10 +367,17 @@ def build_bracket_data():
     if has_bracket:
         result = [t for t in result if t["layout"] != "grid"]
 
-    # 多个 bracket 赛事时只显示组数最多的（512强 > 海选）
+    # 多个 bracket 赛事时只显示最后创建的（海选 → 512强）
     bracket_tournaments = [t for t in result if t["layout"] == "bracket"]
     if len(bracket_tournaments) > 1:
-        bracket_tournaments.sort(key=lambda t: sum(len(rd.get("groups", [])) for rd in t.get("rounds", [])))
+        def _created_at(t):
+            for rd in t.get("rounds", []):
+                for g in rd.get("groups", []):
+                    ca = g.get("createdAt")
+                    if ca:
+                        return ca
+            return ""
+        bracket_tournaments.sort(key=_created_at)
         result = [bracket_tournaments[-1]]
 
     return {"tournaments": result}
@@ -443,6 +450,7 @@ def api_tournament_create():
             total_groups = len(rd.get("groups", []))
             nrg = (gi + 1) // 2 if total_groups > 1 else None
 
+            now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
             groups_to_insert.append({
                 "tournamentName": tname,
                 "round": r,
@@ -453,6 +461,7 @@ def api_tournament_create():
                 "players": players,
                 "nextRoundGroupId": nrg,
                 "layout": layout,
+                "createdAt": now_str,
                 "startedAt": None,
                 "endedAt": None,
             })
