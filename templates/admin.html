@@ -1034,24 +1034,14 @@ async function ctLoadEnrollPool() {
 }
 
 async function ctShuffleFromQualifiers() {
-    // 选择来源赛事
-    let tournaments;
-    try {
-        const res = await fetch('/api/tournaments');
-        tournaments = await res.json();
-    } catch { alert('加载赛事列表失败'); return; }
-
-    if (!tournaments.length) { alert('暂无赛事'); return; }
-
-    const source = tournaments.length === 1
-        ? tournaments[0].name
-        : prompt('选择来源赛事（输入赛事名称）：\n' + tournaments.map(t => `• ${t.name}`).join('\n'));
+    // 直接用 prompt 输入来源赛事名称（和洗牌一样简单）
+    const source = prompt('输入来源赛事名称（海选赛事名）：');
     if (!source) return;
 
     // 获取晋级者+种子选手池
     let pool;
     try {
-        const res = await fetch(`/api/tournament/qualifier-pool?tournament=${encodeURIComponent(source)}`);
+        const res = await fetch(`/api/tournament/qualifier-pool?tournament=${encodeURIComponent(source.trim())}`);
         pool = await res.json();
         if (!res.ok) { alert(pool.error || '获取选手池失败'); return; }
     } catch { alert('网络错误'); return; }
@@ -1067,7 +1057,7 @@ async function ctShuffleFromQualifiers() {
     }
 
     // 用赛事名称作为 seed 洗牌（确定性随机）
-    const seed = document.getElementById('ct-name').value.trim() || source;
+    const seed = document.getElementById('ct-name').value.trim() || source.trim();
     try {
         const res = await fetch('/api/tournament/shuffle', {
             method: 'POST',
@@ -1090,7 +1080,7 @@ async function ctShuffleFromQualifiers() {
         });
 
         ctUpdateCounts();
-        alert(`✅ 已从「${source}」分配：晋级者 ${pool.qualifiers} 人 + 种子 ${pool.seeds} 人`);
+        alert(`✅ 已从「${source.trim()}」分配：晋级者 ${pool.qualifiers} 人 + 种子 ${pool.seeds} 人`);
     } catch { alert('网络错误'); }
 }
 
