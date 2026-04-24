@@ -188,6 +188,16 @@ def api_admin_force_end(game_uuid):
         {"gameUuid": game_uuid},
         {"$set": {"endedAt": now_str, "status": "timeout"}}
     )
+
+    # 淘汰赛：重置组状态为 waiting，不递增 gamesPlayed
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        db.tournament_groups.update_one(
+            {"_id": tg_id, "status": "active"},
+            {"$set": {"status": "waiting"}}
+        )
+        log.info(f"[force-end] 重置 tournament_group {tg_id} 为 waiting")
+
     log.info(f"管理员 {admin_tag} 强制结束对局 {game_uuid}")
     return jsonify({"ok": True})
 
@@ -210,6 +220,16 @@ def api_admin_force_abandon(game_uuid):
         {"gameUuid": game_uuid},
         {"$set": {"endedAt": now_str, "status": "abandoned"}}
     )
+
+    # 淘汰赛：重置组状态为 waiting，不递增 gamesPlayed
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        db.tournament_groups.update_one(
+            {"_id": tg_id, "status": "active"},
+            {"$set": {"status": "waiting"}}
+        )
+        log.info(f"[force-abandon] 重置 tournament_group {tg_id} 为 waiting")
+
     log.info(f"管理员 {admin_tag} 强制标记掉线 {game_uuid}")
     return jsonify({"ok": True})
 
