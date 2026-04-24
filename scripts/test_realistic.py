@@ -129,13 +129,16 @@ def sim_update_placement(base, sender, game_uuid, placement):
     return api("POST", f"{base}/api/plugin/update-placement", json=body, headers=plugin_headers())
 
 
+def calc_points(placement):
+    return 9 if placement == 1 else max(1, 9 - placement)
+
+
 def play_game(base, group, game_num, bo_n):
-    """模拟一局完整对局"""
+    """模拟一局完整对局，返回 [(battleTag, placement, points), ...]"""
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
     # 模拟 HearthMirror 返回的 LoList：7 个真人 + 1 个 bot（Lo=0）
-    # bg_tool 会拿到所有 8 个 Lo，包括 bot
-    game_los = [p["accountIdLo"] for p in group] + ["0"]  # bot 的 Lo=0
+    game_los = [p["accountIdLo"] for p in group] + ["0"]
 
     print(f"  📡 LoList（含 bot）: {game_los}")
 
@@ -151,7 +154,6 @@ def play_game(base, group, game_num, bo_n):
         returned_uuid = d.get("gameUuid")
         is_league = d.get("isLeague")
 
-        # 第一个玩家创建 match，后续玩家找到已有 match
         if i == 0:
             check("第 1 个玩家匹配到淘汰赛", is_league is True)
             check("服务端生成 gameUuid", bool(returned_uuid))
@@ -165,7 +167,7 @@ def play_game(base, group, game_num, bo_n):
 
     if not game_uuid:
         print("  ❌ 未获取到 gameUuid，终止")
-        return False
+        return []
 
     print(f"\n  🎮 gameUuid: {game_uuid}")
 
@@ -174,17 +176,19 @@ def play_game(base, group, game_num, bo_n):
     random.shuffle(placements)
     print(f"\n  Phase 2: update-placement（随机排名 {placements}）")
 
+    game_results = []  # [(battleTag, placement, points)]
     finalized = False
     for i, (p, _, _) in enumerate(check_results):
         placement = placements[i]
         s, d = sim_update_placement(base, p, game_uuid, placement)
+        points = calc_points(placement)
         finalized = d.get("finalized", False)
+        game_results.append((p["battleTag"], placement, points))
 
-        label = f"  第{placement}名 {p['battleTag'][-4:]}"
+        label = f"  第{placement}名 {p['battleTag'][-4:]} (+{points}分)"
         extra = " 🎉 对局结束!" if finalized else ""
         step(label + extra, s, d)
 
-        # 验证：只有最后一人才 finalized
         if i < len(check_results) - 1:
             check(f"第 {i+1}/7 人提交后未结束", not finalized)
         else:
@@ -194,7 +198,14 @@ def play_game(base, group, game_num, bo_n):
             break
         time.sleep(0.5)
 
-    return finalized
+    # ── 本局结果 ──
+    print(f"\n  📊 本局结果（第 {game_num}/{bo_n} 局）")
+    print(f"  {'玩家':20s} {'排名':>4s} {'积分':>4s}")
+    print(f"  {'─' * 32}")
+    for bt, plc, pts in sorted(game_results, key=lambda x: x[1]):
+        print(f"  {bt:20s} {plc:>4d} {pts:>+4d}")
+
+    return game_results
 
 
 def run(base, prefix, start_tag, bo_n, admin_tag):
@@ -277,20 +288,41 @@ def run(base, prefix, start_tag, bo_n, admin_tag):
         return
 
     # ── Step 4: 打 BO ──
+    # 累计积分: {battleTag: total_points}
+    cumulative = {p["battleTag"]: 0 for p in group}
+    all_game_results = []
+
     for game in range(1, bo_n + 1):
         print(f"\n{'─' * 50}")
         print(f"⚔️ 第 {game}/{bo_n} 局")
         print(f"{'─' * 50}")
-        ok = play_game(base, group, game, bo_n)
-        if not ok:
+        results = play_game(base, group, game, bo_n)
+        if not results:
             print("  ❌ 对局未正常结束，停止")
             break
+        all_game_results.append(results)
+        for bt, plc, pts in results:
+            cumulative[bt] += pts
         time.sleep(1)
 
-    # ── 结果 ──
+    # ── 最终排名 ──
     print(f"\n{'=' * 60}")
-    print(f"  测试完成: {passed} 通过 / {failed} 失败")
+    print(f"  🏆 最终排名（{bo_n} 局累计）")
     print(f"{'=' * 60}")
+    print(f"  {'排名':>4s} {'玩家':20s} {'总分':>4s} {'每局得分'}")
+    print(f"  {'─' * 56}")
+    sorted_players = sorted(cumulative.items(), key=lambda x: -x[1])
+    for rank, (bt, total) in enumerate(sorted_players, 1):
+        # 收集该玩家每局得分
+        per_game = []
+        for game_results in all_game_results:
+            for g_bt, g_plc, g_pts in game_results:
+                if g_bt == bt:
+                    per_game.append(f"{g_plc}th({g_pts:+d})")
+        games_str = " → ".join(per_game)
+        print(f"  {rank:>4d} {bt:20s} {total:>4d} {games_str}")
+
+    print(f"\n  测试完成: {passed} 通过 / {failed} 失败")
     if failed > 0:
         sys.exit(1)
 
