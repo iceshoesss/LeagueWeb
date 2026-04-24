@@ -419,12 +419,6 @@ function initBrackets(data) {
 function initGridTournament(t, tIdx) {
   const wrap = document.createElement('div');
   t.rounds.forEach(round => {
-    // 轮次标题
-    const title = document.createElement('div');
-    title.className = 'round-title-grid';
-    title.textContent = round.label;
-    wrap.appendChild(title);
-
     // 卡片网格
     const grid = document.createElement('div');
     grid.className = 'grid-layout';
