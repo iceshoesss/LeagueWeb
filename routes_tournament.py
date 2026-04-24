@@ -888,7 +888,7 @@ def api_admin_enrolled_players():
     db = get_db()
     limit = request.args.get("limit", type=int)
     query = {"status": "enrolled"}
-    cursor = db.tournament_enrollments.find(query).sort("position", 1)
+    cursor = db.tournament_enrollments.find(query).sort("enrollAt", 1)
     if limit:
         cursor = cursor.limit(limit)
     enrollments = list(cursor)
