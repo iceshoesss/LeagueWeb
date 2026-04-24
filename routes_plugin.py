@@ -344,22 +344,22 @@ def api_plugin_update_placement():
 
     if not all_done:
         null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
-        if len(null_indices) == 1:
+        if null_indices:
             used = {p["placement"] for p in players if p.get("placement") is not None}
-            remaining = set(range(1, 9)) - used
-            if len(remaining) == 1:
-                auto_placement = remaining.pop()
-                auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
-                db.league_matches.update_one(
-                    {"gameUuid": game_uuid},
-                    {"$set": {
-                        f"players.{null_indices[0]}.placement": auto_placement,
-                        f"players.{null_indices[0]}.points": auto_points,
-                    }}
-                )
-                players[null_indices[0]]["placement"] = auto_placement
-                players[null_indices[0]]["points"] = auto_points
-                log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
+            remaining = sorted(set(range(1, 9)) - used)
+            if len(remaining) == len(null_indices):
+                for idx, auto_placement in zip(null_indices, remaining):
+                    auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
+                    db.league_matches.update_one(
+                        {"gameUuid": game_uuid},
+                        {"$set": {
+                            f"players.{idx}.placement": auto_placement,
+                            f"players.{idx}.points": auto_points,
+                        }}
+                    )
+                    players[idx]["placement"] = auto_placement
+                    players[idx]["points"] = auto_points
+                    log.info(f"[update-placement] 自动推算: players[{idx}] placement={auto_placement} points={auto_points}")
                 all_done = True
 
     finalized = False
