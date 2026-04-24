@@ -2,7 +2,7 @@
 
 import json
 import logging
-from flask import Blueprint, render_template, redirect, url_for, session
+from flask import Blueprint, render_template, redirect, url_for, session, request
 
 from db import get_db, TOURNAMENT_PHASE, ENROLL_DEADLINE
 from auth import is_admin
@@ -61,17 +61,22 @@ def match_edit_page(game_uuid):
     if not match:
         return render_template("404.html", title="对局不存在", emoji="⚔️",
             message="这局对局可能从未发生过，或者数据已被清理"), 404
+
+    edit_mode = request.args.get("mode") == "edit"
+    admin = is_admin(battle_tag)
+
     is_problem = any(p.get("placement") is None for p in match.get("players", []))
-    if not is_problem:
+    if not is_problem and not edit_mode:
         return redirect(url_for("pages.match_page", game_uuid=game_uuid))
 
-    admin = is_admin(battle_tag)
     if not admin:
+        if edit_mode:
+            return redirect(url_for("pages.match_page", game_uuid=game_uuid))
         in_match = any(p.get("battleTag") == battle_tag for p in match.get("players", []))
         if not in_match:
             return redirect(url_for("pages.match_page", game_uuid=game_uuid))
 
-    return render_template("match_edit.html", match=match, is_admin=admin, my_battle_tag=battle_tag)
+    return render_template("match_edit.html", match=match, is_admin=admin, my_battle_tag=battle_tag, edit_mode=edit_mode)
 
 
 @pages.route("/register")

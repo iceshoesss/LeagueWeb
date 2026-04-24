@@ -628,3 +628,43 @@ def api_admin_manual_record(group_id):
     db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
     return jsonify({"ok": True, "gameUuid": match_doc["gameUuid"], "gamesPlayed": games_played})
+
+@admin_bp.route("/api/admin/match/<game_uuid>/edit-placement", methods=["PUT"])
+def api_admin_edit_placement(game_uuid):
+    """管理员修改对局排名（覆盖已有排名）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
+        return jsonify({"error": "对局不存在"}), 404
+
+    data = request.get_json() or {}
+    placements = data.get("placements", {})
+    if not placements:
+        return jsonify({"error": "未提供排名数据"}), 400
+
+    players = match.get("players", [])
+    n = len(players)
+    values = [int(v) for v in placements.values()]
+    if sorted(values) != list(range(1, n + 1)):
+        return jsonify({"error": f"排名必须是 1-{n} 的不重复整数"}), 400
+
+    # 覆盖所有玩家排名
+    for i, p in enumerate(players):
+        lo = str(p.get("accountIdLo", ""))
+        if lo in placements:
+            new_placement = int(placements[lo])
+            new_points = 9 if new_placement == 1 else max(1, 9 - new_placement)
+            db.league_matches.update_one(
+                {"gameUuid": game_uuid},
+                {"$set": {
+                    f"players.{i}.placement": new_placement,
+                    f"players.{i}.points": new_points,
+                }}
+            )
+
+    log.info(f"[edit-placement] 管理员 {admin_tag} 修改对局 {game_uuid} 排名")
+    return jsonify({"ok": True})

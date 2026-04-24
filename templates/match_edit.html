@@ -1,23 +1,23 @@
 {% extends "base.html" %}
-{% block title %}补录排名 — {{ site_name }}{% endblock %}
+{% block title %}{{ "修改排名" if edit_mode else "补录排名" }} — {{ site_name }}{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
         <div class="px-6 py-4 border-b border-hearth-border flex items-center justify-between">
-            <h2 class="text-lg font-bold text-hearth-gold">✏️ 补录排名</h2>
+            <h2 class="text-lg font-bold text-hearth-gold">{{ "✏️ 修改排名" if edit_mode else "✏️ 补录排名" }}</h2>
             <div class="text-xs text-hearth-dim">
                 {{ match.endedAt | cst }} &middot; {{ match.region }}
             </div>
         </div>
 
         <div class="px-6 py-3 bg-yellow-500/10 border-b border-hearth-border text-sm text-yellow-300 text-center">
-            {% if is_admin %}👑 管理员模式：可以补录所有玩家的排名{% else %}请为自己选择排名（🔒 = 已锁定不可改）{% endif %}
+            {% if edit_mode %}⚠️ 修改模式：所有排名可修改，提交后自动重算{% elif is_admin %}👑 管理员模式：可以补录所有玩家的排名{% else %}请为自己选择排名（🔒 = 已锁定不可改）{% endif %}
         </div>
 
         <div class="divide-y divide-hearth-border" id="players-list">
             {% for p in match.players %}
-            {% set locked = p.placement is not none %}
+            {% set locked = p.placement is not none and not edit_mode %}
             {% set is_mine = is_admin or (p.battleTag == my_battle_tag) %}
             {% set show_dropdown = is_mine and not locked %}
             <div class="flex items-center gap-4 px-6 py-4{% if locked or not is_mine %} opacity-60{% endif %}">
@@ -47,7 +47,7 @@
                         class="placement-select bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/60 transition w-24 text-center">
                         <option value="">排名</option>
                         {% for i in range(1, 9) %}
-                        <option value="{{ i }}">第 {{ i }} 名</option>
+                        <option value="{{ i }}" {{ "selected" if p.placement == i }}>第 {{ i }} 名</option>
                         {% endfor %}
                     </select>
                     {% else %}
@@ -70,7 +70,7 @@
     </div>
 
     <div class="mt-4 text-center">
-        <a href="/problems" class="text-sm text-hearth-gold hover:underline">← 返回问题对局</a>
+        <a href="{{ "/admin" if edit_mode else "/problems" }}" class="text-sm text-hearth-gold hover:underline">← 返回{{ "管理面板" if edit_mode else "问题对局" }}</a>
     </div>
 </div>
 {% endblock %}
@@ -128,8 +128,9 @@ async function submitPlacements() {
     btn.textContent = '提交中...';
 
     try {
-        const res = await fetch(`/api/match/${encodeURIComponent(GAME_UUID)}/update-placement`, {
-            method: 'POST',
+        const endpoint = {{ edit_mode | tojson }} ? `/api/admin/match/${encodeURIComponent(GAME_UUID)}/edit-placement` : `/api/match/${encodeURIComponent(GAME_UUID)}/update-placement`;
+        const res = await fetch(endpoint, {
+            method: {{ 'PUT' if edit_mode else 'POST' }},
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ placements }),
         });
