@@ -189,6 +189,29 @@ def api_update_placement(game_uuid):
          "$unset": {"status": ""}}
     )
 
+    # ── 淘汰赛 BO 累计（与 routes_plugin.py update-placement 一致）──
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        from data import try_advance_group
+        tg = db.tournament_groups.find_one({"_id": tg_id})
+        if tg:
+            bo_n = tg.get("boN", 1)
+            old_gp = tg.get("gamesPlayed", 0)
+            games_played = old_gp + 1
+            now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            update_fields = {"gamesPlayed": games_played}
+            if games_played >= bo_n:
+                update_fields["status"] = "done"
+                update_fields["endedAt"] = now_str
+                log.info(f"[补录] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →done")
+                try_advance_group(db, tg)
+            else:
+                update_fields["status"] = "waiting"
+                log.info(f"[补录] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →waiting")
+
+            db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
+
     return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
 
