@@ -362,6 +362,11 @@ def build_bracket_data():
 
         result.append({"name": tname, "rounds": rounds_data, "layout": layout})
 
+    # 如果有 bracket 布局的赛事，隐藏 grid 布局（海选）
+    has_bracket = any(t["layout"] == "bracket" for t in result)
+    if has_bracket:
+        result = [t for t in result if t["layout"] != "grid"]
+
     return {"tournaments": result}
 
 
