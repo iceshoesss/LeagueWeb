@@ -303,6 +303,7 @@ def build_bracket_data():
         active_tg_ids = [g["_id"] for r in sorted_rounds for g in rounds_map[r] if g.get("status") == "active"]
         active_matches_by_tg = {}
         if active_tg_ids:
+            # 先找进行中的 match（endedAt 为空）
             for m in db.league_matches.find({
                 "tournamentGroupId": {"$in": active_tg_ids},
                 "$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}],
@@ -310,6 +311,18 @@ def build_bracket_data():
                 tg_id = m.get("tournamentGroupId")
                 if tg_id:
                     active_matches_by_tg[str(tg_id)] = m
+            # 再找超时/掉线的 match（补上死亡状态），不覆盖已有活跃 match
+            missing_tg = [tid for tid in active_tg_ids if str(tid) not in active_matches_by_tg]
+            if missing_tg:
+                for m in db.league_matches.find({
+                    "tournamentGroupId": {"$in": missing_tg},
+                    "status": {"$in": ["timeout", "abandoned"]},
+                }).sort("endedAt", -1):
+                    tg_id = m.get("tournamentGroupId")
+                    if tg_id:
+                        key = str(tg_id)
+                        if key not in active_matches_by_tg:
+                            active_matches_by_tg[key] = m
 
         for r in sorted_rounds:
             rgroups = sorted(rounds_map[r], key=lambda g: g.get("groupIndex", 0))
