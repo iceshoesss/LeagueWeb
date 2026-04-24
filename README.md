@@ -14,6 +14,16 @@ LeagueWeb/
 │   ├── bracket.html    # 淘汰赛对阵图（数据驱动 + 折叠 + SVG 连线）
 │   ├── index.html      # 首页（排行榜 + 对局 + 队列）
 │   └── ...
+├── scripts/            # 测试、迁移、工具脚本
+│   ├── test_bot_slot.py    # 7 人淘汰赛 bot 空位测试
+│   ├── test_knockout.py    # 淘汰赛全流程测试（8 人）
+│   ├── test_league.py      # 积分赛全流程测试
+│   ├── mock_qualifier.py   # 模拟海选赛事数据
+│   ├── toggle-test-mode.py # 切换测试/正常模式
+│   ├── enroll_all.py       # 批量报名
+│   ├── export_enrollments.py # 导出报名名单
+│   ├── migrate_mobile_lo.py  # 手机玩家 Lo 迁移
+│   └── migrate_rename_collection.py # 集合重命名迁移
 ├── Dockerfile
 ├── docker-compose.yml  # Docker 部署（Flask + MongoDB）
 ├── API.md              # 接口文档（含插件 API + 淘汰赛 API）
