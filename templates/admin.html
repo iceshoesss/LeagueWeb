@@ -237,7 +237,7 @@
                         <span class="text-sm text-gray-300">平铺网格（海选赛）</span>
                     </label>
                 </div>
-                <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛卡片平铺显示，无连线；对阵图带 SVG 连线和折叠</span>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛卡片每行 4 个平铺显示，无连线，只有一轮</span>
             </div>
 
             <!-- 轮次配置 -->
@@ -1114,24 +1114,27 @@ async function ctSubmit() {
         groups.push({ groupIndex: groups.length + 1, players });
     }
 
-    // 自动生成后续轮次：n → n/2 → ... → 1
+    const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
+
+    // 自动生成后续轮次：n → n/2 → ... → 1（grid 海选模式只有一轮）
     const allRounds = [{ round: 1, boN: boPerRound[1] || 3, groups: groups }];
-    let nextGroupCount = Math.floor(groups.length / 2);
-    let r = 2;
-    while (nextGroupCount >= 1) {
-        allRounds.push({
-            round: r,
-            boN: boPerRound[r] || 3,
-            groups: Array.from({ length: nextGroupCount }, (_, i) => ({ groupIndex: i + 1, players: [] })),
-        });
-        nextGroupCount = Math.floor(nextGroupCount / 2);
-        r++;
-    }
-    if (allRounds[allRounds.length - 1].groups.length > 1) {
-        allRounds.push({ round: r, boN: boPerRound[r] || 3, groups: [{ groupIndex: 1, players: [] }] });
+    if (layout === 'bracket') {
+        let nextGroupCount = Math.floor(groups.length / 2);
+        let r = 2;
+        while (nextGroupCount >= 1) {
+            allRounds.push({
+                round: r,
+                boN: boPerRound[r] || 3,
+                groups: Array.from({ length: nextGroupCount }, (_, i) => ({ groupIndex: i + 1, players: [] })),
+            });
+            nextGroupCount = Math.floor(nextGroupCount / 2);
+            r++;
+        }
+        if (allRounds[allRounds.length - 1].groups.length > 1) {
+            allRounds.push({ round: r, boN: boPerRound[r] || 3, groups: [{ groupIndex: 1, players: [] }] });
+        }
     }
 
-    const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
     const body = { tournamentName: name, rounds: allRounds, layout };
 
     try {
