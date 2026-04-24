@@ -69,7 +69,10 @@ def cleanup_stale_games():
         return
 
     for m in matches:
-        players = [p.get("displayName", p.get("battleTag", "")) for p in m.get("players", [])]
+        players = [
+            {"battleTag": p.get("battleTag", ""), "displayName": p.get("displayName", "")}
+            for p in m.get("players", [])
+        ]
         send_webhook({
             "type": "timeout",
             "gameUuid": m.get("gameUuid", ""),
@@ -107,11 +110,14 @@ def cleanup_partial_matches():
         if not has_any_placement:
             continue
 
-        player_names = [p.get("displayName", p.get("battleTag", "")) for p in players if p.get("placement") is None]
+        player_list = [
+            {"battleTag": p.get("battleTag", ""), "displayName": p.get("displayName", "")}
+            for p in players if p.get("placement") is None
+        ]
         send_webhook({
             "type": "abandoned",
             "gameUuid": m.get("gameUuid", ""),
-            "players": player_names,
+            "players": player_list,
             "startedAt": m.get("startedAt", ""),
         })
 

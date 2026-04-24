@@ -598,7 +598,7 @@ data: [{"gameUuid":"...","startedAtEpoch":1744231800,"players":[...]}]
 {
   "type": "timeout",
   "gameUuid": "888fc109-...",
-  "players": ["南怀北瑾丨少头脑", "瓦莉拉"],
+  "players": [{"battleTag": "南怀北瑾丨少头脑#5267", "displayName": "南怀北瑾丨少头脑"}, {"battleTag": "瓦莉拉#1234", "displayName": "瓦莉拉"}],
   "startedAt": "2026-04-09T23:30:00Z"
 }
 ```
@@ -607,7 +607,7 @@ data: [{"gameUuid":"...","startedAtEpoch":1744231800,"players":[...]}]
 |------|------|------|
 | `type` | string | `"timeout"`（超时）或 `"abandoned"`（掉线） |
 | `gameUuid` | string | 对局 UUID |
-| `players` | array | 需要补录的玩家 displayName 列表 |
+| `players` | array | 需要补录的玩家列表，每项含 `battleTag`（带 #tag）和 `displayName` |
 | `startedAt` | string | 对局开始时间（UTC） |
 
 **说明：**
