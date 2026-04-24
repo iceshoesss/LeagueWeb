@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, UTC
 from bson import ObjectId
 from flask import Blueprint, jsonify, request, session, render_template
 
-from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_DEADLINE, TOURNAMENT_PHASE
+from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_SLOTS, ENROLL_DEADLINE, TOURNAMENT_PHASE
 from auth import is_admin, _admin_required
 from data import get_group_rankings, try_advance_group, try_advance_round
 from cleanup import cleanup_enrollment_deadline
@@ -36,10 +36,10 @@ def _enroll_deadline_reached():
 def _promote_waitlist(db):
     """正选退出后，从替补队列按报名时间顺序补上"""
     enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
-    if enrolled_count >= ENROLL_CAP:
+    if enrolled_count >= ENROLL_SLOTS:
         return
 
-    slots_available = ENROLL_CAP - enrolled_count
+    slots_available = ENROLL_SLOTS - enrolled_count
     waitlist = list(db.tournament_enrollments.find(
         {"status": "waitlist"}
     ).sort("enrollAt", 1).limit(slots_available))
@@ -926,12 +926,12 @@ def api_enroll():
     enrolled_count = db.tournament_enrollments.count_documents({"status": "enrolled"})
     waitlist_count = db.tournament_enrollments.count_documents({"status": "waitlist"})
 
-    if enrolled_count < ENROLL_CAP:
+    if enrolled_count < ENROLL_SLOTS:
         status = "enrolled"
         position = enrolled_count + 1
     else:
         status = "waitlist"
-        position = ENROLL_CAP + waitlist_count + 1
+        position = ENROLL_SLOTS + waitlist_count + 1
 
     db.tournament_enrollments.insert_one({
         "battleTag": battle_tag,
@@ -943,7 +943,7 @@ def api_enroll():
 
     log.info(f"[enroll] {battle_tag} → {status} #{position}")
     return jsonify({"ok": True, "status": status, "position": position,
-                    "message": "报名成功" if status == "enrolled" else f"已进入替补队列（第 {position - ENROLL_CAP} 位）"})
+                    "message": "报名成功" if status == "enrolled" else f"已进入替补队列（第 {position - ENROLL_SLOTS} 位）"})
 
 
 @tournament_bp.route("/api/enroll/withdraw", methods=["POST"])

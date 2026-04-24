@@ -23,7 +23,8 @@ MIN_MATCH_PLAYERS = 8
 VALID_MATCH_FILTER = {"$or": [{"status": {"$exists": False}}, {"status": "completed"}]}
 
 # ── 赛事报名 ──────────────────────────────────────
-ENROLL_CAP = 1024
+ENROLL_CAP = 1024      # 显示用上限（好看）
+ENROLL_SLOTS = 896     # 实际正选名额，超过后进替补
 ENROLL_DEADLINE = os.environ.get("ENROLL_DEADLINE", "")
 
 # ── 赛事阶段 ──────────────────────────────────────
