@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+import uuid
 from datetime import datetime, UTC
 from flask import Blueprint, jsonify, request
 
@@ -102,44 +103,27 @@ def api_plugin_upload_rating():
 @plugin_bp.route("/api/plugin/check-league", methods=["POST"])
 def api_plugin_check_league():
     data = request.get_json() or {}
-    game_uuid = data.get("gameUuid", "").strip()
+    game_uuid = data.get("gameUuid", "").strip()  # 积分赛使用；淘汰赛由服务端生成
     account_ids = set(str(a) for a in data.get("accountIdLoList", []))
+    player_id = data.get("playerId", "").strip()
 
-    if not game_uuid or not account_ids:
-        log.warning(f"[check-league] 400: 参数不完整 gameUuid={game_uuid!r} account_ids={len(account_ids)} playerId={data.get('playerId','')!r}")
+    if not account_ids:
+        log.warning(f"[check-league] 400: accountIdLoList 为空 playerId={player_id!r}")
         return jsonify({"error": "参数不完整"}), 400
     if all(a == "0" for a in account_ids):
-        log.warning(f"[check-league] 400: accountIdLo 全为 0（LobbyInfo 未就绪）playerId={data.get('playerId','')!r}")
+        log.warning(f"[check-league] 400: accountIdLo 全为 0（LobbyInfo 未就绪）playerId={player_id!r}")
         return jsonify({"error": "LobbyInfo 未就绪"}), 400
-    if not GAME_UUID_RE.match(game_uuid):
-        log.warning(f"[check-league] 400: gameUuid 格式无效: {game_uuid!r}")
-        return jsonify({"error": "gameUuid 格式无效"}), 400
     db = get_db()
 
     cleanup_stale_queues()
 
     # ── 淘汰赛 BO 系列赛匹配 ──
-    # 先查是否已有同局的淘汰赛 match（BO1 场景：第一个人创建后 gamesPlayed==boN，后续人找不到组）
-    existing_match = db.league_matches.find_one(
-        {"gameUuid": game_uuid, "tournamentGroupId": {"$exists": True}},
-        {"_id": 1},
-    )
-    if existing_match:
-        log.info(f"[check-league] 同局淘汰赛 match 已存在 gameUuid={game_uuid} playerId={data.get('playerId','')}，直接返回 isLeague=true")
-        resp = {"isLeague": True}
-        vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
-            account_id_lo=data.get("accountIdLo", "").strip(),
-            mode=data.get("mode", "solo"), region=data.get("region", "CN"))
-        if vc:
-            resp["verificationCode"] = vc
-        return jsonify(resp)
-
+    game_los = {lo for lo in account_ids if lo and lo != "0"}
     active_tournament_groups = list(db.tournament_groups.find({
         "status": {"$in": ["waiting", "active"]},
         "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
     }))
-    game_los = {lo for lo in account_ids if lo and lo != "0"}
-    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, gameUuid={game_uuid}, playerId={data.get('playerId','')}, 游戏Lo={sorted(game_los)} (含bot共{len(account_ids)}个)")
+    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, playerId={player_id}, 游戏Lo={sorted(game_los)} (含bot共{len(account_ids)}个)")
     matched_tournament_group = None
     for tg in active_tournament_groups:
         tg_los = set()
@@ -154,6 +138,7 @@ def api_plugin_check_league():
             break
 
     if matched_tournament_group:
+        tg_id = matched_tournament_group["_id"]
         detailed_players = data.get("players", {})
         players = []
         for p in matched_tournament_group.get("players", []):
@@ -173,35 +158,44 @@ def api_plugin_check_league():
         region = data.get("region", "CN")
         started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
+        # 服务端生成 UUID：upsert 保证同一 tournamentGroup 同时只有一个活跃 match
         result = db.league_matches.update_one(
-            {"gameUuid": game_uuid},
+            {"tournamentGroupId": tg_id, "endedAt": None},
             {"$setOnInsert": {
+                "gameUuid": str(uuid.uuid4()),
                 "players": players,
                 "region": region,
                 "mode": mode,
                 "startedAt": started_at,
                 "endedAt": None,
-                "tournamentGroupId": matched_tournament_group["_id"],
+                "tournamentGroupId": tg_id,
                 "tournamentRound": matched_tournament_group.get("round"),
             }},
             upsert=True,
         )
 
-        # 只有真正创建了新 match 才递增 gamesPlayed（同一局多人并发时避免重复计数）
+        # 取出最终的 match（无论是本次创建还是之前已存在）
+        match = db.league_matches.find_one(
+            {"tournamentGroupId": tg_id, "endedAt": None},
+            {"gameUuid": 1},
+        )
+        server_game_uuid = match["gameUuid"] if match else None
+
+        # 只有真正创建了新 match 才递增 gamesPlayed
         if result.upserted_id:
             game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
             old_status = matched_tournament_group.get("status")
             db.tournament_groups.update_one(
-                {"_id": matched_tournament_group["_id"]},
+                {"_id": tg_id},
                 {"$set": {"status": "active", "startedAt": started_at},
                  "$inc": {"gamesPlayed": 1}}
             )
-            log.info(f"[check-league] 淘汰赛匹配: group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={game_uuid}")
+            log.info(f"[check-league] 淘汰赛匹配(新): group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={server_game_uuid} playerId={player_id}")
         else:
-            log.info(f"[check-league] 淘汰赛匹配: 同局 match 已存在 gameUuid={game_uuid}，跳过递增")
+            log.info(f"[check-league] 淘汰赛匹配(已有): group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gameUuid={server_game_uuid} playerId={player_id}")
 
-        resp = {"isLeague": True}
-        vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
+        resp = {"isLeague": True, "gameUuid": server_game_uuid}
+        vc = _ensure_verification_code(db, player_id=player_id,
             account_id_lo=data.get("accountIdLo", "").strip(), mode=mode, region=region, timestamp=started_at)
         if vc:
             resp["verificationCode"] = vc
