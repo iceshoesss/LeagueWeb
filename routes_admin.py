@@ -462,7 +462,32 @@ def api_admin_manual_advance(group_id):
     current_round = group.get("round", 1)
     gi = group.get("groupIndex", 1)
     tournament_name = group.get("tournamentName", "赛事")
+    advance_lo_set = set(str(lo) for lo in advance_los)
 
+    # grid 布局（海选赛）：只标记晋级/淘汰，不创建下一轮分组
+    if group.get("layout") == "grid":
+        players = group.get("players", [])
+        update_ops = {}
+        for i, p in enumerate(players):
+            lo = str(p.get("accountIdLo", ""))
+            if not lo or p.get("empty"):
+                continue
+            if lo in advance_lo_set:
+                update_ops[f"players.{i}.qualified"] = True
+                update_ops[f"players.{i}.eliminated"] = False
+            else:
+                update_ops[f"players.{i}.qualified"] = False
+                update_ops[f"players.{i}.eliminated"] = True
+        if update_ops:
+            db.tournament_groups.update_one({"_id": oid}, {"$set": update_ops})
+        # 标记源组为已完成
+        from datetime import datetime, timezone
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        db.tournament_groups.update_one({"_id": oid}, {"$set": {"status": "done", "endedAt": now_str}})
+        log.info(f"[manual-advance] 管理员 {admin_tag} 海选手动晋级 R{current_round}G{gi}: {len(advance_los)} 人晋级")
+        return jsonify({"ok": True, "advanced": len(advance_los)})
+
+    # 淘汰赛（bracket）：创建/填入下一轮分组
     groups_in_round = db.tournament_groups.count_documents({
         "round": current_round, "tournamentName": tournament_name,
     })
