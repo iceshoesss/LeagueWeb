@@ -183,14 +183,18 @@ def build_bracket_data():
     db = get_db()
     GROUP_LABELS = "ABCDEFGH"
 
-    def _round_label(r, total_rounds):
+    def _round_label(r, total_rounds, layout="bracket"):
+        if layout == "grid":
+            return f"第 {r} 轮" if total_rounds > 1 else "海选"
         if r == total_rounds:
             return "决赛"
         if r == total_rounds - 1:
             return "半决赛"
         return f"第 {r} 轮"
 
-    def _group_label(r, gi, total, total_rounds):
+    def _group_label(r, gi, total, total_rounds, layout="bracket"):
+        if layout == "grid":
+            return f"{GROUP_LABELS[gi]} 组" if total <= 8 else f"{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组"
         if r == total_rounds and total == 1:
             return "决赛"
         if r == 1:
@@ -214,6 +218,13 @@ def build_bracket_data():
         for g in tgroups:
             r = g.get("round", 1)
             rounds_map.setdefault(r, []).append(g)
+
+        # 提前确定赛事布局
+        layout = "bracket"
+        for g in tgroups:
+            if g.get("layout"):
+                layout = g["layout"]
+                break
 
         rounds_data = []
         sorted_rounds = sorted(rounds_map.keys())
@@ -339,7 +350,7 @@ def build_bracket_data():
                 gd = {
                     "round": r,
                     "groupIndex": gi + 1,
-                    "label": _group_label(r, gi, total, len(sorted_rounds)),
+                    "label": _group_label(r, gi, total, len(sorted_rounds), layout),
                     "status": status,
                     "boN": bo_n,
                     "gamesPlayed": games_played,
@@ -351,14 +362,10 @@ def build_bracket_data():
                     gd["nextRoundGroupId"] = g["nextRoundGroupId"]
                 groups_data.append(gd)
 
-            rounds_data.append({"label": _round_label(r, len(sorted_rounds)), "groups": groups_data})
+            rounds_data.append({"label": _round_label(r, len(sorted_rounds), layout), "groups": groups_data})
 
         # 取赛事布局（默认 bracket，兼容旧数据）
-        layout = "bracket"
-        for g in tgroups:
-            if g.get("layout"):
-                layout = g["layout"]
-                break
+        # layout 已提前确定
 
         result.append({"name": tname, "rounds": rounds_data, "layout": layout})
 

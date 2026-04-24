@@ -402,6 +402,11 @@ def get_group_rankings(db, tournament_name=None):
 
 def try_advance_group(db, tg):
     """单组完成时立即晋级：将前 4 名放入下一轮分组"""
+    # grid 布局（海选赛）不自动晋级
+    if tg.get("layout") == "grid":
+        log.info(f"[advance] 跳过 grid 布局晋级: R{tg.get('round')}G{tg.get('groupIndex')}")
+        return
+
     current_round = tg.get("round", 1)
     gi = tg.get("groupIndex", 1)
     tournament_name = tg.get("tournamentName", "赛事")
@@ -475,6 +480,9 @@ def try_advance_round(db, current_round, tournament_name, group_rankings=None):
         "tournamentName": tournament_name,
     }))
     if not round_groups:
+        return
+    # grid 布局（海选赛）不自动晋级
+    if round_groups[0].get("layout") == "grid":
         return
     if not all(g.get("status") == "done" for g in round_groups):
         return
