@@ -181,14 +181,13 @@ def api_plugin_check_league():
         )
         server_game_uuid = match["gameUuid"] if match else None
 
-        # 只有真正创建了新 match 才递增 gamesPlayed
+        # 只有真正创建了新 match 才标记 active（gamesPlayed 在 update-placement 打完后才递增）
         if result.upserted_id:
             game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
             old_status = matched_tournament_group.get("status")
             db.tournament_groups.update_one(
                 {"_id": tg_id},
-                {"$set": {"status": "active", "startedAt": started_at},
-                 "$inc": {"gamesPlayed": 1}}
+                {"$set": {"status": "active", "startedAt": started_at}}
             )
             log.info(f"[check-league] 淘汰赛匹配(新): group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={server_game_uuid} playerId={player_id}")
         else:
@@ -383,7 +382,7 @@ def api_plugin_update_placement():
                 bo_n = tg.get("boN", 1)
                 old_gp = tg.get("gamesPlayed", 0)
                 old_status = tg.get("status", "waiting")
-                games_played = old_gp  # check-league 已 +1
+                games_played = old_gp + 1  # 打完一局才递增
 
                 update_fields = {"gamesPlayed": games_played}
                 if games_played >= bo_n:
