@@ -645,6 +645,74 @@ def api_tournaments():
     return jsonify(result)
 
 
+@tournament_bp.route("/api/tournament/qualifier-pool")
+def api_tournament_qualifier_pool():
+    """获取指定赛事的晋级者 + 种子选手（合并后的选手池）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    source_tournament = request.args.get("tournament", "").strip()
+    if not source_tournament:
+        return jsonify({"error": "tournament 参数不能为空"}), 400
+
+    db = get_db()
+
+    # 从源赛事所有 done 组聚合前 4 名
+    source_groups = list(db.tournament_groups.find({
+        "tournamentName": source_tournament,
+        "status": "done",
+    }))
+    if not source_groups:
+        return jsonify({"error": f"赛事「{source_tournament}」没有已完成的分组"}), 400
+
+    group_rankings = get_group_rankings(db, source_tournament)
+    qualifiers = []
+    seen_los = set()
+    for g in source_groups:
+        tg_str = str(g["_id"])
+        rankings = group_rankings.get(tg_str, {})
+        ranked = sorted(
+            g.get("players", []),
+            key=lambda p: rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
+            reverse=True,
+        )
+        for p in ranked[:4]:
+            lo = str(p.get("accountIdLo", ""))
+            if lo and lo not in seen_los:
+                seen_los.add(lo)
+                qualifiers.append({
+                    "battleTag": p.get("battleTag", ""),
+                    "accountIdLo": lo,
+                    "displayName": p.get("displayName", ""),
+                    "heroCardId": p.get("heroCardId", ""),
+                    "heroName": p.get("heroName", ""),
+                })
+
+    # 种子选手（不在晋级者中）
+    seeds = list(db.league_players.find({"isSeed": True}))
+    seed_players = []
+    for s in seeds:
+        lo = str(s.get("accountIdLo", ""))
+        if lo and lo not in seen_los:
+            seen_los.add(lo)
+            seed_players.append({
+                "battleTag": s.get("battleTag", ""),
+                "accountIdLo": lo,
+                "displayName": s.get("displayName", ""),
+                "heroCardId": "",
+                "heroName": "",
+            })
+
+    all_players = qualifiers + seed_players
+    return jsonify({
+        "qualifiers": len(qualifiers),
+        "seeds": len(seed_players),
+        "total": len(all_players),
+        "players": all_players,
+    })
+
+
 @tournament_bp.route("/api/tournament/generate-next", methods=["POST"])
 def api_tournament_generate_next():
     """从指定赛事的晋级者 + 种子选手生成新赛事"""

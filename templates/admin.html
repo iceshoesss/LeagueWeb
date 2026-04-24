@@ -182,51 +182,11 @@
             <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
                 <h3 class="text-sm font-bold text-hearth-gold">🏆 赛事列表</h3>
                 <div class="flex items-center gap-2">
-                    <button onclick="showGenerateNext()" class="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🔀 生成N强</button>
                     <button onclick="showCreateTournament()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 创建赛事</button>
                 </div>
             </div>
             <div id="tournament-list" class="divide-y divide-hearth-border">
                 <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 生成N强弹窗 -->
-    <div id="generate-next-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
-        <div class="bg-hearth-card rounded-xl gold-border p-6 w-[480px]" onclick="event.stopPropagation()">
-            <h3 class="text-lg font-bold text-hearth-gold mb-4">🔀 生成N强赛事</h3>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs text-hearth-dim mb-1">来源赛事 <span class="text-red-400">*</span></label>
-                    <select id="gn-source" class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
-                        <option value="">选择赛事...</option>
-                    </select>
-                    <span class="text-xs text-hearth-dim/60 mt-1 block">从该赛事所有已完成分组中取每组前 4 名晋级者</span>
-                </div>
-                <div>
-                    <label class="block text-xs text-hearth-dim mb-1">新赛事名称 <span class="text-red-400">*</span></label>
-                    <input type="text" id="gn-name" placeholder="如：2026 春季赛 512强"
-                        class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
-                </div>
-                <div>
-                    <label class="block text-xs text-hearth-dim mb-1">BO 设置</label>
-                    <select id="gn-bo" class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
-                        <option value="1">BO1</option>
-                        <option value="3" selected>BO3</option>
-                        <option value="5">BO5</option>
-                        <option value="7">BO7</option>
-                    </select>
-                </div>
-                <div class="bg-black/20 rounded-lg p-3 text-xs text-hearth-dim">
-                    <div>晋级者：从来源赛事所有已完成分组取前 4 名</div>
-                    <div>种子选手：从选手管理中标记为 ⭐ 种子 的选手中选取</div>
-                    <div>合并后自动洗牌分组（每组 8 人）</div>
-                </div>
-            </div>
-            <div class="flex gap-2 justify-end pt-4 mt-4 border-t border-hearth-border">
-                <button onclick="document.getElementById('generate-next-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-hearth-dim hover:text-white transition">取消</button>
-                <button onclick="generateNextSubmit()" class="px-4 py-2 text-sm rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">生成</button>
             </div>
         </div>
     </div>
@@ -289,8 +249,8 @@
                 <div class="flex items-center gap-2">
                     <input type="number" id="ct-enroll-n" placeholder="如 896" min="16" step="8"
                         class="w-32 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
-                    <button onclick="ctAutoFillFromEnroll()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">快速分配</button>
-                    <span class="text-xs text-hearth-dim/60">自动按顺序取前 N 人，分成 N÷8 组</span>
+                    <button onclick="ctLoadEnrollPool()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">取前N人</button>
+                    <span id="ct-enroll-pool-info" class="text-xs text-hearth-dim/60"></span>
                 </div>
             </div>
 
@@ -315,8 +275,9 @@
                     <input type="text" id="ct-seed" placeholder="随机种子（如：安德罗妮4月29日14:00第一句话）"
                         class="flex-1 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-xs text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
                     <button onclick="ctShuffle()" class="text-xs px-3 py-1 rounded bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition">🎲 洗牌</button>
+                    <button onclick="ctShuffleFromQualifiers()" class="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🎲 海选晋级洗牌</button>
                 </div>
-                <span class="text-xs text-hearth-dim/60 mt-1 block">SHA256 + Fisher-Yates，同一 seed 结果完全一致，人人可验证</span>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">洗牌：SHA256 + Fisher-Yates，同一 seed 结果完全一致。海选晋级洗牌：从已完成赛事晋级者 + 种子选手中洗牌</span>
             </div>
 
             <!-- 已分配提示 -->
@@ -1012,45 +973,6 @@ async function loadTournaments() {
     }
 }
 
-// ── 生成N强 ──────────────────────────────────────
-async function showGenerateNext() {
-    const modal = document.getElementById('generate-next-modal');
-    modal.classList.remove('hidden');
-    // 加载赛事列表到下拉框
-    try {
-        const res = await fetch('/api/tournaments');
-        const data = await res.json();
-        const sel = document.getElementById('gn-source');
-        sel.innerHTML = '<option value="">选择赛事...</option>' +
-            data.map(t => `<option value="${t.name}">${t.name} (${t.totalGroups} 组)</option>`).join('');
-    } catch { alert('加载赛事列表失败'); }
-    document.getElementById('gn-name').value = '';
-}
-
-async function generateNextSubmit() {
-    const source = document.getElementById('gn-source').value;
-    const name = document.getElementById('gn-name').value.trim();
-    const boN = parseInt(document.getElementById('gn-bo').value) || 3;
-    if (!source) { alert('请选择来源赛事'); return; }
-    if (!name) { alert('请输入新赛事名称'); return; }
-
-    try {
-        const res = await fetch('/api/tournament/generate-next', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sourceTournament: source, tournamentName: name, boN }),
-        });
-        const data = await res.json();
-        if (res.ok) {
-            document.getElementById('generate-next-modal').classList.add('hidden');
-            alert(`✅ 生成成功！晋级者 ${data.qualifiers} 人 + 种子 ${data.seeds} 人 = ${data.total} 人，${data.groupsCreated} 组`);
-            loadTournaments();
-        } else {
-            alert(data.error || '生成失败');
-        }
-    } catch { alert('网络错误'); }
-}
-
 async function showCreateTournament() {
     const modal = document.getElementById('create-tournament-modal');
     modal.classList.remove('hidden');
@@ -1093,12 +1015,11 @@ async function ctLoadPlayers() {
     }
 }
 
-async function ctAutoFillFromEnroll() {
+async function ctLoadEnrollPool() {
     const n = parseInt(document.getElementById('ct-enroll-n').value);
     if (!n || n < 16) { alert('请输入 ≥ 16 的人数'); return; }
     if (n % 8 !== 0) { alert('人数必须是 8 的倍数'); return; }
 
-    const groupCount = n / 8;
     try {
         const res = await fetch(`/api/admin/enrolled-players?limit=${n}`);
         const players = await res.json();
@@ -1106,31 +1027,71 @@ async function ctAutoFillFromEnroll() {
             alert(`报名人数不足：需要 ${n} 人，当前只有 ${players.length} 人`);
             return;
         }
-
-        // 更新全局选手列表（搜索框数据源）
         ctAllPlayers = players;
+        document.getElementById('ct-enroll-pool-info').textContent = `✅ 已加载 ${n} 人，现在可以洗牌分配`;
+        document.getElementById('ct-unassigned-count').textContent = n;
+    } catch (e) { alert('网络错误'); }
+}
 
-        // 清空现有分组，重新创建
-        const container = document.getElementById('ct-groups');
-        container.innerHTML = '';
-        ctGroupIdx = 0;
+async function ctShuffleFromQualifiers() {
+    // 选择来源赛事
+    let tournaments;
+    try {
+        const res = await fetch('/api/tournaments');
+        tournaments = await res.json();
+    } catch { alert('加载赛事列表失败'); return; }
 
-        for (let g = 0; g < groupCount; g++) {
-            ctAddGroup();
-        }
+    if (!tournaments.length) { alert('暂无赛事'); return; }
 
-        // 填入选手
+    const source = tournaments.length === 1
+        ? tournaments[0].name
+        : prompt('选择来源赛事（输入赛事名称）：\n' + tournaments.map(t => `• ${t.name}`).join('\n'));
+    if (!source) return;
+
+    // 获取晋级者+种子选手池
+    let pool;
+    try {
+        const res = await fetch(`/api/tournament/qualifier-pool?tournament=${encodeURIComponent(source)}`);
+        pool = await res.json();
+        if (!res.ok) { alert(pool.error || '获取选手池失败'); return; }
+    } catch { alert('网络错误'); return; }
+
+    const players = pool.players;
+    const groupDivs = document.querySelectorAll('#ct-groups > div');
+    if (!groupDivs.length) { alert('请先添加分组'); return; }
+
+    const needed = groupDivs.length * 8;
+    if (players.length < needed) {
+        alert(`需要 ${needed} 位选手（${groupDivs.length} 组 × 8），当前晋级者 ${pool.qualifiers} 人 + 种子 ${pool.seeds} 人 = ${players.length} 人`);
+        return;
+    }
+
+    // 用赛事名称作为 seed 洗牌（确定性随机）
+    const seed = document.getElementById('ct-name').value.trim() || source;
+    try {
+        const res = await fetch('/api/tournament/shuffle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ seed, players }),
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || '洗牌失败'); return; }
+
+        const shuffled = data.players;
+        ctAllPlayers = shuffled;
+
         let idx = 0;
-        document.querySelectorAll('#ct-groups > div').forEach(gd => {
+        groupDivs.forEach(gd => {
             gd.querySelectorAll('.ct-search-wrap').forEach(wrap => {
-                const p = players[idx++];
+                const p = shuffled[idx++];
                 const key = wrap.dataset.gi + '-' + wrap.dataset.si;
                 if (ctSearchSlots[key]) ctSearchSlots[key].setValue(p.accountIdLo);
             });
         });
 
         ctUpdateCounts();
-    } catch (e) { alert('网络错误: ' + e.message); }
+        alert(`✅ 已从「${source}」分配：晋级者 ${pool.qualifiers} 人 + 种子 ${pool.seeds} 人`);
+    } catch { alert('网络错误'); }
 }
 
 async function ctShuffle() {
