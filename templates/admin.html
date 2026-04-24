@@ -1034,7 +1034,9 @@ async function ctLoadEnrollPool() {
 }
 
 async function ctShuffleFromQualifiers() {
-    // 直接用 prompt 输入来源赛事名称（和洗牌一样简单）
+    const seed = document.getElementById('ct-seed').value.trim();
+    if (!seed) { alert('请输入随机种子'); return; }
+
     const source = prompt('输入来源赛事名称（海选赛事名）：');
     if (!source) return;
 
@@ -1056,8 +1058,7 @@ async function ctShuffleFromQualifiers() {
         return;
     }
 
-    // 用赛事名称作为 seed 洗牌（确定性随机）
-    const seed = document.getElementById('ct-name').value.trim() || source.trim();
+    // 用左边输入的 seed 洗牌（和普通洗牌完全一致）
     try {
         const res = await fetch('/api/tournament/shuffle', {
             method: 'POST',
