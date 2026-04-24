@@ -1317,14 +1317,12 @@ function renderManageTournament(data) {
             const boN = g.boN || 1, gp = g.gamesPlayed || 0;
             const status = g.status || 'waiting';
             const isEditable = status === 'waiting' && gp === 0;
-            const manualAdv = g.manualAdvance === true;
 
             html += `<div class="bg-black/20 rounded-lg p-4">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-bold text-gray-300">组 ${g.groupIndex || ''}</span>
                         <span class="badge ${status}">${status === 'waiting' ? '等待' : status === 'active' ? '进行中' : '已完成'} · ${gp}/${boN} 局</span>
-                        ${manualAdv ? '<span class="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400">手动晋级</span>' : ''}
                     </div>
                     ${isEditable ? `<div class="flex items-center gap-2">
                         <label class="text-xs text-hearth-dim">BO</label>
@@ -1337,12 +1335,9 @@ function renderManageTournament(data) {
                             <option value="6" ${boN===6?'selected':''}>6</option>
                             <option value="7" ${boN===7?'selected':''}>7</option>
                         </select>
-                        <label class="flex items-center gap-1 text-xs text-hearth-dim cursor-pointer">
-                            <input type="checkbox" class="mt-manual-advance" data-gid="${gid}" ${manualAdv?'checked':''}> 手动晋级
-                        </label>
                         <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
                     </div>` : ''}
-                    ${status === 'done' && manualAdv ? `<button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button>` : ''}
+                    ${status === 'done' ? `<button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button>` : ''}
                 </div>
                 <div class="space-y-1">`;
 
@@ -1385,8 +1380,6 @@ function renderManageTournament(data) {
 async function mtSave(gid) {
     const boSel = document.querySelector(`.mt-bo-select[data-gid="${gid}"]`);
     const boN = boSel ? parseInt(boSel.value) : null;
-    const manualCb = document.querySelector(`.mt-manual-advance[data-gid="${gid}"]`);
-    const manualAdvance = manualCb ? manualCb.checked : false;
     const players = [];
     document.querySelectorAll(`.mt-search-wrap[data-gid="${gid}"]`).forEach(wrap => {
         const key = wrap.dataset.gid + '-' + wrap.dataset.slot;
@@ -1398,7 +1391,6 @@ async function mtSave(gid) {
 
     const body = {};
     if (boN !== null) body.boN = boN;
-    body.manualAdvance = manualAdvance;
     if (players.length) body.players = players;
 
     try {
