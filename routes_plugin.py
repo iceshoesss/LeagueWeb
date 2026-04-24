@@ -125,7 +125,7 @@ def api_plugin_check_league():
         {"_id": 1},
     )
     if existing_match:
-        log.info(f"[check-league] 同局淘汰赛 match 已存在 gameUuid={game_uuid}，直接返回 isLeague=true")
+        log.info(f"[check-league] 同局淘汰赛 match 已存在 gameUuid={game_uuid} playerId={data.get('playerId','')}，直接返回 isLeague=true")
         resp = {"isLeague": True}
         vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
             account_id_lo=data.get("accountIdLo", "").strip(),
@@ -139,7 +139,7 @@ def api_plugin_check_league():
         "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
     }))
     game_los = {lo for lo in account_ids if lo and lo != "0"}
-    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, gameUuid={game_uuid}, 游戏Lo={sorted(game_los)} (含bot共{len(account_ids)}个)")
+    log.info(f"[check-league] 候选淘汰赛组: {len(active_tournament_groups)} 个, gameUuid={game_uuid}, playerId={data.get('playerId','')}, 游戏Lo={sorted(game_los)} (含bot共{len(account_ids)}个)")
     matched_tournament_group = None
     for tg in active_tournament_groups:
         tg_los = set()
