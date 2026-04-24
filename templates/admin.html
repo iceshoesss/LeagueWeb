@@ -1336,7 +1336,7 @@ function renderManageTournament(data) {
                         </select>
                         <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
                     </div>` : ''}
-                    ${status !== 'done' ? `<button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button>` : ''}
+                    ${status !== 'done' ? `<div class="flex gap-1"><button onclick="mtManualRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">📝 补录结果</button><button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button></div>` : ''}
                 </div>
                 <div class="space-y-1">`;
 
@@ -1410,6 +1410,62 @@ function mtEnforceMax4(cb) {
         cb.checked = false;
         alert('最多只能选 4 人');
     }
+}
+
+async function mtManualRecord(gid) {
+    // 纯手工补录：为对局创建完整排名记录
+    try {
+        const res = await fetch(`/api/tournament/group/${gid}`);
+        const group = await res.json();
+        if (!res.ok) { alert(group.error || '获取分组失败'); return; }
+
+        const players = (group.players || []).filter(p => !p.empty && p.accountIdLo);
+        if (!players.length) { alert('该组没有玩家'); return; }
+
+        const n = players.length;
+        let html = '<div style="text-align:left;max-height:400px;overflow-y:auto">';
+        html += `<p style="margin-bottom:8px;color:#aaa;font-size:12px">为每个玩家选择排名（1-${n}，不可重复）：</p>`;
+        html += '<table style="width:100%;border-collapse:collapse">';
+        players.forEach((p, i) => {
+            const tag = p.battleTag || p.displayName || '未知';
+            let opts = '<option value="">—</option>';
+            for (let r = 1; r <= n; r++) {
+                opts += `<option value="${r}" ${r === i + 1 ? 'selected' : ''}>第 ${r} 名</option>`;
+            }
+            html += `<tr style="border-bottom:1px solid #333">
+                <td style="padding:6px 8px;font-size:13px;white-space:nowrap">${tag}</td>
+                <td style="padding:6px 8px"><select class="mt-record-sel" data-lo="${p.accountIdLo}" style="background:#1a1a2e;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 6px;font-size:12px">${opts}</select></td>
+            </tr>`;
+        });
+        html += '</table></div>';
+
+        const confirmed = await showConfirmHTML(html, '确认补录');
+        if (!confirmed) return;
+
+        const sels = document.querySelectorAll('.mt-record-sel');
+        const placements = {};
+        sels.forEach(sel => {
+            const lo = sel.dataset.lo;
+            const val = sel.value;
+            if (val) placements[lo] = parseInt(val);
+        });
+
+        const count = Object.keys(placements).length;
+        if (count !== n) { alert(`需要 ${n} 个排名，当前填了 ${count} 个`); return; }
+
+        const recRes = await fetch(`/api/admin/group/${gid}/manual-record`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ placements }),
+        });
+        const recData = await recRes.json();
+        if (recRes.ok) {
+            alert(`✅ 补录完成，第 ${recData.gamesPlayed} 局已记录`);
+            showManageTournament(mtTournamentName);
+        } else {
+            alert(recData.error || '补录失败');
+        }
+    } catch (e) { alert('网络错误: ' + e.message); }
 }
 
 async function mtManualAdvance(gid) {

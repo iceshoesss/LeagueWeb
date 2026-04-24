@@ -536,3 +536,95 @@ def api_admin_manual_advance(group_id):
         log.info(f"[manual-advance] 源组 R{current_round}G{gi} 标记为 done")
 
     return jsonify({"ok": True, "advanced": len(quals)})
+
+@admin_bp.route("/api/admin/group/<group_id>/manual-record", methods=["POST"])
+def api_admin_manual_record(group_id):
+    """纯手工补录：为对局创建完整排名记录（插件失效时使用）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    try:
+        oid = ObjectId(group_id)
+    except Exception:
+        return jsonify({"error": "无效的 group ID"}), 400
+
+    group = db.tournament_groups.find_one({"_id": oid})
+    if not group:
+        return jsonify({"error": "分组不存在"}), 404
+
+    data = request.get_json() or {}
+    placements = data.get("placements")  # {accountIdLo: placement}
+    if not placements or not isinstance(placements, dict):
+        return jsonify({"error": "请提供排名数据 placements"}), 400
+
+    # 获取组内玩家
+    group_players = [p for p in group.get("players", []) if not p.get("empty") and p.get("accountIdLo")]
+    if not group_players:
+        return jsonify({"error": "该组没有玩家"}), 400
+
+    # 校验：每个玩家都必须有排名
+    lo_set = {str(p["accountIdLo"]) for p in group_players}
+    missing = lo_set - set(placements.keys())
+    if missing:
+        return jsonify({"error": f"缺少玩家排名: {', '.join(missing)}"}), 400
+
+    # 校验排名值
+    placement_vals = list(placements.values())
+    if sorted(placement_vals) != list(range(1, len(group_players) + 1)):
+        return jsonify({"error": f"排名必须是 1-{len(group_players)} 的不重复整数"}), 400
+
+    # 构建 league_matches 的 players 列表
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    import uuid as _uuid
+    players = []
+    for p in group_players:
+        lo = str(p["accountIdLo"])
+        pl = placements[lo]
+        pts = 9 if pl == 1 else max(1, 9 - pl)
+        players.append({
+            "accountIdLo": lo,
+            "battleTag": p.get("battleTag", ""),
+            "displayName": p.get("displayName", ""),
+            "heroCardId": p.get("heroCardId", ""),
+            "heroName": p.get("heroName", ""),
+            "placement": pl,
+            "points": pts,
+        })
+
+    # 创建 match 记录
+    match_doc = {
+        "gameUuid": str(_uuid.uuid4()),
+        "players": players,
+        "region": "CN",
+        "mode": "solo",
+        "startedAt": group.get("startedAt") or now_str,
+        "endedAt": now_str,
+        "tournamentGroupId": oid,
+        "tournamentRound": group.get("round"),
+        "manualRecord": True,
+    }
+    db.league_matches.insert_one(match_doc)
+    log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: {len(players)} 人, gameUuid={match_doc['gameUuid']}")
+
+    # 更新组状态
+    bo_n = group.get("boN", 1)
+    old_gp = group.get("gamesPlayed", 0)
+    games_played = old_gp + 1
+    update_fields = {"gamesPlayed": games_played}
+
+    if games_played >= bo_n:
+        update_fields["status"] = "done"
+        update_fields["endedAt"] = now_str
+        # 触发晋级
+        from data import try_advance_group
+        try_advance_group(db, group)
+        log.info(f"[manual-record] BO 完成: gp={old_gp}→{games_played}/{bo_n}, 触发晋级")
+    else:
+        update_fields["status"] = "waiting"
+        log.info(f"[manual-record] BO 进度: gp={old_gp}→{games_played}/{bo_n}")
+
+    db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
+
+    return jsonify({"ok": True, "gameUuid": match_doc["gameUuid"], "gamesPlayed": games_played})
