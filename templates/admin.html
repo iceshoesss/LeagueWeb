@@ -135,6 +135,7 @@
                             <th class="px-4 py-3 text-left">验证码</th>
                             <th class="px-4 py-3 text-left">注册时间</th>
                             <th class="px-4 py-3 text-left">最近活跃</th>
+                            <th class="px-4 py-3 text-center">种子</th>
                         </tr>
                     </thead>
                     <tbody id="players-tbody" class="divide-y divide-hearth-border/50">
@@ -180,10 +181,52 @@
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
             <div class="px-5 py-3 border-b border-hearth-border flex items-center justify-between">
                 <h3 class="text-sm font-bold text-hearth-gold">🏆 赛事列表</h3>
-                <button onclick="showCreateTournament()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 创建赛事</button>
+                <div class="flex items-center gap-2">
+                    <button onclick="showGenerateNext()" class="text-xs px-3 py-1 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition">🔀 生成N强</button>
+                    <button onclick="showCreateTournament()" class="text-xs px-3 py-1 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">+ 创建赛事</button>
+                </div>
             </div>
             <div id="tournament-list" class="divide-y divide-hearth-border">
                 <div class="px-5 py-4 text-center text-sm text-hearth-dim">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 生成N强弹窗 -->
+    <div id="generate-next-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+        <div class="bg-hearth-card rounded-xl gold-border p-6 w-[480px]" onclick="event.stopPropagation()">
+            <h3 class="text-lg font-bold text-hearth-gold mb-4">🔀 生成N强赛事</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-xs text-hearth-dim mb-1">来源赛事 <span class="text-red-400">*</span></label>
+                    <select id="gn-source" class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                        <option value="">选择赛事...</option>
+                    </select>
+                    <span class="text-xs text-hearth-dim/60 mt-1 block">从该赛事所有已完成分组中取每组前 4 名晋级者</span>
+                </div>
+                <div>
+                    <label class="block text-xs text-hearth-dim mb-1">新赛事名称 <span class="text-red-400">*</span></label>
+                    <input type="text" id="gn-name" placeholder="如：2026 春季赛 512强"
+                        class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                </div>
+                <div>
+                    <label class="block text-xs text-hearth-dim mb-1">BO 设置</label>
+                    <select id="gn-bo" class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                        <option value="1">BO1</option>
+                        <option value="3" selected>BO3</option>
+                        <option value="5">BO5</option>
+                        <option value="7">BO7</option>
+                    </select>
+                </div>
+                <div class="bg-black/20 rounded-lg p-3 text-xs text-hearth-dim">
+                    <div>晋级者：从来源赛事所有已完成分组取前 4 名</div>
+                    <div>种子选手：从选手管理中标记为 ⭐ 种子 的选手中选取</div>
+                    <div>合并后自动洗牌分组（每组 8 人）</div>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end pt-4 mt-4 border-t border-hearth-border">
+                <button onclick="document.getElementById('generate-next-modal').classList.add('hidden')" class="px-4 py-2 text-sm text-hearth-dim hover:text-white transition">取消</button>
+                <button onclick="generateNextSubmit()" class="px-4 py-2 text-sm rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">生成</button>
             </div>
         </div>
     </div>
@@ -238,6 +281,17 @@
                     </label>
                 </div>
                 <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛从报名选手中选择，卡片每行 4 个平铺，无连线，只有一轮</span>
+            </div>
+
+            <!-- 平铺网格：取前N人 -->
+            <div id="ct-grid-enroll-section" class="mb-4 hidden">
+                <label class="block text-xs text-hearth-dim mb-1">从报名中取前 N 人</label>
+                <div class="flex items-center gap-2">
+                    <input type="number" id="ct-enroll-n" placeholder="如 896" min="16" step="8"
+                        class="w-32 bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    <button onclick="ctAutoFillFromEnroll()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">快速分配</button>
+                    <span class="text-xs text-hearth-dim/60">自动按顺序取前 N 人，分成 N÷8 组</span>
+                </div>
             </div>
 
             <!-- 轮次配置 -->
@@ -542,19 +596,23 @@ async function loadPlayers() {
         document.getElementById('player-total').textContent = `共 ${data.total} 人`;
 
         if (!data.players || !data.players.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-hearth-dim">无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-8 text-center text-hearth-dim">无数据</td></tr>';
             document.getElementById('players-pager').innerHTML = '';
             return;
         }
 
         tbody.innerHTML = data.players.map(p => {
             const vc = p.verificationCode || '-';
+            const seedBtn = p.isSeed
+                ? `<button onclick="toggleSeed('${p.battleTag}')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/30 text-yellow-300 hover:bg-yellow-500/40 transition" title="取消种子">⭐ 种子</button>`
+                : `<button onclick="toggleSeed('${p.battleTag}')" class="text-xs px-2 py-0.5 rounded bg-white/5 text-hearth-dim hover:bg-white/10 transition" title="设为种子">☆</button>`;
             return `<tr class="hover:bg-white/5 transition">
                 <td class="px-4 py-3"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-hearth-gold hover:underline">${p.battleTag}</a></td>
                 <td class="px-4 py-3 font-mono text-xs text-hearth-dim">${p.accountIdLo || '-'}</td>
                 <td class="px-4 py-3 font-mono text-xs ${p.verificationCode ? 'text-blue-400' : 'text-hearth-dim'}">${vc}</td>
                 <td class="px-4 py-3 text-xs text-hearth-dim">${p.createdAt || '-'}</td>
                 <td class="px-4 py-3 text-xs text-hearth-dim">${p.verifiedAt || '-'}</td>
+                <td class="px-4 py-3 text-center">${seedBtn}</td>
             </tr>`;
         }).join('');
 
@@ -567,6 +625,18 @@ async function loadPlayers() {
 // ── 队列管理 ──────────────────────────────────────
 let queueLoaded = false;
 let queueEs = null, waitingEs = null;
+
+async function toggleSeed(battleTag) {
+    try {
+        const res = await fetch(`/api/admin/player/${encodeURIComponent(battleTag)}/seed`, { method: 'PUT' });
+        const data = await res.json();
+        if (data.ok) {
+            loadPlayers();
+        } else {
+            alert(data.error || '操作失败');
+        }
+    } catch { alert('网络错误'); }
+}
 
 async function loadQueue() {
     queueLoaded = true;
@@ -942,6 +1012,45 @@ async function loadTournaments() {
     }
 }
 
+// ── 生成N强 ──────────────────────────────────────
+async function showGenerateNext() {
+    const modal = document.getElementById('generate-next-modal');
+    modal.classList.remove('hidden');
+    // 加载赛事列表到下拉框
+    try {
+        const res = await fetch('/api/tournaments');
+        const data = await res.json();
+        const sel = document.getElementById('gn-source');
+        sel.innerHTML = '<option value="">选择赛事...</option>' +
+            data.map(t => `<option value="${t.name}">${t.name} (${t.totalGroups} 组)</option>`).join('');
+    } catch { alert('加载赛事列表失败'); }
+    document.getElementById('gn-name').value = '';
+}
+
+async function generateNextSubmit() {
+    const source = document.getElementById('gn-source').value;
+    const name = document.getElementById('gn-name').value.trim();
+    const boN = parseInt(document.getElementById('gn-bo').value) || 3;
+    if (!source) { alert('请选择来源赛事'); return; }
+    if (!name) { alert('请输入新赛事名称'); return; }
+
+    try {
+        const res = await fetch('/api/tournament/generate-next', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sourceTournament: source, tournamentName: name, boN }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('generate-next-modal').classList.add('hidden');
+            alert(`✅ 生成成功！晋级者 ${data.qualifiers} 人 + 种子 ${data.seeds} 人 = ${data.total} 人，${data.groupsCreated} 组`);
+            loadTournaments();
+        } else {
+            alert(data.error || '生成失败');
+        }
+    } catch { alert('网络错误'); }
+}
+
 async function showCreateTournament() {
     const modal = document.getElementById('create-tournament-modal');
     modal.classList.remove('hidden');
@@ -953,14 +1062,23 @@ async function showCreateTournament() {
     // 加载选手（根据布局方式选择数据源）
     await ctLoadPlayers();
 
-    // 布局切换时重新加载选手
+    // 布局切换时重新加载选手 + 显示/隐藏快速分配
     document.querySelectorAll('input[name="ct-layout"]').forEach(radio => {
-        radio.onchange = () => ctLoadPlayers();
+        radio.onchange = () => {
+            ctLoadPlayers();
+            ctToggleGridSection();
+        };
     });
+    ctToggleGridSection();
 
     // 默认 2 个分组
     ctAddGroup();
     ctAddGroup();
+}
+
+function ctToggleGridSection() {
+    const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
+    document.getElementById('ct-grid-enroll-section').classList.toggle('hidden', layout !== 'grid');
 }
 
 async function ctLoadPlayers() {
@@ -973,6 +1091,46 @@ async function ctLoadPlayers() {
     } catch (e) {
         alert('加载选手列表失败');
     }
+}
+
+async function ctAutoFillFromEnroll() {
+    const n = parseInt(document.getElementById('ct-enroll-n').value);
+    if (!n || n < 16) { alert('请输入 ≥ 16 的人数'); return; }
+    if (n % 8 !== 0) { alert('人数必须是 8 的倍数'); return; }
+
+    const groupCount = n / 8;
+    try {
+        const res = await fetch(`/api/admin/enrolled-players?limit=${n}`);
+        const players = await res.json();
+        if (players.length < n) {
+            alert(`报名人数不足：需要 ${n} 人，当前只有 ${players.length} 人`);
+            return;
+        }
+
+        // 更新全局选手列表（搜索框数据源）
+        ctAllPlayers = players;
+
+        // 清空现有分组，重新创建
+        const container = document.getElementById('ct-groups');
+        container.innerHTML = '';
+        ctGroupIdx = 0;
+
+        for (let g = 0; g < groupCount; g++) {
+            ctAddGroup();
+        }
+
+        // 填入选手
+        let idx = 0;
+        document.querySelectorAll('#ct-groups > div').forEach(gd => {
+            gd.querySelectorAll('.ct-search-wrap').forEach(wrap => {
+                const p = players[idx++];
+                const key = wrap.dataset.gi + '-' + wrap.dataset.si;
+                if (ctSearchSlots[key]) ctSearchSlots[key].setValue(p.accountIdLo);
+            });
+        });
+
+        ctUpdateCounts();
+    } catch (e) { alert('网络错误: ' + e.message); }
 }
 
 async function ctShuffle() {

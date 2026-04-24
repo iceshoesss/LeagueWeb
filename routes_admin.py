@@ -136,6 +136,7 @@ def get_admin_players(page=1, per_page=50, search=""):
         p["verifiedAt"] = to_cst_str(p.get("verifiedAt")) or ""
         p["createdAt"] = to_cst_str(p.get("createdAt")) or ""
         p["verificationCode"] = records.get(p.get("battleTag", ""), "")
+        p["isSeed"] = bool(p.get("isSeed"))
 
     total_pages = max(1, (total + per_page - 1) // per_page)
     return players, total, total_pages
@@ -380,3 +381,37 @@ def api_admin_player_add():
     })
     log.info(f"管理员 {admin_tag} 手动添加选手: {battle_tag}")
     return jsonify({"ok": True, "battleTag": battle_tag, "displayName": display_name})
+
+
+@admin_bp.route("/api/admin/player/<path:battle_tag>/seed", methods=["PUT"])
+def api_admin_player_seed(battle_tag):
+    """设置/取消种子选手"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    player = db.league_players.find_one({"battleTag": battle_tag})
+    if not player:
+        return jsonify({"error": "选手不存在"}), 404
+
+    new_val = not bool(player.get("isSeed"))
+    db.league_players.update_one({"battleTag": battle_tag}, {"$set": {"isSeed": new_val}})
+    log.info(f"管理员 {admin_tag} {'设置' if new_val else '取消'}种子选手: {battle_tag}")
+    return jsonify({"ok": True, "isSeed": new_val})
+
+
+@admin_bp.route("/api/admin/seed-players")
+def api_admin_seed_players():
+    """获取所有种子选手列表"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    seeds = list(db.league_players.find({"isSeed": True}).sort("displayName", 1))
+    return jsonify([{
+        "battleTag": p.get("battleTag", ""),
+        "displayName": p.get("displayName", ""),
+        "accountIdLo": str(p.get("accountIdLo", "")),
+    } for p in seeds])

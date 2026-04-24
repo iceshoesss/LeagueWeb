@@ -645,6 +645,136 @@ def api_tournaments():
     return jsonify(result)
 
 
+@tournament_bp.route("/api/tournament/generate-next", methods=["POST"])
+def api_tournament_generate_next():
+    """从指定赛事的晋级者 + 种子选手生成新赛事"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    data = request.get_json() or {}
+    source_tournament = data.get("sourceTournament", "").strip()
+    new_name = data.get("tournamentName", "").strip()
+    bo_n = data.get("boN", 3)
+
+    if not source_tournament:
+        return jsonify({"error": "sourceTournament 不能为空"}), 400
+    if not new_name:
+        return jsonify({"error": "tournamentName 不能为空"}), 400
+    if bo_n < 1 or bo_n > 20:
+        return jsonify({"error": "boN 必须在 1-20 之间"}), 400
+
+    db = get_db()
+
+    # 1. 从源赛事所有 done 组聚合前 4 名晋级者
+    source_groups = list(db.tournament_groups.find({
+        "tournamentName": source_tournament,
+        "status": "done",
+    }))
+    if not source_groups:
+        return jsonify({"error": f"赛事「{source_tournament}」没有已完成的分组"}), 400
+
+    group_rankings = get_group_rankings(db, source_tournament)
+    qualifiers = []
+    seen_los = set()
+    for g in source_groups:
+        tg_str = str(g["_id"])
+        rankings = group_rankings.get(tg_str, {})
+        ranked = sorted(
+            g.get("players", []),
+            key=lambda p: rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
+            reverse=True,
+        )
+        for p in ranked[:4]:
+            lo = str(p.get("accountIdLo", ""))
+            if lo and lo not in seen_los:
+                seen_los.add(lo)
+                qualifiers.append({
+                    "battleTag": p.get("battleTag", ""),
+                    "accountIdLo": lo,
+                    "displayName": p.get("displayName", ""),
+                    "heroCardId": p.get("heroCardId", ""),
+                    "heroName": p.get("heroName", ""),
+                })
+
+    # 2. 获取种子选手（不在晋级者中的）
+    seeds = list(db.league_players.find({"isSeed": True}))
+    seed_players = []
+    for s in seeds:
+        lo = str(s.get("accountIdLo", ""))
+        if lo and lo not in seen_los:
+            seen_los.add(lo)
+            seed_players.append({
+                "battleTag": s.get("battleTag", ""),
+                "accountIdLo": lo,
+                "displayName": s.get("displayName", ""),
+                "heroCardId": "",
+                "heroName": "",
+            })
+
+    all_players = qualifiers + seed_players
+    total = len(all_players)
+    if total < 16:
+        return jsonify({"error": f"晋级者 {len(qualifiers)} 人 + 种子 {len(seed_players)} 人 = {total} 人，不足 16 人"}), 400
+
+    # 3. 洗牌（确定性随机，基于新赛事名称）
+    import hashlib, struct
+    h = hashlib.sha256(new_name.encode("utf-8")).digest()
+    seed_int = sum(struct.unpack_from("<I", h, i)[0] for i in range(0, 32, 4))
+
+    def make_rng(s):
+        state = [s & 0xFFFFFFFF]
+        def next_int(max_val):
+            x = state[0]
+            x ^= (x << 13) & 0xFFFFFFFF
+            x ^= (x >> 17)
+            x ^= (x << 5) & 0xFFFFFFFF
+            state[0] = x & 0xFFFFFFFF
+            return x % max_val
+        return next_int
+
+    rng = make_rng(seed_int)
+    arr = list(all_players)
+    for i in range(len(arr) - 1, 0, -1):
+        j = rng(i + 1)
+        arr[i], arr[j] = arr[j], arr[i]
+
+    # 4. 分组（每组 8 人）
+    group_count = len(arr) // 8
+    if group_count < 2:
+        return jsonify({"error": f"总共 {len(arr)} 人，不足 2 组"}), 400
+
+    groups_to_insert = []
+    for gi in range(group_count):
+        start = gi * 8
+        players = arr[start:start + 8]
+        nrg = (gi + 2) // 2 if group_count > 1 else None
+        groups_to_insert.append({
+            "tournamentName": new_name,
+            "round": 1,
+            "groupIndex": gi + 1,
+            "status": "waiting",
+            "boN": bo_n,
+            "gamesPlayed": 0,
+            "players": players,
+            "nextRoundGroupId": nrg,
+            "startedAt": None,
+            "endedAt": None,
+        })
+
+    db.tournament_groups.insert_many(groups_to_insert)
+
+    log.info(f"[tournament] 管理员 {admin_tag} 生成新赛事: {new_name}，晋级者 {len(qualifiers)} 人 + 种子 {len(seed_players)} 人 = {len(arr)} 人，{group_count} 组")
+    return jsonify({
+        "ok": True,
+        "tournamentName": new_name,
+        "qualifiers": len(qualifiers),
+        "seeds": len(seed_players),
+        "total": len(arr),
+        "groupsCreated": group_count,
+    })
+
+
 @tournament_bp.route("/api/admin/players-all")
 def api_admin_players_all():
     admin_tag = _admin_required()
@@ -668,9 +798,12 @@ def api_admin_enrolled_players():
         return jsonify({"error": "需要管理员权限"}), 403
 
     db = get_db()
-    enrollments = list(db.tournament_enrollments.find(
-        {"status": "enrolled"}
-    ).sort("position", 1))
+    limit = request.args.get("limit", type=int)
+    query = {"status": "enrolled"}
+    cursor = db.tournament_enrollments.find(query).sort("position", 1)
+    if limit:
+        cursor = cursor.limit(limit)
+    enrollments = list(cursor)
 
     result = []
     for p in enrollments:
