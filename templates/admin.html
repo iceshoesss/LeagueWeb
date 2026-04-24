@@ -1336,7 +1336,7 @@ function renderManageTournament(data) {
                         </select>
                         <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
                     </div>` : ''}
-                    ${status !== 'done' ? `<div class="flex gap-1"><button onclick="mtManualRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">📝 补录结果</button><button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button></div>` : ''}
+                    ${status !== 'done' ? `<div class="flex gap-1"><button onclick="mtManualRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">📝 补录结果</button><button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button></div>` : `<button onclick="mtEditRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition">✏️ 修改结果</button>`}
                 </div>
                 <div class="space-y-1">`;
 
@@ -1464,6 +1464,67 @@ async function mtManualRecord(gid) {
             showManageTournament(mtTournamentName);
         } else {
             alert(recData.error || '补录失败');
+        }
+    } catch (e) { alert('网络错误: ' + e.message); }
+}
+
+async function mtEditRecord(gid) {
+    // 纠错：修改已补录的对局结果
+    try {
+        const gRes = await fetch(`/api/tournament/group/${gid}`);
+        const group = await gRes.json();
+        if (!gRes.ok) { alert(group.error || '获取分组失败'); return; }
+
+        // 找最近一局的 match 数据
+        const players = (group.players || []).filter(p => !p.empty && p.accountIdLo);
+        if (!players.length) { alert('该组没有玩家'); return; }
+
+        // 从 group 的 players 读取当前积分作为参考（如果有的话）
+        // 需要从 match 获取实际排名，先用 group 玩家列表 + 默认排名
+        const n = players.length;
+        let html = '<div style="text-align:left;max-height:400px;overflow-y:auto">';
+        html += `<p style="margin-bottom:8px;color:#aaa;font-size:12px">修改每个玩家的排名（1-${n}）：</p>`;
+        html += '<table style="width:100%;border-collapse:collapse">';
+        players.forEach((p, i) => {
+            const tag = p.battleTag || p.displayName || '未知';
+            const pts = p.totalPoints || 0;
+            let opts = '<option value="">—</option>';
+            for (let r = 1; r <= n; r++) {
+                opts += `<option value="${r}" ${r === i + 1 ? 'selected' : ''}>第 ${r} 名</option>`;
+            }
+            html += `<tr style="border-bottom:1px solid #333">
+                <td style="padding:6px 8px;font-size:13px;white-space:nowrap">${tag}</td>
+                <td style="padding:6px 8px;font-size:11px;color:#d4a847">${pts}分</td>
+                <td style="padding:6px 8px"><select class="mt-record-sel" data-lo="${p.accountIdLo}" style="background:#1a1a2e;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 6px;font-size:12px">${opts}</select></td>
+            </tr>`;
+        });
+        html += '</table></div>';
+
+        const confirmed = await showConfirmHTML(html, '确认修改');
+        if (!confirmed) return;
+
+        const sels = document.querySelectorAll('.mt-record-sel');
+        const placements = {};
+        sels.forEach(sel => {
+            const lo = sel.dataset.lo;
+            const val = sel.value;
+            if (val) placements[lo] = parseInt(val);
+        });
+
+        const count = Object.keys(placements).length;
+        if (count !== n) { alert(`需要 ${n} 个排名，当前填了 ${count} 个`); return; }
+
+        const editRes = await fetch(`/api/admin/group/${gid}/edit-record`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ placements }),
+        });
+        const editData = await editRes.json();
+        if (editRes.ok) {
+            alert('✅ 结果已修改');
+            showManageTournament(mtTournamentName);
+        } else {
+            alert(editData.error || '修改失败');
         }
     } catch (e) { alert('网络错误: ' + e.message); }
 }
