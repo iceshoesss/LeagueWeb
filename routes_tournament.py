@@ -353,7 +353,14 @@ def build_bracket_data():
 
             rounds_data.append({"label": _round_label(r, len(sorted_rounds)), "groups": groups_data})
 
-        result.append({"name": tname, "rounds": rounds_data})
+        # 取赛事布局（默认 bracket，兼容旧数据）
+        layout = "bracket"
+        for g in tgroups:
+            if g.get("layout"):
+                layout = g["layout"]
+                break
+
+        result.append({"name": tname, "rounds": rounds_data, "layout": layout})
 
     return {"tournaments": result}
 
@@ -392,6 +399,10 @@ def api_tournament_create():
     data = request.get_json() or {}
     tname = data.get("tournamentName", "").strip()
     rounds = data.get("rounds", [])
+    layout = data.get("layout", "bracket")  # "bracket" | "grid"
+
+    if layout not in ("bracket", "grid"):
+        layout = "bracket"
 
     if not tname or not rounds:
         return jsonify({"error": "tournamentName 和 rounds 不能为空"}), 400
@@ -430,6 +441,7 @@ def api_tournament_create():
                 "gamesPlayed": 0,
                 "players": players,
                 "nextRoundGroupId": nrg,
+                "layout": layout,
                 "startedAt": None,
                 "endedAt": None,
             })
@@ -437,8 +449,8 @@ def api_tournament_create():
     if groups_to_insert:
         db.tournament_groups.insert_many(groups_to_insert)
 
-    log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组")
-    return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert)})
+    log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组 layout={layout}")
+    return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert), "layout": layout})
 
 
 @tournament_bp.route("/api/tournament/group/<group_id>")

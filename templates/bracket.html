@@ -85,6 +85,28 @@
   .group-card.done .p-row.el img { filter: none; opacity: 1; }
   /* 对战图不限制宽度，靠浏览器原生滚动条 */
   main { max-width: none !important; }
+
+  /* ── Grid 平铺布局（海选赛）── */
+  .grid-layout {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+  @media (max-width: 1600px) { .grid-layout { grid-template-columns: repeat(6, 1fr); } }
+  @media (max-width: 1200px) { .grid-layout { grid-template-columns: repeat(4, 1fr); } }
+  .grid-layout .group-card {
+    position: static !important;
+    width: 100% !important;
+  }
+  .grid-layout .round-title-grid {
+    grid-column: 1 / -1;
+    font-size: 14px; font-weight: 700; color: #e2b714;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 8px 0 4px 0;
+    border-bottom: 1px solid #2a2a4a;
+    margin-bottom: 4px;
+  }
 </style>
 {% endblock %}
 
@@ -382,6 +404,39 @@ function initBrackets(data) {
   tournaments.length = 0;
 
   data.tournaments.forEach((t, tIdx) => {
+    if (t.layout === 'grid') {
+      // ── Grid 平铺模式（海选赛）──
+      initGridTournament(t, tIdx);
+    } else {
+      // ── Bracket 对阵图模式（标准淘汰赛）──
+      initBracketTournament(t, tIdx);
+    }
+  });
+}
+
+/* ── Grid 平铺模式 ── */
+function initGridTournament(t, tIdx) {
+  const wrap = document.createElement('div');
+  t.rounds.forEach(round => {
+    // 轮次标题
+    const title = document.createElement('div');
+    title.className = 'round-title-grid';
+    title.textContent = round.label;
+    wrap.appendChild(title);
+
+    // 卡片网格
+    const grid = document.createElement('div');
+    grid.className = 'grid-layout';
+    round.groups.forEach(g => {
+      grid.insertAdjacentHTML('beforeend', renderCard(g, 0, 0, false));
+    });
+    wrap.appendChild(grid);
+  });
+  container.appendChild(wrap);
+}
+
+/* ── Bracket 对阵图模式（现有逻辑）── */
+function initBracketTournament(t, tIdx) {
     const flat = buildFlat(t.rounds);
     const r1Count = t.rounds[0].groups.length;
     const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
@@ -408,7 +463,6 @@ function initBrackets(data) {
     });
 
     render(tIdx);
-  });
 }
 
 // 首次渲染

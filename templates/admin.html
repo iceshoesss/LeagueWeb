@@ -224,6 +224,22 @@
                     class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
             </div>
 
+            <!-- 布局方式 -->
+            <div class="mb-4">
+                <label class="block text-xs text-hearth-dim mb-1">布局方式</label>
+                <div class="flex gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="ct-layout" value="bracket" checked class="accent-yellow-500">
+                        <span class="text-sm text-gray-300">对阵图（标准淘汰赛）</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="ct-layout" value="grid" class="accent-yellow-500">
+                        <span class="text-sm text-gray-300">平铺网格（海选赛）</span>
+                    </label>
+                </div>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛卡片平铺显示，无连线；对阵图带 SVG 连线和折叠</span>
+            </div>
+
             <!-- 轮次配置 -->
             <div class="mb-4">
                 <label class="block text-xs text-hearth-dim mb-1">BO 设置（每轮局数）</label>
@@ -1115,7 +1131,8 @@ async function ctSubmit() {
         allRounds.push({ round: r, boN: boPerRound[r] || 3, groups: [{ groupIndex: 1, players: [] }] });
     }
 
-    const body = { tournamentName: name, rounds: allRounds };
+    const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
+    const body = { tournamentName: name, rounds: allRounds, layout };
 
     try {
         const res = await fetch('/api/tournament/create', {
