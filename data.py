@@ -23,7 +23,7 @@ def get_players():
     pipeline = [
         {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER]}},
         {"$unwind": "$players"},
-        {"$match": {"players.points": {"$ne": None}}},
+        {"$match": {"players.accountIdLo": {"$nin": ["", None, "None"]}, "players.points": {"$ne": None}}},
         {"$group": {
             "_id": "$players.battleTag",
             "displayName": {"$first": "$players.displayName"},
@@ -353,7 +353,7 @@ def get_group_rankings(db, tournament_name=None):
         {"$match": {"endedAt": {"$ne": None}}},
         {"$match": {"players": {"$not": {"$elemMatch": {"placement": None}}}}},
         {"$unwind": "$players"},
-        {"$match": {"players.accountIdLo": {"$nin": ["", None]}}},
+        {"$match": {"players.accountIdLo": {"$nin": ["", None, "None"]}}},
         {"$sort": {"tournamentGroupId": 1, "startedAt": 1}},
         {"$group": {
             "_id": {"tg": "$tournamentGroupId", "lo": "$players.accountIdLo"},
