@@ -478,22 +478,14 @@ def api_admin_manual_advance(group_id):
 
     if existing:
         players = existing.get("players", [])
-        # 找出当前组已晋级的玩家（非空位），用于替换
-        current_lo_set = {str(p.get("accountIdLo", "")) for p in group.get("players", []) if p.get("accountIdLo")}
-        replace_indices = [i for i, p in enumerate(players)
-                           if not p.get("empty") and str(p.get("accountIdLo", "")) in current_lo_set]
         empty_indices = [i for i, p in enumerate(players) if p.get("empty")]
-
         update_ops = {}
-        used_replaced = 0
-        # 优先替换已有的（自动晋级的），再用空位
-        slots = replace_indices + empty_indices
         for i, q in enumerate(quals):
-            if i < len(slots):
-                update_ops[f"players.{slots[i]}"] = q
+            if i < len(empty_indices):
+                update_ops[f"players.{empty_indices[i]}"] = q
         if update_ops:
             db.tournament_groups.update_one({"_id": existing["_id"]}, {"$set": update_ops})
-        log.info(f"[manual-advance] 管理员 {admin_tag} 手动晋级 R{current_round}G{gi} → R{next_round}G{next_group_index}: {len(quals)} 人 (替换{len(replace_indices)} + 空位{len(empty_indices)})")
+        log.info(f"[manual-advance] 管理员 {admin_tag} 手动晋级 R{current_round}G{gi} → R{next_round}G{next_group_index}: {len(quals)} 人")
     else:
         all_players = quals + [{"battleTag": None, "accountIdLo": None, "displayName": "待定",
                                 "heroCardId": None, "heroName": None, "empty": True}] * 4

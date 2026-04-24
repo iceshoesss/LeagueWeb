@@ -407,6 +407,11 @@ def try_advance_group(db, tg):
         log.info(f"[advance] 跳过 grid 布局晋级: R{tg.get('round')}G{tg.get('groupIndex')}")
         return
 
+    # 手动晋级模式：跳过自动晋级，等管理员操作
+    if tg.get("manualAdvance"):
+        log.info(f"[advance] 跳过手动晋级组: R{tg.get('round')}G{tg.get('groupIndex')}")
+        return
+
     current_round = tg.get("round", 1)
     gi = tg.get("groupIndex", 1)
     tournament_name = tg.get("tournamentName", "赛事")
