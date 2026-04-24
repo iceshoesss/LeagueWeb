@@ -367,6 +367,20 @@ def build_bracket_data():
     if has_bracket:
         result = [t for t in result if t["layout"] != "grid"]
 
+    # 多个 bracket 赛事时只显示最新的（512强出现后隐藏海选 bracket）
+    bracket_tournaments = [t for t in result if t["layout"] == "bracket"]
+    if len(bracket_tournaments) > 1:
+        # 按赛事中最早一组的 startedAt 排序，取最新的
+        def _earliest_start(t):
+            for rd in t.get("rounds", []):
+                for g in rd.get("groups", []):
+                    sa = g.get("startedAt")
+                    if sa:
+                        return sa
+            return ""
+        bracket_tournaments.sort(key=_earliest_start)
+        result = [bracket_tournaments[-1]]
+
     return {"tournaments": result}
 
 
