@@ -80,7 +80,7 @@
 const GAME_UUID = {{ match.gameUuid | tojson }};
 
 // 已锁定的玩家及其排名（后端校验用）
-const LOCKED_PLACEMENTS = {
+const LOCKED_PLACEMENTS = {{ edit_mode | tojson }} ? {} : {
     {% for p in match.players if p.placement is not none %}
     "{{ p.accountIdLo }}": {{ p.placement }},
     {% endfor %}
