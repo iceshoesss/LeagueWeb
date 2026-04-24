@@ -348,7 +348,7 @@ def api_plugin_update_placement():
         null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
         if len(null_indices) == 1:
             used = {p["placement"] for p in players if p.get("placement") is not None}
-            remaining = set(range(1, 9)) - used
+            remaining = set(range(1, len(players) + 1)) - used
             if len(remaining) == 1:
                 auto_placement = remaining.pop()
                 auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
