@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-手动补录进入等待测试 — BO2，7 人，3 人上传失败后管理员补录
+手动补录测试 — BO2，7 人，3 人上传失败后停止
 
-验证：4 人上传 → 3 人失败 → 管理员补录 → 对局结束 → gamesPlayed=1 → status=waiting
+脚本只做到 4 人上传排名就停止，剩下 3 人由用户在网页上手动补录。
+验证补录后能否正常进入 BO2 等待状态。
 
 用法：
   python3 scripts/test_manual_fill.py
@@ -12,7 +13,6 @@
 import argparse
 import json
 import random
-import sys
 import time
 
 import requests
@@ -32,9 +32,6 @@ HEROES = [
     ("TB_BaconShop_HERO_20", "帕奇维克"),
 ]
 
-passed = 0
-failed = 0
-
 
 def plugin_headers():
     return {"Content-Type": "application/json", "X-HDT-Plugin": PLUGIN_VER,
@@ -51,22 +48,12 @@ def api(method, url, session=None, **kwargs):
     return r.status_code, data
 
 
-def check(label, condition, detail=""):
-    global passed, failed
-    if condition:
-        passed += 1
-        print(f"  ✅ {label}")
-    else:
-        failed += 1
-        print(f"  ❌ {label}  {detail}")
-
-
 def step(label, status, data):
     icon = "✅" if 200 <= status < 300 else f"❌ {status}"
     detail = json.dumps(data, ensure_ascii=False)
     if len(detail) > 120:
         detail = detail[:117] + "..."
-    print(f"    {label:30s} {icon:6s} {detail}")
+    print(f"  {label:30s} {icon:6s} {detail}")
 
 
 def make_players(prefix, start_tag, count=7):
@@ -143,7 +130,7 @@ def run(base, prefix, start_tag, admin_tag):
     if s != 200:
         print("  ❌ 创建失败"); return
 
-    # ── 第 1 局: check-league ──
+    # ── check-league ──
     print("\n⚔️ 第 1 局: check-league")
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     game_los = [p["accountIdLo"] for p in group] + ["0"]
@@ -160,20 +147,19 @@ def run(base, prefix, start_tag, admin_tag):
             "mode": "solo", "region": "CN", "startedAt": started_at,
         }, headers=plugin_headers())
         if i == 0:
-            check("匹配到淘汰赛", d.get("isLeague") is True)
             game_uuid = d.get("gameUuid")
         step(f"{p['battleTag'][-4:]} check-league", s, d)
         time.sleep(0.2)
 
     if not game_uuid:
         print("  ❌ 未获取到 gameUuid"); return
-    print(f"\n  🎮 gameUuid: {game_uuid}")
 
     # ── 前 4 人上传排名，后 3 人模拟失败 ──
     placements = list(range(1, 8))
     random.shuffle(placements)
 
-    print(f"\n📤 前 4 人上传排名（后 3 人模拟上传失败）")
+    print(f"\n📤 前 4 人上传排名（后 3 人上传失败）")
+    print(f"   gameUuid: {game_uuid}\n")
     for i in range(4):
         p = group[i]
         placement = placements[i]
@@ -181,52 +167,18 @@ def run(base, prefix, start_tag, admin_tag):
             "playerId": p["battleTag"], "gameUuid": game_uuid,
             "accountIdLo": p["accountIdLo"], "placement": placement,
         }, headers=plugin_headers())
-        step(f"第{placement}名 {p['battleTag'][-4:]}", s, d)
+        step(f"第{placement}名 {p['battleTag']} (Lo={p['accountIdLo']})", s, d)
         time.sleep(0.3)
 
-    # ── 管理员补录剩下 3 人 ──
-    print(f"\n🔧 管理员补录剩余 3 人")
-    admin_placements = {}
-    for i in range(4, 7):
-        p = group[i]
-        placement = placements[i]
-        admin_placements[p["accountIdLo"]] = placement
-        print(f"    补录: {p['battleTag']} → 第{placement}名")
-
-    s, d = api("POST", f"{base}/api/match/{game_uuid}/update-placement",
-               session=admin_session, json={"placements": admin_placements})
-    step("管理员补录", s, d)
-    check("补录成功", d.get("ok") is True)
-
-    # ── 验证结果 ──
-    print(f"\n🔍 验证")
-    match = requests.get(f"{base}/api/match/{game_uuid}").json()
-    ended = match.get("endedAt") is not None
-    check("对局已结束", ended)
-
-    null_count = sum(1 for p in match.get("players", []) if p.get("placement") is None)
-    check("所有玩家都有排名", null_count == 0)
-
-    # 查 bracket 验证 BO 进度
-    bracket = requests.get(f"{base}/api/bracket").json()
-    found = False
-    for t in bracket.get("tournaments", []):
-        for rd in t.get("rounds", []):
-            for g in rd.get("groups", []):
-                if g.get("boN") == 2:
-                    gp = g.get("gamesPlayed", 0)
-                    status = g.get("status")
-                    check(f"BO 进度: gamesPlayed={gp}/2, status={status}",
-                          gp == 1 and status == "waiting")
-                    found = True
-    if not found:
-        check("BO 进度更新", False, "未找到 BO2 组")
-
-    print(f"\n{'=' * 60}")
-    print(f"  测试完成: {passed} 通过 / {failed} 失败")
-    print(f"{'=' * 60}")
-    if failed > 0:
-        sys.exit(1)
+    print(f"\n{'─' * 60}")
+    print(f"  ⚠️ 后 3 人上传失败，请在网页上手动补录：")
+    print(f"{'─' * 60}")
+    fail_players = group[4:]
+    for i, p in enumerate(fail_players):
+        print(f"    {p['battleTag']}  Lo={p['accountIdLo']}  (未上传)")
+    print(f"\n  在管理后台找到对局 {game_uuid}")
+    print(f"  为以上 3 人补录排名后，检查 BO 进度是否变为 gamesPlayed=1/2, status=waiting")
+    print(f"{'─' * 60}")
 
 
 def main():
