@@ -151,14 +151,13 @@ def play_game(base, group, group_name, game_num, bo_n, bot_count=1):
 
     # ── update-placement ──
     # 8 人排名：前 N 个给真实玩家，剩余给 bot
-    placements = list(range(1, 9))  # 总是 1-8
+    placements = list(range(1, len(group) + 1))  # 按真实人数生成排名，如 5 人用 1-5
     random.shuffle(placements)
-    player_placements = placements[:len(group)]
 
     results = []
     finalized = False
     for i, p in enumerate(group):
-        placement = player_placements[i]
+        placement = placements[i]
         s, d = sim_update_placement(base, p, game_uuid, placement)
         points = calc_points(placement)
         finalized = d.get("finalized", False)
