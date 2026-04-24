@@ -4,7 +4,7 @@ import json
 import logging
 from flask import Blueprint, render_template, redirect, url_for, session
 
-from db import get_db, TOURNAMENT_PHASE, ENROLL_DEADLINE, ENROLL_SLOTS
+from db import get_db, TOURNAMENT_PHASE, ENROLL_DEADLINE
 from auth import is_admin
 from data import (get_players, get_completed_matches, get_active_games,
                   get_player, get_player_matches, get_rival_stats,
@@ -20,11 +20,11 @@ def index():
     phase = TOURNAMENT_PHASE
     if phase == "auto":
         if ENROLL_DEADLINE and not _enroll_deadline_reached():
-            return render_template("enroll.html", enroll_slots=ENROLL_SLOTS)
+            return render_template("enroll.html")
         data = build_bracket_data()
         return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
     elif phase == "enroll":
-        return render_template("enroll.html", enroll_slots=ENROLL_SLOTS)
+        return render_template("enroll.html")
     else:  # bracket
         data = build_bracket_data()
         return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
