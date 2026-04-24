@@ -119,6 +119,21 @@ def api_plugin_check_league():
     cleanup_stale_queues()
 
     # ── 淘汰赛 BO 系列赛匹配 ──
+    # 先查是否已有同局的淘汰赛 match（BO1 场景：第一个人创建后 gamesPlayed==boN，后续人找不到组）
+    existing_match = db.league_matches.find_one(
+        {"gameUuid": game_uuid, "tournamentGroupId": {"$exists": True}},
+        {"_id": 1},
+    )
+    if existing_match:
+        log.info(f"[check-league] 同局淘汰赛 match 已存在 gameUuid={game_uuid}，直接返回 isLeague=true")
+        resp = {"isLeague": True}
+        vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
+            account_id_lo=data.get("accountIdLo", "").strip(),
+            mode=data.get("mode", "solo"), region=data.get("region", "CN"))
+        if vc:
+            resp["verificationCode"] = vc
+        return jsonify(resp)
+
     active_tournament_groups = list(db.tournament_groups.find({
         "status": {"$in": ["waiting", "active"]},
         "$expr": {"$lt": ["$gamesPlayed", "$boN"]},
@@ -212,8 +227,11 @@ def api_plugin_check_league():
             break
 
     if matched_group is None:
-        is_league = db.league_matches.find_one({"gameUuid": game_uuid}) is not None
-        if not is_league:
+        existing = db.league_matches.find_one({"gameUuid": game_uuid}, {"_id": 1, "tournamentGroupId": 1})
+        is_league = existing is not None
+        if is_league:
+            log.info(f"[check-league] 积分赛 fallback: 已有 match gameUuid={game_uuid} tournament={existing.get('tournamentGroupId') is not None}")
+        else:
             log.info(f"[check-league] 未匹配任何队列: gameUuid={game_uuid} isLeague=false")
         resp = {"isLeague": is_league}
         vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
