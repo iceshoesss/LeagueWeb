@@ -353,6 +353,7 @@ def get_group_rankings(db, tournament_name=None):
         {"$match": {"endedAt": {"$ne": None}}},
         {"$match": {"players": {"$not": {"$elemMatch": {"placement": None}}}}},
         {"$unwind": "$players"},
+        {"$match": {"players.accountIdLo": {"$nin": ["", None]}}},
         {"$sort": {"tournamentGroupId": 1, "startedAt": 1}},
         {"$group": {
             "_id": {"tg": "$tournamentGroupId", "lo": "$players.accountIdLo"},
