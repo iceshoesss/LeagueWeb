@@ -183,42 +183,43 @@ def api_update_placement(game_uuid):
                 )
                 log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement}")
 
-    db.league_matches.update_one(
-        {"gameUuid": game_uuid},
-        {"$set": {"endedAt": match.get("endedAt") or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")},
-         "$unset": {"status": ""}}
-    )
+    # 重新读取最新状态
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    players = match.get("players", []) if match else []
+    all_filled = all(p.get("placement") is not None for p in players)
+
+    # 仅全部提交时才标记对局结束
+    if all_filled:
+        db.league_matches.update_one(
+            {"gameUuid": game_uuid},
+            {"$set": {"endedAt": match.get("endedAt") or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")},
+             "$unset": {"status": ""}}
+        )
 
     # ── 淘汰赛 BO 累计（仅全部提交时触发）──
-    tg_id = match.get("tournamentGroupId")
-    if tg_id:
+    tg_id = match.get("tournamentGroupId") if match else None
+    if tg_id and all_filled:
         from data import try_advance_group
-        # 重新读取最新状态
-        match = db.league_matches.find_one({"gameUuid": game_uuid})
-        players = match.get("players", []) if match else []
-        all_filled = all(p.get("placement") is not None for p in players)
+        tg = db.tournament_groups.find_one({"_id": tg_id})
+        if tg:
+            bo_n = tg.get("boN", 1)
+            old_gp = tg.get("gamesPlayed", 0)
+            games_played = old_gp + 1
+            now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-        if all_filled:
-            tg = db.tournament_groups.find_one({"_id": tg_id})
-            if tg:
-                bo_n = tg.get("boN", 1)
-                old_gp = tg.get("gamesPlayed", 0)
-                games_played = old_gp + 1
-                now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+            update_fields = {"gamesPlayed": games_played}
+            if games_played >= bo_n:
+                update_fields["status"] = "done"
+                update_fields["endedAt"] = now_str
+                log.info(f"[补录] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →done")
+                try_advance_group(db, tg)
+            else:
+                update_fields["status"] = "waiting"
+                log.info(f"[补录] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →waiting")
 
-                update_fields = {"gamesPlayed": games_played}
-                if games_played >= bo_n:
-                    update_fields["status"] = "done"
-                    update_fields["endedAt"] = now_str
-                    log.info(f"[补录] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →done")
-                    try_advance_group(db, tg)
-                else:
-                    update_fields["status"] = "waiting"
-                    log.info(f"[补录] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →waiting")
-
-                db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
-        else:
-            log.info(f"[补录] 部分补录，不触发 BO 进度: gameUuid={game_uuid} 已填={sum(1 for p in players if p.get('placement') is not None)}/{len(players)}")
+            db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
+    elif tg_id:
+        log.info(f"[补录] 部分补录，不触发 BO 进度: gameUuid={game_uuid} 已填={sum(1 for p in players if p.get('placement') is not None)}/{len(players)}")
 
     return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
