@@ -6,8 +6,8 @@
 模拟 BO1 全流程：每个玩家独立 check-league + update-placement。
 
 用法：
-  python3 scripts/test_grid.py
-  python3 scripts/test_grid.py --base http://xxx:5000 --bo 2 --admin "衣锦夜行#1000"
+  python scripts/test_grid.py
+  python scripts/test_grid.py --base http://xxx:5000 --bo 2 --admin "衣锦夜行#1000"
 """
 
 import argparse

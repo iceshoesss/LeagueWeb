@@ -8,9 +8,9 @@
 3. 对局正常结束 + BO 进度正确
 
 用法：
-  python3 test_bot_slot.py                          # 默认 localhost:5000
-  python3 test_bot_slot.py --base http://xxx:5000   # 指定 API
-  python3 test_bot_slot.py --bo 5                   # BO5
+  python test_bot_slot.py                          # 默认 localhost:5000
+  python test_bot_slot.py --base http://xxx:5000   # 指定 API
+  python test_bot_slot.py --bo 5                   # BO5
 """
 
 import argparse

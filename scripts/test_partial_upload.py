@@ -7,8 +7,8 @@
 验证：对局结束 → 进入 BO2 → 第 2 局正常进行。
 
 用法：
-  python3 scripts/test_partial_upload.py
-  python3 scripts/test_partial_upload.py --base http://xxx:5000
+  python scripts/test_partial_upload.py
+  python scripts/test_partial_upload.py --base http://xxx:5000
 """
 
 import argparse

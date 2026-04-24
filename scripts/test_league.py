@@ -6,14 +6,14 @@
   upload-rating → register → login → check-league → update-placement
 
 用法：
-  python3 test_league.py                          # 默认参数
-  python3 test_league.py --base https://xxx.com   # 指定 API 地址
-  python3 test_league.py --prefix 测试玩家         # 自定义玩家名前缀
-  python3 test_league.py --skip-placement 3       # 跳过第4个玩家的排名提交，测试自动推算
-  python3 test_league.py --with-errors            # 正常流程 + 错误场景测试
-  python3 test_league.py --test-errors            # 仅运行错误场景测试
-  python3 test_league.py --demo                   # 演示模式，Step 4 每人间隔 3 秒（录视频用）
-  python3 test_league.py --interval 5             # 自定义 Step 4 间隔秒数
+  python test_league.py                          # 默认参数
+  python test_league.py --base https://xxx.com   # 指定 API 地址
+  python test_league.py --prefix 测试玩家         # 自定义玩家名前缀
+  python test_league.py --skip-placement 3       # 跳过第4个玩家的排名提交，测试自动推算
+  python test_league.py --with-errors            # 正常流程 + 错误场景测试
+  python test_league.py --test-errors            # 仅运行错误场景测试
+  python test_league.py --demo                   # 演示模式，Step 4 每人间隔 3 秒（录视频用）
+  python test_league.py --interval 5             # 自定义 Step 4 间隔秒数
 """
 
 import argparse

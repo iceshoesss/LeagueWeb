@@ -6,8 +6,8 @@
 验证补录后能否正常进入 BO2 等待状态。
 
 用法：
-  python3 scripts/test_manual_fill.py
-  python3 scripts/test_manual_fill.py --base http://xxx:5000
+  python scripts/test_manual_fill.py
+  python scripts/test_manual_fill.py --base http://xxx:5000
 """
 
 import argparse

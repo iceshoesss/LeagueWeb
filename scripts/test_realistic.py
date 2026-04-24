@@ -6,8 +6,8 @@
 模拟真实场景：8 个玩家各自从 HearthMirror 拿到 LoList，独立上报。
 
 用法：
-  python3 scripts/test_realistic.py
-  python3 scripts/test_realistic.py --base http://xxx:5000 --bo 3 --admin "衣锦夜行#1000"
+  python scripts/test_realistic.py
+  python scripts/test_realistic.py --base http://xxx:5000 --bo 3 --admin "衣锦夜行#1000"
 """
 
 import argparse

@@ -3,10 +3,10 @@
 淘汰赛测试脚本 — 自动创建赛事 + 模拟对局（随机排名）
 
 用法：
-  python3 test_knockout.py                          # 默认
-  python3 test_knockout.py --base http://xxx:5000   # 指定 API
-  python3 test_knockout.py --bo 5                   # BO5
-  python3 test_knockout.py --group both             # AB 两组都打
+  python test_knockout.py                          # 默认
+  python test_knockout.py --base http://xxx:5000   # 指定 API
+  python test_knockout.py --bo 5                   # BO5
+  python test_knockout.py --group both             # AB 两组都打
 """
 
 import argparse
