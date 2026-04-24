@@ -158,7 +158,7 @@ def api_plugin_check_league():
         region = data.get("region", "CN")
         started_at = data.get("startedAt", datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
-        db.league_matches.update_one(
+        result = db.league_matches.update_one(
             {"gameUuid": game_uuid},
             {"$setOnInsert": {
                 "players": players,
@@ -172,14 +172,18 @@ def api_plugin_check_league():
             upsert=True,
         )
 
-        game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
-        old_status = matched_tournament_group.get("status")
-        db.tournament_groups.update_one(
-            {"_id": matched_tournament_group["_id"]},
-            {"$set": {"status": "active", "startedAt": started_at},
-             "$inc": {"gamesPlayed": 1}}
-        )
-        log.info(f"[check-league] 淘汰赛匹配: group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={game_uuid}")
+        # 只有真正创建了新 match 才递增 gamesPlayed（同一局多人并发时避免重复计数）
+        if result.upserted_id:
+            game_num = matched_tournament_group.get("gamesPlayed", 0) + 1
+            old_status = matched_tournament_group.get("status")
+            db.tournament_groups.update_one(
+                {"_id": matched_tournament_group["_id"]},
+                {"$set": {"status": "active", "startedAt": started_at},
+                 "$inc": {"gamesPlayed": 1}}
+            )
+            log.info(f"[check-league] 淘汰赛匹配: group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gp={matched_tournament_group.get('gamesPlayed')}/{matched_tournament_group.get('boN')} {old_status}→active 第{game_num}局 gameUuid={game_uuid}")
+        else:
+            log.info(f"[check-league] 淘汰赛匹配: 同局 match 已存在 gameUuid={game_uuid}，跳过递增")
 
         resp = {"isLeague": True}
         vc = _ensure_verification_code(db, player_id=data.get("playerId", "").strip(),
