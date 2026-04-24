@@ -11,7 +11,7 @@ from bson import ObjectId
 from flask import Blueprint, jsonify, request, session, render_template
 
 from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_SLOTS, ENROLL_DEADLINE, TOURNAMENT_PHASE
-from auth import is_admin, _admin_required
+from auth import is_admin, is_super_admin, _admin_required
 from data import get_group_rankings, try_advance_group, try_advance_round
 from cleanup import cleanup_enrollment_deadline
 
@@ -632,8 +632,14 @@ def api_tournament_delete(tournament_name):
         return jsonify({"error": "赛事不存在"}), 404
 
     active = [g for g in groups if g.get("gamesPlayed", 0) > 0 or g.get("status") == "active"]
+    if active and not is_super_admin(admin_tag):
+        return jsonify({"error": f"有 {len(active)} 个分组已开始比赛，不能删除（超级管理员可强制删除）"}), 400
+
+    # 超级管理员强制删除：同时清理关联的 league_matches
     if active:
-        return jsonify({"error": f"有 {len(active)} 个分组已开始比赛，不能删除"}), 400
+        tg_ids = [g["_id"] for g in groups]
+        match_result = db.league_matches.delete_many({"tournamentGroupId": {"$in": tg_ids}})
+        log.info(f"[tournament] 超级管理员 {admin_tag} 强制删除赛事 {tournament_name}，删除 {match_result.deleted_count} 条对局记录")
 
     result = db.tournament_groups.delete_many({"tournamentName": tournament_name})
     log.info(f"[tournament] 管理员 {admin_tag} 删除赛事 {tournament_name}，删除 {result.deleted_count} 个分组")
