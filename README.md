@@ -182,7 +182,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.10.2 |
+| `feat/knockout` | 淘汰赛 | v0.10.3 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -192,6 +192,12 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+
+### v0.10.3 (2026-04-25) — 淘汰赛 bot 空位修复
+- **修复 bot 空位进入 match 导致自动推算错误**：check-league 创建 match 时 `isdigit()` 过滤 bot 空位（accountIdLo 非数字），不再放入 players
+- **自动推算条件恢复**：从 `len(remaining)==len(null_indices)` 改回 `len(null_indices)==1`，只在剩 1 个空位时触发
+- **排行榜聚合排除历史 bot 数据**：`$nin` 过滤加 `"None"` 字符串
+- 测试/迁移脚本移入 `scripts/` 目录
 
 ### v0.10.2 (2026-04-24) — 淘汰赛 BO 连续对局修复
 - **修复 gamesPlayed 提前递增导致 BO2+ 匹配失败**：check-league 创建 match 时不再 $inc gamesPlayed，改为 update-placement 对局结束时才递增
