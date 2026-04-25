@@ -64,26 +64,25 @@ def export_csv(db, groups, tournament_name, with_lo):
     filename = f"{ts}_{tournament_name}_分组{'_含Lo' if with_lo else ''}.csv"
 
     if with_lo:
-        headers = ["组别", "序号", "BattleTag", "显示名", "AccountIdLo"]
+        headers = ["组别", "序号", "BattleTag", "AccountIdLo"]
     else:
-        headers = ["组别", "序号", "BattleTag", "显示名"]
+        headers = ["组别", "序号", "BattleTag"]
 
     total = 0
     with open(filename, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(headers)
-        for gi, g in enumerate(groups):
+        for g in groups:
             label = group_label(g.get("groupIndex", 1) - 1)
             for i, p in enumerate(g.get("players", []), 1):
                 if p.get("empty"):
                     continue
                 tag = p.get("battleTag", "")
-                display = p.get("displayName", "")
                 if with_lo:
                     lo = p.get("accountIdLo", "") or lookup_lo(db, tag)
-                    writer.writerow([label, i, tag, display, lo])
+                    writer.writerow([label, i, tag, lo])
                 else:
-                    writer.writerow([label, i, tag, display])
+                    writer.writerow([label, i, tag])
                 total += 1
 
     print(f"已导出: {filename} ({total} 人，{len(groups)} 组)")
@@ -105,18 +104,20 @@ def export_excel(db, groups, tournament_name, with_lo):
     ws.title = "海选分组"
 
     if with_lo:
-        headers = ["组别", "序号", "BattleTag", "显示名", "AccountIdLo"]
+        headers = ["组别", "序号", "BattleTag", "AccountIdLo"]
     else:
-        headers = ["组别", "序号", "BattleTag", "显示名"]
+        headers = ["组别", "序号", "BattleTag"]
 
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2a2a4a", end_color="2a2a4a", fill_type="solid")
     thin_border = Border(bottom=Side(style="thin", color="cccccc"))
+
+    # A/B/C/D 四色，深到浅交替，同组同色
     group_fills = [
-        PatternFill(start_color="f0f4ff", end_color="f0f4ff", fill_type="solid"),  # A - 浅蓝
-        PatternFill(start_color="f0fff4", end_color="f0fff4", fill_type="solid"),  # B - 浅绿
-        PatternFill(start_color="fff8f0", end_color="fff8f0", fill_type="solid"),  # C - 浅橙
-        PatternFill(start_color="f8f0ff", end_color="f8f0ff", fill_type="solid"),  # D - 浅紫
+        PatternFill(start_color="D6E4F0", end_color="D6E4F0", fill_type="solid"),  # A - 蓝
+        PatternFill(start_color="D5F5E3", end_color="D5F5E3", fill_type="solid"),  # B - 绿
+        PatternFill(start_color="FDEBD0", end_color="FDEBD0", fill_type="solid"),  # C - 橙
+        PatternFill(start_color="E8DAEF", end_color="E8DAEF", fill_type="solid"),  # D - 紫
     ]
 
     for col, h in enumerate(headers, 1):
@@ -127,7 +128,7 @@ def export_excel(db, groups, tournament_name, with_lo):
 
     row = 2
     total = 0
-    for gi, g in enumerate(groups):
+    for g in groups:
         label = group_label(g.get("groupIndex", 1) - 1)
         group_idx = "ABCD".index(label[0]) if label[0] in "ABCD" else 0
         fill = group_fills[group_idx % 4]
@@ -136,7 +137,6 @@ def export_excel(db, groups, tournament_name, with_lo):
             if p.get("empty"):
                 continue
             tag = p.get("battleTag", "")
-            display = p.get("displayName", "")
 
             ws.cell(row=row, column=1, value=label).alignment = Alignment(horizontal="center")
             ws.cell(row=row, column=1).fill = fill
@@ -144,16 +144,14 @@ def export_excel(db, groups, tournament_name, with_lo):
             ws.cell(row=row, column=2).fill = fill
             ws.cell(row=row, column=3, value=tag)
             ws.cell(row=row, column=3).fill = fill
-            ws.cell(row=row, column=4, value=display)
-            ws.cell(row=row, column=4).fill = fill
 
             if with_lo:
                 lo = p.get("accountIdLo", "") or lookup_lo(db, tag)
-                ws.cell(row=row, column=5, value=lo)
-                ws.cell(row=row, column=5).fill = fill
-                col_count = 5
-            else:
+                ws.cell(row=row, column=4, value=lo)
+                ws.cell(row=row, column=4).fill = fill
                 col_count = 4
+            else:
+                col_count = 3
 
             for c in range(1, col_count + 1):
                 ws.cell(row=row, column=c).border = thin_border
@@ -163,9 +161,8 @@ def export_excel(db, groups, tournament_name, with_lo):
     ws.column_dimensions["A"].width = 8
     ws.column_dimensions["B"].width = 6
     ws.column_dimensions["C"].width = 28
-    ws.column_dimensions["D"].width = 20
     if with_lo:
-        ws.column_dimensions["E"].width = 16
+        ws.column_dimensions["D"].width = 16
 
     wb.save(filename)
     print(f"已导出: {filename} ({total} 人，{len(groups)} 组)")
@@ -192,7 +189,7 @@ def main():
     print(f"赛事「{tournament_name}」共 {len(groups)} 组：")
     for g in groups:
         label = group_label(g.get("groupIndex", 1) - 1)
-        names = [p.get("displayName", "?") for p in g.get("players", []) if not p.get("empty")]
+        names = [p.get("battleTag", "?") for p in g.get("players", []) if not p.get("empty")]
         print(f"  {label} 组 ({len(names)} 人): {', '.join(names)}")
     print()
 
