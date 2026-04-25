@@ -246,7 +246,6 @@ def build_bracket_data():
                         p["eliminated"] = rank_data["eliminated"]
                         p["chickens"] = rank_data.get("chickens", 0)
                         p["lastGamePlacement"] = rank_data.get("lastGamePlacement", 999)
-                        p["lastGamePoints"] = rank_data.get("lastGamePoints", 0)
                     else:
                         p["totalPoints"] = 0
                         p["games"] = []
@@ -256,7 +255,6 @@ def build_bracket_data():
                         p["eliminated"] = False
                         p["chickens"] = 0
                         p["lastGamePlacement"] = 999
-                        p["lastGamePoints"] = 0
                     p["empty"] = p.get("empty", False)
 
         # done 组排序
@@ -266,7 +264,7 @@ def build_bracket_data():
                     g["players"].sort(key=lambda p: (
                         -(p.get("totalPoints", 0)),
                         -(p.get("chickens", 0)),
-                        -(p.get("lastGamePoints", 0)),
+                        p.get("lastGamePlacement", 999),
                     ))
 
         # waiting 组（BO 间歇期）排序
@@ -298,7 +296,7 @@ def build_bracket_data():
                     g["players"].sort(key=lambda p: (
                         -(p.get("totalPoints", 0)),
                         -(p.get("chickens", 0)),
-                        -(p.get("lastGamePoints", 0)),
+                        p.get("lastGamePlacement", 999),
                     ))
 
         # 活跃组注入英雄 + 死亡状态
