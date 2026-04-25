@@ -565,6 +565,10 @@ def api_admin_manual_record(group_id):
     for lo, pl in placements.items():
         if not isinstance(pl, int) or pl < 1 or pl > 8:
             return jsonify({"error": f"排名必须是 1-8 的整数"}), 400
+    # 检查提交的排名之间是否有重复
+    submitted_vals = list(placements.values())
+    if len(submitted_vals) != len(set(submitted_vals)):
+        return jsonify({"error": "提交的排名中存在重复"}), 400
 
     # 获取组内玩家
     group_players = [p for p in group.get("players", []) if not p.get("empty") and p.get("accountIdLo")]
@@ -606,6 +610,17 @@ def api_admin_manual_record(group_id):
         log.info(f"[manual-record] 管理员 {admin_tag} 创建空对局 R{group.get('round')}G{group.get('groupIndex')}, gameUuid={existing_match['gameUuid']}")
 
     game_uuid = existing_match["gameUuid"]
+
+    # 收集已有排名，检查提交的排名是否和锁定的重复
+    locked_placements = {}
+    for p in existing_match.get("players", []):
+        lo = str(p.get("accountIdLo", ""))
+        if p.get("placement") is not None and lo:
+            locked_placements[lo] = p["placement"]
+    for lo, pl in placements.items():
+        if pl in locked_placements.values():
+            conflict_lo = [k for k, v in locked_placements.items() if v == pl]
+            return jsonify({"error": f"第{pl}名已被锁定，不能重复"}), 400
 
     # 逐个更新玩家排名（跳过已有排名的）
     updated = 0

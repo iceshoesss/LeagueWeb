@@ -1658,6 +1658,15 @@ async function mtManualRecord(gid) {
         const count = Object.keys(placements).length;
         if (count === 0) { await showAlert('请至少为一位玩家选择排名'); return; }
 
+        // 检查重复：提交的排名之间不能重复，也不能和锁定的重复
+        const used = new Set(Object.values(lockedPlacements));
+        let dup = false;
+        for (const pl of Object.values(placements)) {
+            if (used.has(pl)) { dup = true; break; }
+            used.add(pl);
+        }
+        if (dup) { await showAlert('排名存在重复，请检查'); return; }
+
         const recRes = await fetch(`/api/admin/group/${gid}/manual-record`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
