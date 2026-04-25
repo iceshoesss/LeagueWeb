@@ -57,7 +57,7 @@
                             </div>
                             {% endif %}
                             <div class="min-w-0 flex-1">
-                                <div class="text-xs truncate">{{ p.displayName }}</div>
+                                <a href="/player/{{ p.battleTag | urlencode }}" class="text-xs truncate hover:text-hearth-gold transition block" onclick="event.stopPropagation()">{{ p.displayName }}</a>
                                 <div class="text-xs text-hearth-dim">
                                     第{{ p.placement }}名
                                     <span class="{% if p.points > 0 %}text-hearth-gold{% else %}text-hearth-dim{% endif %}">+{{ p.points }}</span>
@@ -445,7 +445,7 @@ function renderMatches(matches) {
             const img = p.heroCardId
                 ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" title="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
                 : '';
-            return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">${img}<div class="min-w-0 flex-1"><div class="text-xs truncate">${p.displayName}</div><div class="text-xs text-hearth-dim">第${p.placement}名 <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span></div></div></div>`;
+            return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/5">${img}<div class="min-w-0 flex-1"><a href="/player/${encodeURIComponent(p.battleTag)}" class="text-xs truncate hover:text-hearth-gold transition block" onclick="event.stopPropagation()">${p.displayName}</a><div class="text-xs text-hearth-dim">第${p.placement}名 <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span></div></div></div>`;
         }).join('');
         return `<a href="/match/${m.gameUuid}" class="block px-5 py-4 hover:bg-white/5 transition"><div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${players}</div></a>`;
     }).join('');
