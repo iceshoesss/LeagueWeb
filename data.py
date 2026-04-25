@@ -342,7 +342,23 @@ def get_problem_matches():
 
 # ── 淘汰赛相关 ──────────────────────────────────────
 
-def get_group_rankings(db, tournament_name=None):
+def _sort_key_chicken(p):
+    """吃鸡规则排序：总积分↓ → 吃鸡↓ → 最后一局排名↑"""
+    return (-p.get("totalPoints", 0), -p.get("chickens", 0), p.get("lastGamePlacement", 999))
+
+
+def _sort_key_golden(p):
+    """黄金赛规则排序：总积分↓ → 单局最高分↓ → 最后一局分数↓"""
+    return (-p.get("totalPoints", 0), -p.get("maxGamePoints", 0), -p.get("lastGamePoints", 0))
+
+
+SORT_KEYS = {
+    "chicken": _sort_key_chicken,
+    "golden": _sort_key_golden,
+}
+
+
+def get_group_rankings(db, tournament_name=None, advancement_rule="chicken"):
     """从 league_matches 聚合淘汰赛各组排名数据"""
     match_filter = {"tournamentGroupId": {"$ne": None}}
     if tournament_name:
@@ -367,8 +383,14 @@ def get_group_rankings(db, tournament_name=None):
             "placements": {"$push": "$players.placement"},
             "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "lastPlacement": {"$last": "$players.placement"},
+            "lastPoints": {"$last": {"$ifNull": ["$players.points", 0]}},
+        }},
+        {"$addFields": {
+            "maxGamePoints": {"$max": "$games"},
         }},
     ]
+
+    sort_fn = SORT_KEYS.get(advancement_rule, _sort_key_chicken)
 
     rankings = {}
     for doc in db.league_matches.aggregate(pipeline):
@@ -383,11 +405,13 @@ def get_group_rankings(db, tournament_name=None):
             "games": doc["games"],
             "chickens": doc["chickens"],
             "lastGamePlacement": doc["lastPlacement"] or 999,
+            "maxGamePoints": doc.get("maxGamePoints", 0),
+            "lastGamePoints": doc.get("lastPoints", 0),
         })
 
     result = {}
     for tg_str, players_list in rankings.items():
-        players_list.sort(key=lambda p: (-p["totalPoints"], -p["chickens"], p["lastGamePlacement"]))
+        players_list.sort(key=sort_fn)
         players_data = {}
         for i, p in enumerate(players_list):
             players_data[p["accountIdLo"]] = {
@@ -396,6 +420,8 @@ def get_group_rankings(db, tournament_name=None):
                 "games": p["games"],
                 "chickens": p["chickens"],
                 "lastGamePlacement": p["lastGamePlacement"],
+                "maxGamePoints": p["maxGamePoints"],
+                "lastGamePoints": p["lastGamePoints"],
                 "placement": i + 1,
                 "qualified": i < 4,
                 "eliminated": i >= 4,
@@ -415,20 +441,22 @@ def try_advance_group(db, tg):
     gi = tg.get("groupIndex", 1)
     tournament_name = tg.get("tournamentName", "赛事")
     tg_id = tg["_id"]
+    advancement_rule = tg.get("advancementRule", "chicken")
 
     groups_in_round = db.tournament_groups.count_documents({
         "round": current_round, "tournamentName": tournament_name,
     })
     next_group_index = (gi + 1) // 2 if groups_in_round > 1 else 1
 
-    group_rankings = get_group_rankings(db, tournament_name)
+    group_rankings = get_group_rankings(db, tournament_name, advancement_rule)
     rankings = group_rankings.get(str(tg_id), {})
 
-    ranked_players = sorted(
-        tg.get("players", []),
-        key=lambda p: rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
-        reverse=True,
-    )
+    def _rank_key(p):
+        r = rankings.get(str(p.get("accountIdLo", "")), {})
+        return sort_fn(r) if r else (0,)
+
+    sort_fn = SORT_KEYS.get(advancement_rule, _sort_key_chicken)
+    ranked_players = sorted(tg.get("players", []), key=_rank_key)
 
     quals = []
     for p in ranked_players[:4]:
@@ -468,6 +496,7 @@ def try_advance_group(db, tg):
             "groupIndex": next_group_index,
             "status": "waiting",
             "boN": next_bo_n,
+            "advancementRule": advancement_rule,
             "gamesPlayed": 0,
             "players": all_players,
             "nextRoundGroupId": None,
@@ -500,18 +529,21 @@ def try_advance_round(db, current_round, tournament_name, group_rankings=None):
         return
 
     if group_rankings is None:
-        group_rankings = get_group_rankings(db, tournament_name)
+        group_rankings = get_group_rankings(db, tournament_name, round_groups[0].get("advancementRule", "chicken"))
     buckets = {}
     for g in sorted(round_groups, key=lambda x: x.get("groupIndex", 0)):
         gi = g.get("groupIndex", 0)
         nrg = (gi + 1) // 2 if len(round_groups) > 1 else None
         tg_str = str(g["_id"])
         rankings = group_rankings.get(tg_str, {})
-        ranked_players = sorted(
-            g.get("players", []),
-            key=lambda p: rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
-            reverse=True,
-        )
+        advancement_rule = g.get("advancementRule", "chicken")
+        sort_fn = SORT_KEYS.get(advancement_rule, _sort_key_chicken)
+
+        def _rank_key(p, rk=rankings, fn=sort_fn):
+            r = rk.get(str(p.get("accountIdLo", "")), {})
+            return fn(r) if r else (0,)
+
+        ranked_players = sorted(g.get("players", []), key=_rank_key)
         for p in ranked_players[:4]:
             buckets.setdefault(nrg, []).append({
                 "battleTag": p.get("battleTag", ""),
@@ -529,12 +561,14 @@ def try_advance_round(db, current_round, tournament_name, group_rankings=None):
                             "heroCardId": None, "heroName": None, "empty": True})
         next_nrg = (gid + 1) // 2 if len(buckets) > 1 else None
         src_bo_n = round_groups[0].get("boN", 1)
+        src_rule = round_groups[0].get("advancementRule", "chicken")
         db.tournament_groups.insert_one({
             "tournamentName": tournament_name,
             "round": next_round,
             "groupIndex": gid,
             "status": "waiting",
             "boN": src_bo_n,
+            "advancementRule": src_rule,
             "gamesPlayed": 0,
             "players": players,
             "nextRoundGroupId": next_nrg,

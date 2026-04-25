@@ -243,6 +243,16 @@
                 <span class="text-xs text-hearth-dim/60 mt-1 block">海选赛从报名选手中选择，卡片每行 4 个平铺，无连线，只有一轮</span>
             </div>
 
+            <!-- 晋级规则 -->
+            <div class="mb-4">
+                <label class="block text-xs text-hearth-dim mb-1">晋级规则</label>
+                <select id="ct-advancement-rule" class="bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                    <option value="chicken">吃鸡规则（总积分 → 吃鸡次数 → 最后一局排名）</option>
+                    <option value="golden">黄金赛规则（总积分 → 单局最高分 → 最后一局分数）</option>
+                </select>
+                <span class="text-xs text-hearth-dim/60 mt-1 block">同分时的晋级判定方式</span>
+            </div>
+
             <!-- 平铺网格：取前N人 -->
             <div id="ct-grid-enroll-section" class="mb-4 hidden">
                 <label class="block text-xs text-hearth-dim mb-1">从报名中取前 N 人</label>
@@ -1293,6 +1303,7 @@ async function ctSubmit() {
     }
 
     const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
+    const advancementRule = document.getElementById('ct-advancement-rule')?.value || 'chicken';
 
     // 自动生成后续轮次：n → n/2 → ... → 1（grid 海选模式只有一轮）
     const allRounds = [{ round: 1, boN: boPerRound[1] || 3, groups: groups }];
@@ -1313,7 +1324,7 @@ async function ctSubmit() {
         }
     }
 
-    const body = { tournamentName: name, rounds: allRounds, layout };
+    const body = { tournamentName: name, rounds: allRounds, layout, advancementRule };
 
     try {
         const res = await fetch('/api/tournament/create', {
@@ -1352,6 +1363,10 @@ async function showManageTournament(name) {
         mtAllPlayers = await pRes.json();
         const tData = await tRes.json();
         if (tRes.ok) {
+            // 显示晋级规则
+            const rule = (tData.groups && tData.groups[0]) ? (tData.groups[0].advancementRule || 'chicken') : 'chicken';
+            const ruleLabel = rule === 'golden' ? '黄金赛规则' : '吃鸡规则';
+            document.getElementById('mt-title').textContent = `管理 — ${name}（${ruleLabel}）`;
             renderManageTournament(tData);
         } else {
             content.innerHTML = `<div class="text-center text-sm text-red-400 py-8">${tData.error || '加载失败'}</div>`;
@@ -1498,12 +1513,15 @@ function _mtRenderGroup(g) {
     const status = g.status || 'waiting';
     const isEditable = status === 'waiting' && gp === 0;
     const label = _mtGroupLabel(g.groupIndex);
+    const rule = g.advancementRule || 'chicken';
+    const ruleShort = rule === 'golden' ? '黄金赛' : '吃鸡';
 
     let html = `<div class="bg-black/20 rounded-lg p-3">
         <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
                 <span class="text-sm font-bold text-hearth-gold">${label}</span>
                 <span class="badge ${status} text-xs">${status === 'waiting' ? '等待' : status === 'active' ? '进行中' : '完成'} · ${gp}/${boN}</span>
+                <span class="text-xs text-hearth-dim/60">${ruleShort}</span>
             </div>
             ${isEditable ? `<div class="flex items-center gap-1.5">
                 <select class="bg-black/30 border border-hearth-border rounded px-1 py-0.5 text-xs text-gray-200 mt-bo-select" data-gid="${gid}">
