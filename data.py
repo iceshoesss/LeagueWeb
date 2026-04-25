@@ -367,6 +367,7 @@ def get_group_rankings(db, tournament_name=None):
             "placements": {"$push": "$players.placement"},
             "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
             "lastPlacement": {"$last": "$players.placement"},
+            "lastPoints": {"$last": {"$ifNull": ["$players.points", 0]}},
         }},
     ]
 
@@ -383,11 +384,12 @@ def get_group_rankings(db, tournament_name=None):
             "games": doc["games"],
             "chickens": doc["chickens"],
             "lastGamePlacement": doc["lastPlacement"] or 999,
+            "lastGamePoints": doc.get("lastPoints", 0),
         })
 
     result = {}
     for tg_str, players_list in rankings.items():
-        players_list.sort(key=lambda p: (-p["totalPoints"], -p["chickens"], p["lastGamePlacement"]))
+        players_list.sort(key=lambda p: (-p["totalPoints"], -p["chickens"], -p["lastGamePoints"]))
         players_data = {}
         for i, p in enumerate(players_list):
             players_data[p["accountIdLo"]] = {
