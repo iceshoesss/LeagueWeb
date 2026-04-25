@@ -1336,7 +1336,7 @@ function renderManageTournament(data) {
     const toolbar = document.getElementById('mt-toolbar');
     mtGroupsData = data.groups || [];
     mtRoundCollapsed = {};
-    mtSearchSlots = {};
+    Object.keys(mtSearchSlots).forEach(k => delete mtSearchSlots[k]);
 
     const totalGroups = mtGroupsData.length;
     const isLarge = totalGroups > 16;  // 超过 16 组默认折叠
