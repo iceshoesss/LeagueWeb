@@ -32,10 +32,11 @@ def index():
 
 @pages.route("/leaderboard")
 def leaderboard_page():
-    from data import get_players, get_completed_matches
+    from data import get_players, get_completed_matches, get_active_games
     players = get_players()
     matches = get_completed_matches(limit=10)
-    return render_template("index_league.html", players=players, matches=matches)
+    active_games = get_active_games()
+    return render_template("index_league.html", players=players, matches=matches, active_games=active_games)
 
 
 @pages.route("/player/<path:battle_tag>")
