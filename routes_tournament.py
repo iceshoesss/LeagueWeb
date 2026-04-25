@@ -230,7 +230,7 @@ def build_bracket_data():
     # 按赛事分别获取排名（不同赛事可能有不同的晋级规则）
     all_rankings = {}
     for tname, tgroups in tournaments_map.items():
-        rule = tgroups[0].get("advancementRule", "chicken") if tgroups else "chicken"
+        rule = tgroups[0].get("advancementRule", "golden") if tgroups else "golden"
         rankings = get_group_rankings(db, tname, rule)
         all_rankings.update(rankings)
 
@@ -463,12 +463,12 @@ def api_tournament_create():
     tname = data.get("tournamentName", "").strip()
     rounds = data.get("rounds", [])
     layout = data.get("layout", "bracket")  # "bracket" | "grid"
-    advancement_rule = data.get("advancementRule", "chicken")  # "chicken" | "golden"
+    advancement_rule = data.get("advancementRule", "golden")  # "chicken" | "golden"
 
     if layout not in ("bracket", "grid"):
         layout = "bracket"
     if advancement_rule not in ("chicken", "golden"):
-        advancement_rule = "chicken"
+        advancement_rule = "golden"
 
     if not tname or not rounds:
         return jsonify({"error": "tournamentName 和 rounds 不能为空"}), 400
@@ -534,7 +534,7 @@ def api_tournament_group(group_id):
     if not group:
         return jsonify({"error": "分组不存在"}), 404
 
-    group_rankings = get_group_rankings(db, group.get("tournamentName"), group.get("advancementRule", "chicken"))
+    group_rankings = get_group_rankings(db, group.get("tournamentName"), group.get("advancementRule", "golden"))
     tg_str = str(group["_id"])
     rankings = group_rankings.get(tg_str, {})
     for p in group.get("players", []):
@@ -571,7 +571,7 @@ def api_tournament_manage(tournament_name):
     if not groups:
         return jsonify({"error": "赛事不存在"}), 404
 
-    group_rankings = get_group_rankings(db, tournament_name, groups[0].get("advancementRule", "chicken"))
+    group_rankings = get_group_rankings(db, tournament_name, groups[0].get("advancementRule", "golden"))
     for g in groups:
         tg_str = str(g["_id"])
         rankings = group_rankings.get(tg_str, {})
@@ -758,7 +758,7 @@ def api_tournament_qualifier_pool():
         return jsonify({"error": f"赛事「{source_tournament}」没有已完成的分组"}), 400
 
     # 使用源赛事的晋级规则排序
-    source_rule = source_groups[0].get("advancementRule", "chicken") if source_groups else "chicken"
+    source_rule = source_groups[0].get("advancementRule", "golden") if source_groups else "golden"
     group_rankings = get_group_rankings(db, source_tournament, source_rule)
     qualifiers = []
     seen_los = set()
@@ -822,10 +822,10 @@ def api_tournament_generate_next():
     source_tournament = data.get("sourceTournament", "").strip()
     new_name = data.get("tournamentName", "").strip()
     bo_n = data.get("boN", 3)
-    advancement_rule = data.get("advancementRule", "chicken")
+    advancement_rule = data.get("advancementRule", "golden")
 
     if advancement_rule not in ("chicken", "golden"):
-        advancement_rule = "chicken"
+        advancement_rule = "golden"
 
     if not source_tournament:
         return jsonify({"error": "sourceTournament 不能为空"}), 400
@@ -845,7 +845,7 @@ def api_tournament_generate_next():
         return jsonify({"error": f"赛事「{source_tournament}」没有已完成的分组"}), 400
 
     # 使用源赛事的晋级规则排序
-    source_rule = source_groups[0].get("advancementRule", "chicken") if source_groups else "chicken"
+    source_rule = source_groups[0].get("advancementRule", "golden") if source_groups else "golden"
     group_rankings = get_group_rankings(db, source_tournament, source_rule)
     qualifiers = []
     seen_los = set()
