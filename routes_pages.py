@@ -30,6 +30,14 @@ def index():
         return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
+@pages.route("/leaderboard")
+def leaderboard_page():
+    from data import get_players, get_completed_matches
+    players = get_players()
+    matches = get_completed_matches(limit=10)
+    return render_template("index_league.html", players=players, matches=matches)
+
+
 @pages.route("/player/<path:battle_tag>")
 def player_page(battle_tag):
     player = get_player(battle_tag)
