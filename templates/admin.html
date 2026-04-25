@@ -1602,10 +1602,10 @@ async function mtManualRecord(gid) {
     try {
         const res = await fetch(`/api/tournament/group/${gid}`);
         const group = await res.json();
-        if (!res.ok) { alert(group.error || '获取分组失败'); return; }
+        if (!res.ok) { await showAlert(group.error || '获取分组失败'); return; }
 
         const players = (group.players || []).filter(p => !p.empty && p.accountIdLo);
-        if (!players.length) { alert('该组没有玩家'); return; }
+        if (!players.length) { await showAlert('该组没有玩家'); return; }
 
         const lockedPlacements = group.lockedPlacements || {};
         const n = players.length;
@@ -1656,7 +1656,7 @@ async function mtManualRecord(gid) {
         });
 
         const count = Object.keys(placements).length;
-        if (count === 0) { alert('请至少为一位玩家选择排名'); return; }
+        if (count === 0) { await showAlert('请至少为一位玩家选择排名'); return; }
 
         const recRes = await fetch(`/api/admin/group/${gid}/manual-record`, {
             method: 'POST',
@@ -1666,15 +1666,15 @@ async function mtManualRecord(gid) {
         const recData = await recRes.json();
         if (recRes.ok) {
             if (recData.finalized) {
-                alert(`✅ 补录完成，对局已结束`);
+                await showAlert('✅ 补录完成，对局已结束');
             } else {
-                alert(`✅ 已提交 ${recData.updated} 个排名，还有玩家未补录`);
+                await showAlert(`✅ 已提交 ${recData.updated} 个排名，还有玩家未补录`);
             }
             showManageTournament(mtTournamentName);
         } else {
-            alert(recData.error || '补录失败');
+            await showAlert(recData.error || '补录失败');
         }
-    } catch (e) { alert('网络错误: ' + e.message); }
+    } catch (e) { await showAlert('网络错误: ' + e.message); }
 }
 
 async function mtManualAdvance(gid) {

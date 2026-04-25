@@ -178,6 +178,33 @@
             document.onkeydown = e => { if (e.key === 'Escape') close(false); };
         });
     }
+    function showAlert(msg, opts = {}) {
+        return new Promise(resolve => {
+            const modal = document.getElementById('confirmModal');
+            const msgEl = document.getElementById('confirmMsg');
+            const okBtn = document.getElementById('confirmOk');
+            const cancelBtn = document.getElementById('confirmCancel');
+            const overlay = document.getElementById('confirmOverlay');
+            msgEl.textContent = msg;
+            cancelBtn.classList.add('hidden');
+            okBtn.textContent = opts.okLabel || '确定';
+            if (opts.okClass) okBtn.className = opts.okClass;
+            modal.classList.remove('hidden');
+            function close() {
+                modal.classList.add('hidden');
+                okBtn.onclick = null;
+                overlay.onclick = null;
+                document.onkeydown = null;
+                cancelBtn.classList.remove('hidden');
+                okBtn.textContent = '确定';
+                okBtn.className = 'px-4 py-2 text-sm text-white bg-red-500/80 hover:bg-red-500 rounded-lg transition font-medium';
+                resolve();
+            }
+            okBtn.onclick = close;
+            overlay.onclick = close;
+            document.onkeydown = e => { if (e.key === 'Escape' || e.key === 'Enter') close(); };
+        });
+    }
     </script>
 </body>
 </html>
