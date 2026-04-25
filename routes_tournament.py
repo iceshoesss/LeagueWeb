@@ -66,7 +66,7 @@ def _build_bracket_mock():
         {'displayName': '乌瑟尔',   'battleTag': '乌瑟尔#1007',   'accountIdLo': 1000007, 'heroCardId': 'TB_BaconShop_HERO_13', 'heroName': '伊瑟拉'},
         {'displayName': '玛法里奥', 'battleTag': '玛法里奥#1008', 'accountIdLo': 1000008, 'heroCardId': 'TB_BaconShop_HERO_36', 'heroName': '拉卡尼休'},
     ]
-    GROUP_LABELS = 'ABCDEFGH'
+    GROUP_LABELS = 'ABCD'
 
     def _round_label(r):
         return {1: '小组赛', 2: '第二轮', 3: '半决赛', 4: '决赛'}.get(r, f'第 {r} 轮')
@@ -75,7 +75,7 @@ def _build_bracket_mock():
         if r >= 4 and total == 1:
             return '决赛'
         if r == 1:
-            return f'{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组' if total > 8 else f'{GROUP_LABELS[gi]} 组'
+            return f'{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组' if total > 4 else f'{GROUP_LABELS[gi]} 组'
         return f'{gi + 1} 组'
 
     def mk_players(qual_count=0, done=False):
@@ -181,7 +181,7 @@ def _build_bracket_mock():
 def build_bracket_data():
     """从 tournament_groups 集合读取对阵图数据"""
     db = get_db()
-    GROUP_LABELS = "ABCDEFGH"
+    GROUP_LABELS = "ABCD"
 
     def _round_label(r, total_rounds, layout="bracket"):
         if layout == "grid":
@@ -194,11 +194,11 @@ def build_bracket_data():
 
     def _group_label(r, gi, total, total_rounds, layout="bracket"):
         if layout == "grid":
-            return f"{GROUP_LABELS[gi]} 组" if total <= 8 else f"{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组"
+            return f"{GROUP_LABELS[gi]} 组" if total <= 4 else f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组"
         if r == total_rounds and total == 1:
             return "决赛"
         if r == 1:
-            return f"{GROUP_LABELS[gi % 8]}{gi // 8 + 1} 组" if total > 8 else f"{GROUP_LABELS[gi]} 组"
+            return f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组" if total > 4 else f"{GROUP_LABELS[gi]} 组"
         return f"{gi + 1} 组"
 
     groups = list(db.tournament_groups.find().sort([("round", 1), ("groupIndex", 1)]))
