@@ -1032,6 +1032,18 @@ async function ctLoadEnrollPool() {
         ctAllPlayers = players;
         document.getElementById('ct-enroll-pool-info').textContent = `✅ 已加载 ${n} 人，现在可以洗牌分配`;
         document.getElementById('ct-unassigned-count').textContent = n;
+
+        // 自动调整分组数为 n/8
+        const needed = n / 8;
+        const current = document.querySelectorAll('#ct-groups > div').length;
+        if (needed > current) {
+            for (let i = 0; i < needed - current; i++) ctAddGroup();
+        } else if (needed < current) {
+            const all = document.querySelectorAll('#ct-groups > div');
+            for (let i = needed; i < all.length; i++) all[i].remove();
+            ctUpdateCounts();
+            ctRefreshBoRounds();
+        }
     } catch (e) { alert('网络错误'); }
 }
 
