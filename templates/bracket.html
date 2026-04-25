@@ -358,8 +358,8 @@ function renderCard(g, x, y, isFinal) {
       ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
-    const nmText = p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '');
-    const nmHtml = p.empty ? nmText : `<a href="/player/${encodeURIComponent(p.battleTag || p.displayName || p.name || '')}" class="nm-link" onclick="event.stopPropagation()">${nmText}</a>`;
+    const nmText = p.empty ? '待定' : (p.battleTag || p.displayName || p.name || '');
+    const nmHtml = p.empty ? nmText : `<a href="/player/${encodeURIComponent(p.battleTag || '')}" class="nm-link" onclick="event.stopPropagation()">${nmText}</a>`;
     h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${nmHtml}</span>`;
     // 后端已算好累计积分（active 死亡玩家 = 之前+当前局），前端直接显示
     const pts = p.points;
