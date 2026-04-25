@@ -346,7 +346,11 @@ def get_group_rankings(db, tournament_name=None):
     """从 league_matches 聚合淘汰赛各组排名数据"""
     match_filter = {"tournamentGroupId": {"$ne": None}}
     if tournament_name:
-        match_filter["tournamentName"] = tournament_name
+        # tournamentName 只存在 tournament_groups 中，先查出对应的 _id
+        tg_ids = [g["_id"] for g in db.tournament_groups.find(
+            {"tournamentName": tournament_name}, {"_id": 1}
+        )]
+        match_filter["tournamentGroupId"] = {"$in": tg_ids}
 
     pipeline = [
         {"$match": match_filter},

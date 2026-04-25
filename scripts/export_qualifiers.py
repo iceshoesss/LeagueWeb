@@ -75,7 +75,7 @@ def export_csv(rows, tournament_name):
     filename = f"{ts}_晋级名单.csv"
     with open(filename, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["轮次", "组号", "组内排名", "晋级", "BattleTag", "显示名", "AccountIdLo", "英雄", "总积分", "各局得分", "吃鸡"])
+        writer.writerow(["轮次", "组号", "组内排名", "晋级", "BattleTag", "显示名", "总积分", "各局得分", "吃鸡"])
         for r in rows:
             writer.writerow([
                 r["round"],
@@ -84,8 +84,6 @@ def export_csv(rows, tournament_name):
                 "✅" if r["qualified"] else "",
                 r["battleTag"],
                 r["displayName"],
-                r["accountIdLo"],
-                r["heroName"],
                 r["totalPoints"],
                 "/".join(str(x) for x in r["games"]),
                 r["chickens"],
@@ -108,7 +106,7 @@ def export_excel(rows, tournament_name):
     ws = wb.active
     ws.title = "晋级名单"
 
-    headers = ["轮次", "组号", "组内排名", "晋级", "BattleTag", "显示名", "AccountIdLo", "英雄", "总积分", "各局得分", "吃鸡"]
+    headers = ["轮次", "组号", "组内排名", "晋级", "BattleTag", "显示名", "总积分", "各局得分", "吃鸡"]
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2a2a4a", end_color="2a2a4a", fill_type="solid")
     thin_border = Border(bottom=Side(style="thin", color="cccccc"))
@@ -129,12 +127,10 @@ def export_excel(rows, tournament_name):
             qual_cell.font = Font(color="22c55e")
         ws.cell(row=i, column=5, value=r["battleTag"])
         ws.cell(row=i, column=6, value=r["displayName"])
-        ws.cell(row=i, column=7, value=r["accountIdLo"])
-        ws.cell(row=i, column=8, value=r["heroName"])
-        ws.cell(row=i, column=9, value=r["totalPoints"]).alignment = Alignment(horizontal="center")
-        ws.cell(row=i, column=10, value="/".join(str(x) for x in r["games"]))
-        ws.cell(row=i, column=11, value=r["chickens"]).alignment = Alignment(horizontal="center")
-        for col in range(1, 12):
+        ws.cell(row=i, column=7, value=r["totalPoints"]).alignment = Alignment(horizontal="center")
+        ws.cell(row=i, column=8, value="/".join(str(x) for x in r["games"]))
+        ws.cell(row=i, column=9, value=r["chickens"]).alignment = Alignment(horizontal="center")
+        for col in range(1, 10):
             ws.cell(row=i, column=col).border = thin_border
 
     ws.column_dimensions["A"].width = 6
@@ -143,11 +139,9 @@ def export_excel(rows, tournament_name):
     ws.column_dimensions["D"].width = 6
     ws.column_dimensions["E"].width = 28
     ws.column_dimensions["F"].width = 20
-    ws.column_dimensions["G"].width = 16
+    ws.column_dimensions["G"].width = 8
     ws.column_dimensions["H"].width = 16
-    ws.column_dimensions["I"].width = 8
-    ws.column_dimensions["J"].width = 16
-    ws.column_dimensions["K"].width = 6
+    ws.column_dimensions["I"].width = 6
 
     wb.save(filename)
     print(f"已导出: {filename} ({len(rows)} 人，其中晋级 {sum(1 for r in rows if r['qualified'])} 人)")
