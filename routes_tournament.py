@@ -267,6 +267,8 @@ def build_bracket_data():
                         p["qualified"] = rank_data["qualified"]
                         p["eliminated"] = rank_data["eliminated"]
                         p["chickens"] = rank_data.get("chickens", 0)
+                        p["maxGamePoints"] = rank_data.get("maxGamePoints", 0)
+                        p["lastGamePoints"] = rank_data.get("lastGamePoints", 0)
                         p["lastGamePlacement"] = rank_data.get("lastGamePlacement", 999)
                     else:
                         p["totalPoints"] = 0
@@ -279,15 +281,23 @@ def build_bracket_data():
                         p["lastGamePlacement"] = 999
                     p["empty"] = p.get("empty", False)
 
-        # done 组排序
+        # done 组排序（按组的 advancementRule 选择排序规则）
         for r in sorted_rounds:
             for g in rounds_map[r]:
                 if g.get("status") == "done":
-                    g["players"].sort(key=lambda p: (
-                        -(p.get("totalPoints", 0)),
-                        -(p.get("chickens", 0)),
-                        p.get("lastGamePlacement", 999),
-                    ))
+                    rule = g.get("advancementRule", "chicken")
+                    if rule == "golden":
+                        g["players"].sort(key=lambda p: (
+                            -(p.get("totalPoints", 0)),
+                            -(p.get("maxGamePoints", 0)),
+                            -(p.get("lastGamePoints", 0)),
+                        ))
+                    else:
+                        g["players"].sort(key=lambda p: (
+                            -(p.get("totalPoints", 0)),
+                            -(p.get("chickens", 0)),
+                            p.get("lastGamePlacement", 999),
+                        ))
 
         # waiting 组（BO 间歇期）排序
         for r in sorted_rounds:
@@ -296,30 +306,56 @@ def build_bracket_data():
                     tg_id = g["_id"]
                     agg_pipeline = [
                         {"$match": {"tournamentGroupId": tg_id, "endedAt": {"$ne": None}}},
+                        {"$sort": {"startedAt": 1}},
                         {"$unwind": "$players"},
                         {"$match": {"players.placement": {"$ne": None}}},
                         {"$group": {
                             "_id": "$players.accountIdLo",
                             "totalPoints": {"$sum": "$players.points"},
+                            "games": {"$push": "$players.points"},
+                            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+                            "lastPlacement": {"$last": "$players.placement"},
+                            "lastPoints": {"$last": "$players.points"},
                         }},
                     ]
-                    points_by_lo = {}
+                    stats_by_lo = {}
                     for doc in db.league_matches.aggregate(agg_pipeline):
-                        points_by_lo[str(doc["_id"])] = doc["totalPoints"]
+                        lo = str(doc["_id"])
+                        games = doc.get("games", [])
+                        stats_by_lo[lo] = {
+                            "totalPoints": doc["totalPoints"],
+                            "chickens": doc.get("chickens", 0),
+                            "maxGamePoints": max(games) if games else 0,
+                            "lastGamePoints": doc.get("lastPoints", 0),
+                            "lastGamePlacement": doc.get("lastPlacement", 999),
+                        }
 
                     for p in g.get("players", []):
                         lo = str(p.get("accountIdLo", ""))
-                        if lo in points_by_lo:
-                            p["totalPoints"] = points_by_lo[lo]
-                            p["points"] = points_by_lo[lo]
+                        if lo in stats_by_lo:
+                            s = stats_by_lo[lo]
+                            p["totalPoints"] = s["totalPoints"]
+                            p["points"] = s["totalPoints"]
+                            p["chickens"] = s["chickens"]
+                            p["maxGamePoints"] = s["maxGamePoints"]
+                            p["lastGamePoints"] = s["lastGamePoints"]
+                            p["lastGamePlacement"] = s["lastGamePlacement"]
                         elif not p.get("empty"):
                             p["totalPoints"] = 0
                             p["points"] = 0
-                    g["players"].sort(key=lambda p: (
-                        -(p.get("totalPoints", 0)),
-                        -(p.get("chickens", 0)),
-                        p.get("lastGamePlacement", 999),
-                    ))
+                    rule = g.get("advancementRule", "chicken")
+                    if rule == "golden":
+                        g["players"].sort(key=lambda p: (
+                            -(p.get("totalPoints", 0)),
+                            -(p.get("maxGamePoints", 0)),
+                            -(p.get("lastGamePoints", 0)),
+                        ))
+                    else:
+                        g["players"].sort(key=lambda p: (
+                            -(p.get("totalPoints", 0)),
+                            -(p.get("chickens", 0)),
+                            p.get("lastGamePlacement", 999),
+                        ))
 
         # 活跃组注入英雄 + 死亡状态
         active_tg_ids = [g["_id"] for r in sorted_rounds for g in rounds_map[r] if g.get("status") == "active"]

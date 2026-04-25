@@ -193,6 +193,12 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 更新日志
 
+### v0.14.3 (2026-04-26) — 修复对阵图排序不遵循晋级规则
+
+- **Bug 修复**: `build_bracket_data()` 中 done 组和 waiting 组的排序硬编码为吃鸡规则，无视组的 `advancementRule` 字段
+- 现在对阵图/海选视图会根据每组的 `advancementRule`（`chicken` 或 `golden`）使用正确的排序逻辑
+- waiting 组聚合管道扩展：新增 `maxGamePoints`、`lastGamePoints`、`chickens` 字段
+
 ### v0.14.2 (2026-04-25) — 支持多套晋级规则
 - 创建赛事时可选择晋级规则（吃鸡规则 / 黄金赛规则），默认黄金赛规则
 - 吃鸡规则：总积分 → 吃鸡次数 → 最后一局排名
