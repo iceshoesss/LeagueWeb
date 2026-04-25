@@ -978,6 +978,9 @@ def api_enroll_withdraw():
     if not battle_tag:
         return jsonify({"error": "请先登录"}), 401
 
+    if _enroll_deadline_reached():
+        return jsonify({"error": "报名已截止，名单已锁定"}), 400
+
     db = get_db()
     existing = db.tournament_enrollments.find_one({"battleTag": battle_tag})
     if not existing:
