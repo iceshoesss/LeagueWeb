@@ -959,13 +959,21 @@ def api_enroll():
         status = "waitlist"
         position = ENROLL_SLOTS + waitlist_count + 1
 
-    db.tournament_enrollments.insert_one({
+    # 从 league_players 查 accountIdLo，报名时一并存入
+    lp = db.league_players.find_one({"battleTag": battle_tag}, {"accountIdLo": 1})
+    account_id_lo = str(lp["accountIdLo"]) if lp and lp.get("accountIdLo") else ""
+
+    doc = {
         "battleTag": battle_tag,
         "displayName": session.get("displayName", battle_tag),
         "status": status,
         "position": position,
         "enrollAt": now_str,
-    })
+    }
+    if account_id_lo:
+        doc["accountIdLo"] = account_id_lo
+
+    db.tournament_enrollments.insert_one(doc)
 
     log.info(f"[enroll] {battle_tag} → {status} #{position}")
     return jsonify({"ok": True, "status": status, "position": position,
