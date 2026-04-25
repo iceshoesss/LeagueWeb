@@ -97,10 +97,9 @@
         </div>
         </div>
 
-        <!-- 报名 + 等待队列 -->
+        <!-- [已注释] 报名 + 等待队列
         <div class="w-72 space-y-3" id="queue-column">
 
-        <!-- 报名队列 -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div class="px-5 py-4 border-b border-hearth-border flex items-center justify-between">
                 <h2 class="text-lg font-bold text-hearth-gold">📋 报名队列</h2>
@@ -116,9 +115,9 @@
             </div>
         </div>
 
-        <!-- 等待队列（动态渲染，每组一个框） -->
         <div id="waiting-queue-container"></div>
         </div>
+        [已注释] -->
     </div>
 </div>
 {% endblock %}
@@ -232,8 +231,10 @@ setInterval(updateTimers, 1000);
 
 // ── SSE 实时推送 ────────────────────────────────────
 const MY_NAME = {% if current_user %}{{ current_user.battleTag | tojson }}{% else %}null{% endif %};
+/* [已注释] 报名/等待队列
 let queueData = [];
 let waitingData = [];
+*/
 
 // --- 进行中对局 SSE ---
 let activeEs = null;
@@ -255,7 +256,7 @@ function connectActiveGames() {
 }
 connectActiveGames();
 
-// --- 报名队列 SSE ---
+/* [已注释] 报名队列 SSE
 let queueEs = null;
 function connectQueue() {
     if (queueEs) queueEs.close();
@@ -273,8 +274,9 @@ function connectQueue() {
     };
 }
 connectQueue();
+*/
 
-// --- 等待队列 SSE ---
+/* [已注释] 等待队列 SSE
 let waitingEs = null;
 function connectWaitingQueue() {
     if (waitingEs) waitingEs.close();
@@ -293,6 +295,7 @@ function connectWaitingQueue() {
     };
 }
 connectWaitingQueue();
+*/
 
 // --- 最近对局 SSE ---
 let matchesEs = null;
@@ -451,10 +454,7 @@ function renderMatches(matches) {
     }).join('');
 }
 
-// --- 报名队列 SSE (已在上面 connectQueue 中定义) ---
-
-// --- 等待队列 SSE (已在上面 connectWaitingQueue 中定义) ---
-
+/* [已注释] 报名队列/等待队列渲染及操作
 function renderQueue() {
     const list = document.getElementById('queue-list');
     const count = document.getElementById('queue-count');
@@ -479,7 +479,6 @@ function renderQueue() {
         return;
     }
 
-    // 如果在等待队列里，报名按钮变灰
     const inWaiting = waitingData.some(g => (g.players || []).some(p => p.name === MY_NAME));
     if (inWaiting) {
         btn.textContent = '已在等待队列';
@@ -545,7 +544,6 @@ async function toggleQueue() {
     } catch (e) {
         alert('操作失败，请重试');
     }
-    // 防连点：500ms 后才允许再次操作（等 SSE 推回来更新状态）
     setTimeout(() => { queueBusy = false; }, 500);
 }
 
@@ -560,5 +558,6 @@ async function leaveWaitingQueue() {
     }
     setTimeout(() => { queueBusy = false; }, 500);
 }
+*/
 </script>
 {% endblock %}
