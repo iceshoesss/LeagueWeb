@@ -1323,7 +1323,7 @@ async function showManageTournament(name) {
             content.innerHTML = `<div class="text-center text-sm text-red-400 py-8">${tData.error || '加载失败'}</div>`;
         }
     } catch (e) {
-        content.innerHTML = '<div class="text-center text-sm text-red-400 py-8">网络错误</div>';
+        content.innerHTML = `<div class="text-center text-sm text-red-400 py-8">网络错误: ${e.message || e}</div>`;
     }
 }
 
