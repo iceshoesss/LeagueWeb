@@ -1598,7 +1598,7 @@ function mtEnforceMax4(cb) {
 }
 
 async function mtManualRecord(gid) {
-    // 纯手工补录：为对局创建完整排名记录
+    // 补录：只补录没有排名的玩家，已有排名的锁定显示
     try {
         const res = await fetch(`/api/tournament/group/${gid}`);
         const group = await res.json();
@@ -1607,21 +1607,55 @@ async function mtManualRecord(gid) {
         const players = (group.players || []).filter(p => !p.empty && p.accountIdLo);
         if (!players.length) { alert('该组没有玩家'); return; }
 
+        // 查询该组已有的对局记录，获取已有排名
+        const matchesRes = await fetch(`/api/tournament/group/${gid}/matches`);
+        const matchesData = matchesRes.ok ? await matchesRes.json() : [];
+        // 收集已有排名的 accountIdLo → placement
+        const lockedPlacements = {};
+        if (Array.isArray(matchesData)) {
+            for (const m of matchesData) {
+                for (const p of (m.players || [])) {
+                    if (p.placement != null && p.accountIdLo) {
+                        lockedPlacements[String(p.accountIdLo)] = p.placement;
+                    }
+                }
+            }
+        }
+
         const n = players.length;
+        const unlocked = players.filter(p => !lockedPlacements[String(p.accountIdLo)]);
+        const locked = players.filter(p => lockedPlacements[String(p.accountIdLo)]);
+
         let html = '<div style="text-align:left;max-height:400px;overflow-y:auto">';
-        html += `<p style="margin-bottom:8px;color:#aaa;font-size:12px">为每个玩家选择排名（1-${n}，不可重复）：</p>`;
+        if (locked.length > 0) {
+            html += `<p style="margin-bottom:8px;color:#aaa;font-size:12px">🔒 已锁定 ${locked.length} 人，需补录 ${unlocked.length} 人（排名 1-${n}，不可重复）：</p>`;
+        } else {
+            html += `<p style="margin-bottom:8px;color:#aaa;font-size:12px">为每个玩家选择排名（1-${n}，不可重复）：</p>`;
+        }
         html += '<table style="width:100%;border-collapse:collapse">';
-        players.forEach((p, i) => {
+
+        // 已锁定的玩家
+        for (const p of locked) {
+            const tag = p.battleTag || p.displayName || '未知';
+            const pl = lockedPlacements[String(p.accountIdLo)];
+            html += `<tr style="border-bottom:1px solid #333;opacity:0.5">
+                <td style="padding:6px 8px;font-size:13px;white-space:nowrap">${tag}</td>
+                <td style="padding:6px 8px"><span style="color:#4ade80;font-size:12px">🔒 第 ${pl} 名</span></td>
+            </tr>`;
+        }
+
+        // 需补录的玩家
+        for (const p of unlocked) {
             const tag = p.battleTag || p.displayName || '未知';
             let opts = '<option value="">—</option>';
             for (let r = 1; r <= n; r++) {
-                opts += `<option value="${r}" ${r === i + 1 ? 'selected' : ''}>第 ${r} 名</option>`;
+                opts += `<option value="${r}">第 ${r} 名</option>`;
             }
             html += `<tr style="border-bottom:1px solid #333">
                 <td style="padding:6px 8px;font-size:13px;white-space:nowrap">${tag}</td>
                 <td style="padding:6px 8px"><select class="mt-record-sel" data-lo="${p.accountIdLo}" style="background:#1a1a2e;color:#eee;border:1px solid #555;border-radius:4px;padding:2px 6px;font-size:12px">${opts}</select></td>
             </tr>`;
-        });
+        }
         html += '</table></div>';
 
         const confirmed = await showConfirmHTML(html, '确认补录');
@@ -1636,7 +1670,7 @@ async function mtManualRecord(gid) {
         });
 
         const count = Object.keys(placements).length;
-        if (count !== n) { alert(`需要 ${n} 个排名，当前填了 ${count} 个`); return; }
+        if (count !== unlocked.length) { alert(`需要 ${unlocked.length} 个排名，当前填了 ${count} 个`); return; }
 
         const recRes = await fetch(`/api/admin/group/${gid}/manual-record`, {
             method: 'POST',

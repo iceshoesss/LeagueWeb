@@ -566,16 +566,35 @@ def api_admin_manual_record(group_id):
     if not group_players:
         return jsonify({"error": "该组没有玩家"}), 400
 
-    # 校验：每个玩家都必须有排名
-    lo_set = {str(p["accountIdLo"]) for p in group_players}
-    missing = lo_set - set(placements.keys())
-    if missing:
-        return jsonify({"error": f"缺少玩家排名: {', '.join(missing)}"}), 400
+    # 查询该组已有对局中已锁定的排名
+    locked_placements = {}
+    existing_matches = list(db.league_matches.find(
+        {"tournamentGroupId": oid},
+        {"players.accountIdLo": 1, "players.placement": 1}
+    ))
+    for m in existing_matches:
+        for p in m.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            if p.get("placement") is not None and lo:
+                locked_placements[lo] = p["placement"]
 
-    # 校验排名值
-    placement_vals = list(placements.values())
-    if sorted(placement_vals) != list(range(1, len(group_players) + 1)):
-        return jsonify({"error": f"排名必须是 1-{len(group_players)} 的不重复整数"}), 400
+    # 校验：提交的 accountIdLo 必须在组内且未被锁定
+    lo_set = {str(p["accountIdLo"]) for p in group_players}
+    for lo in placements:
+        if lo not in lo_set:
+            return jsonify({"error": f"玩家 {lo} 不在该组中"}), 400
+        if lo in locked_placements:
+            return jsonify({"error": f"玩家 {lo} 已有排名（第{locked_placements[lo]}名），不能重复补录"}), 400
+
+    # 合并已有锁定排名 + 本次提交的排名，校验完整性
+    all_placements = dict(locked_placements)
+    all_placements.update(placements)
+    n = len(group_players)
+    if len(all_placements) != n:
+        return jsonify({"error": f"排名不完整：已有 {len(locked_placements)} 个锁定，本次提交 {len(placements)} 个，共需 {n} 个"}), 400
+    placement_vals = list(all_placements.values())
+    if sorted(placement_vals) != list(range(1, n + 1)):
+        return jsonify({"error": f"排名必须是 1-{n} 的不重复整数"}), 400
 
     # 构建 league_matches 的 players 列表
     now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -583,7 +602,7 @@ def api_admin_manual_record(group_id):
     players = []
     for p in group_players:
         lo = str(p["accountIdLo"])
-        pl = placements[lo]
+        pl = all_placements[lo]
         pts = 9 if pl == 1 else max(1, 9 - pl)
         players.append({
             "accountIdLo": lo,
@@ -608,7 +627,7 @@ def api_admin_manual_record(group_id):
         "manualRecord": True,
     }
     db.league_matches.insert_one(match_doc)
-    log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: {len(players)} 人, gameUuid={match_doc['gameUuid']}")
+    log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: 锁定{len(locked_placements)}人+补录{len(placements)}人, gameUuid={match_doc['gameUuid']}")
 
     # 更新组状态
     bo_n = group.get("boN", 1)
