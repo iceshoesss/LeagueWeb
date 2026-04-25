@@ -193,6 +193,18 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 更新日志
 
+### v0.14.5 (2026-04-26) — 性能优化：SSE 连接管理 + MongoDB 索引
+
+- **Bug 修复**: 页面跳转时 SSE 连接未关闭，导致服务端僵尸 generator 堆积，反复切换页面后 CPU 飙升、响应变慢
+  - `base.html` 添加 `window.__sse_list` 全局追踪 + `beforeunload` 统一清理
+  - 所有页面的 EventSource 创建后注册到全局列表，跳转时自动关闭
+- **性能优化**: 添加 MongoDB 索引，消除全集合扫描
+  - `league_matches`: `tournamentGroupId+endedAt`、`endedAt+startedAt`、`gameUuid`（唯一）
+  - `tournament_groups`: `tournamentName+round+groupIndex`、`status`
+  - 其他集合（player_records、league_players 等）唯一索引
+- **性能优化**: `build_bracket_data()` waiting 组复用 `get_group_rankings` 已有数据，消除逐组聚合
+- **开发体验**: `app.py` 本地开发开启 `threaded=True`，SSE 不再阻塞其他请求
+
 ### v0.14.4 (2026-04-26) — 对阵图/海选卡片玩家名可点击
 
 - 对阵图/海选分组卡片玩家名可点击跳转选手详情页
