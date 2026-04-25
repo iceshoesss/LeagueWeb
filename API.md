@@ -640,9 +640,29 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 
 ### `GET /api/bracket`
 
-返回对阵图数据（从 tournament_groups 集合读取）。
+返回对阵图数据（从 tournament_groups 集合读取，5 秒缓存）。
 
-**响应：** 同 `_build_bracket_data()` 结构，包含 tournaments → rounds → groups → players。
+**响应：** tournaments → rounds → groups → players 结构，含 label（A1、B1 等）、排名、积分。
+
+---
+
+### `GET /api/tournaments`
+
+获取所有赛事列表。
+
+**认证：** 需管理员登录（session）
+
+**响应：**
+```json
+[
+  {
+    "name": "2026 春季赛",
+    "totalGroups": 112,
+    "statusCounts": {"waiting": 80, "done": 32},
+    "rounds": [1]
+  }
+]
+```
 
 ---
 
@@ -656,6 +676,7 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 ```json
 {
   "tournamentName": "2026 春季赛",
+  "layout": "bracket",
   "rounds": [
     {
       "round": 1,
@@ -664,10 +685,8 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
         {
           "groupIndex": 1,
           "players": [
-            {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."},
-            ...
-          ],
-          "nextRoundGroupId": 1
+            {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."}
+          ]
         }
       ]
     }
@@ -678,21 +697,176 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 | 字段 | 说明 |
 |------|------|
 | `tournamentName` | 赛事名称 |
+| `layout` | `"bracket"`（淘汰赛）或 `"grid"`（海选平铺），默认 `"bracket"` |
 | `rounds[].round` | 轮次编号 |
-| `rounds[].boN` | 本轮局数（BO3=3, BO5=5） |
+| `rounds[].boN` | 本轮局数（BO1~BO7） |
 | `rounds[].groups[].groupIndex` | 组号（1-based） |
-| `rounds[].groups[].players` | 8 个玩家（不足 8 人自动补空位） |
-| `rounds[].groups[].nextRoundGroupId` | 晋级目标组号 |
+| `rounds[].groups[].players` | 最多 8 个玩家（不足自动补空位） |
 
-**响应：** `{"ok": true, "tournamentName": "...", "groupsCreated": N}`
+**响应：** `{"ok": true, "tournamentName": "...", "groupsCreated": N, "layout": "bracket"}`
+
+---
+
+### `GET /api/tournament/manage/<tournament_name>`
+
+获取赛事全部分组数据（含排名聚合）。
+
+**认证：** 需管理员登录（session）
+
+**响应：**
+```json
+{
+  "name": "2026 春季赛",
+  "groups": [
+    {
+      "_id": "6612...",
+      "tournamentName": "2026 春季赛",
+      "round": 1,
+      "groupIndex": 1,
+      "status": "waiting",
+      "boN": 3,
+      "gamesPlayed": 1,
+      "players": [
+        {
+          "battleTag": "xxx#1234",
+          "accountIdLo": "12345",
+          "displayName": "xxx",
+          "heroCardId": "...",
+          "heroName": "...",
+          "totalPoints": 7,
+          "games": [7],
+          "qualified": false,
+          "eliminated": false,
+          "empty": false
+        }
+      ],
+      "layout": "bracket",
+      "createdAt": "2026-04-21T20:00:00Z",
+      "startedAt": null,
+      "endedAt": null
+    }
+  ]
+}
+```
 
 ---
 
 ### `GET /api/tournament/group/<group_id>`
 
-获取单个分组详情。
+获取单个分组详情（含排名聚合）。
 
-**响应：** tournament_groups 文档完整数据（含 boN、gamesPlayed、players.totalPoints、players.games[]）。
+**响应：** tournament_groups 文档完整数据。
+
+---
+
+### `PUT /api/tournament/group/<group_id>/update`
+
+编辑分组（BO 数和/或玩家列表）。只能编辑未开始的分组（waiting + gamesPlayed=0）。
+
+**认证：** 需管理员登录（session）
+
+**请求体：**
+```json
+{
+  "boN": 5,
+  "players": [
+    {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "", "heroName": ""}
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `boN` | BO 数（1-20），可选 |
+| `players` | 玩家列表（不足 8 人自动补空位），可选 |
+
+**错误：** `400` 已开始的分组不能编辑
+
+---
+
+### `POST /api/tournament/shuffle`
+
+确定性随机洗牌（SHA256 seed + Fisher-Yates）。
+
+**认证：** 需管理员登录（session）
+
+**请求体：**
+```json
+{
+  "seed": "2026春季赛海选",
+  "players": [{"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx"}, ...]
+}
+```
+
+**响应：**
+```json
+{"ok": true, "seed": "2026春季赛海选", "players": [...]}
+```
+
+`players` 为洗牌后的数组，顺序可复现。
+
+---
+
+### `DELETE /api/tournament/<tournament_name>`
+
+删除赛事。普通管理员只能删除未开始的赛事，超级管理员可强制删除（同时清理关联的 league_matches）。
+
+**认证：** 需管理员登录（session）
+
+**响应：** `{"ok": true, "deleted": N}`
+
+---
+
+### `GET /api/tournament/qualifier-pool`
+
+获取指定赛事的晋级者 + 种子选手池。
+
+**认证：** 需管理员登录（session）
+
+**参数：** `?tournament=赛事名称`（必填）
+
+**响应：**
+```json
+{
+  "qualifiers": 32,
+  "seeds": 4,
+  "total": 36,
+  "players": [
+    {"battleTag": "xxx#1234", "accountIdLo": "12345", "displayName": "xxx", "heroCardId": "...", "heroName": "..."}
+  ]
+}
+```
+
+---
+
+### `POST /api/tournament/generate-next`
+
+从源赛事晋级者 + 种子选手自动生成新赛事分组。确定性洗牌（seed = 新赛事名称）。
+
+**认证：** 需管理员登录（session）
+
+**请求体：**
+```json
+{
+  "sourceTournament": "2026 春季赛海选",
+  "tournamentName": "2026 春季赛 512强",
+  "boN": 5
+}
+```
+
+**响应：**
+```json
+{
+  "ok": true,
+  "tournamentName": "2026 春季赛 512强",
+  "qualifiers": 32,
+  "seeds": 4,
+  "total": 36,
+  "groupsCreated": 4
+}
+```
+
+**错误：** `400` 晋级者+种子不足 16 人
 
 ---
 
@@ -775,3 +949,181 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 管理员查看报名列表（含 accountIdLo，用于创建赛事分组）。需管理员登录。
 
 **响应：** 同 `/api/enrollments`，players 额外包含 `accountIdLo` 字段。
+
+---
+
+## 管理后台 API
+
+以下端点需管理员登录（session）。超级管理员端点额外标注。
+
+### `GET /api/admin/stats`
+
+管理面板总览数据。
+
+**响应：** 聚合统计（选手数、对局数、队列数等）。
+
+### `GET /api/admin/matches`
+
+管理面板对局列表（分页）。
+
+**参数：** `?page=1&per_page=20&status=all`
+
+**响应：** `{"matches": [...], "total": N, "page": 1, "totalPages": 5}`
+
+### `GET /api/admin/players`
+
+管理面板选手列表（分页 + 搜索）。
+
+**参数：** `?page=1&search=关键词`
+
+**响应：** `{"players": [...], "total": N, "page": 1, "totalPages": 5}`
+
+### `GET /api/admin/players-all`
+
+获取全部已注册选手（不分页，用于创建赛事选择器）。
+
+**响应：**
+```json
+[
+  {"battleTag": "xxx#1234", "displayName": "xxx", "accountIdLo": "12345"}
+]
+```
+
+### `GET /api/admin/enrolled-players`
+
+获取报名选手列表（含 accountIdLo，批量查询优化）。
+
+**参数：** `?limit=N`（可选，取前 N 人）
+
+**响应：** 同 `/api/admin/players-all`。
+
+### `POST /api/admin/player/add`
+
+管理员手动添加选手（手机玩家/无插件玩家）。accountIdLo 用 battleTag 作为伪 Lo。
+
+**请求体：** `{"battleTag": "xxx#1234", "displayName": "xxx"}`
+
+**响应：** `{"ok": true, "battleTag": "xxx#1234", "displayName": "xxx"}`
+
+### `PUT /api/admin/player/<battleTag>/seed`
+
+设置/取消种子选手（toggle）。
+
+**响应：** `{"ok": true, "isSeed": true}`
+
+### `GET /api/admin/seed-players`
+
+获取所有种子选手列表。
+
+**响应：** `[{"battleTag": "...", "displayName": "...", "accountIdLo": "..."}]`
+
+### `POST /api/admin/match/<gameUuid>/force-end`
+
+强制结束对局（标记为 timeout）。
+
+**响应：** `{"ok": true}`
+
+### `POST /api/admin/match/<gameUuid>/force-abandon`
+
+强制标记对局掉线（标记为 abandoned）。
+
+**响应：** `{"ok": true}`
+
+### `POST /api/admin/match/<gameUuid>/reset`
+
+重置对局状态（清除 endedAt 和 status，回到进行中）。
+
+**响应：** `{"ok": true}`
+
+### `PUT /api/admin/match/<gameUuid>/edit-placement`
+
+修改已完成对局的排名（覆盖已有排名）。
+
+**请求体：**
+```json
+{
+  "placements": {
+    "1708070391": 1,
+    "12345678": 2
+  }
+}
+```
+
+- key 是 accountIdLo，value 是新排名 1-N
+- 排名必须覆盖所有玩家且不重复
+
+**响应：** `{"ok": true}`
+
+### `DELETE /api/match/<gameUuid>`
+
+删除对局。需管理员登录。
+
+**响应：** `{"ok": true, "gameUuid": "..."}`
+
+### `POST /api/admin/group/<group_id>/advance`
+
+手动晋级：管理员指定晋级者（最多 4 人）。
+
+**请求体：**
+```json
+{
+  "players": ["1708070391", "12345678"]
+}
+```
+
+- `players` 是 accountIdLo 列表
+- bracket 布局：创建/填入下一轮分组
+- grid 布局（海选）：只标记 qualified/eliminated，不创建下一轮
+
+**响应：** `{"ok": true, "advanced": 4}`
+
+### `POST /api/admin/group/<group_id>/manual-record`
+
+纯手工补录：为分组创建完整对局记录（插件失效时使用）。创建 match 记录 + 计算积分 + 触发晋级。
+
+**请求体：**
+```json
+{
+  "placements": {
+    "1708070391": 1,
+    "12345678": 2,
+    "11111111": 3,
+    "22222222": 4
+  }
+}
+```
+
+- key 是 accountIdLo，value 是排名 1-N
+- 必须覆盖组内所有非空玩家
+
+**响应：** `{"ok": true, "gameUuid": "...", "gamesPlayed": 2}`
+
+### `POST /api/admin/queue/remove`
+
+从报名队列移除玩家。
+
+**请求体：** `{"name": "玩家BattleTag"}`
+
+### `POST /api/admin/waiting/remove`
+
+从等待组移除玩家。
+
+**请求体：** `{"name": "玩家BattleTag"}`
+
+### `GET /api/admin/admins`
+
+获取管理员列表。**需超级管理员。**
+
+**响应：** `[{"_id": "...", "battleTag": "...", "addedAt": "...", "addedBy": "...", "isSuperAdmin": false}]`
+
+### `POST /api/admin/admins/add`
+
+添加管理员。**需超级管理员。**
+
+**请求体：** `{"battleTag": "xxx#1234"}`
+
+### `POST /api/admin/admins/remove`
+
+移除管理员。**需超级管理员。** 不能移除自己或超级管理员。
+
+**请求体：** `{"battleTag": "xxx#1234"}`
