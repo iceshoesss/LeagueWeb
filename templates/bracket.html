@@ -76,6 +76,8 @@
   .p-row .pos.b { color: #cd7f32; }
   .p-row .nm { flex: 1; margin-left: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .p-row .nm.empty { color: #8b8b9e; font-style: italic; }
+  .p-row .nm .nm-link { color: inherit; text-decoration: none; transition: color .15s; }
+  .p-row .nm .nm-link:hover { color: #e2b714; }
   .p-row .pts { font-size: 11px; font-weight: 700; color: #e2b714; margin-left: 4px; flex-shrink: 0; }
   .p-row.q .pos { color: #34d399; }
   .p-row.q .nm  { color: #34d399; }
@@ -356,7 +358,9 @@ function renderCard(g, x, y, isFinal) {
       ? `<div class="w-[32px] h-[32px] rounded-full overflow-hidden flex-shrink-0 bg-black/30"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" class="w-[150%] h-[150%] object-cover${isDead ? ' grayscale opacity-50' : ''}" onerror="this.closest('div').style.display='none'"></div>`
       : '';
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
-    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${p.empty ? '待定' : (p.battleTag || p.displayName || p.name || '')}</span>`;
+    const nmText = p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '');
+    const nmHtml = p.empty ? nmText : `<a href="/player/${encodeURIComponent(p.battleTag || p.displayName || p.name || '')}" class="nm-link" onclick="event.stopPropagation()">${nmText}</a>`;
+    h += `<span class="nm${p.empty ? ' empty' : ''}"${img ? ' style="margin-left:5px"' : ''}>${nmHtml}</span>`;
     // 后端已算好累计积分（active 死亡玩家 = 之前+当前局），前端直接显示
     const pts = p.points;
     if (pts != null && pts > 0) h += `<span class="pts">${pts}</span>`;
