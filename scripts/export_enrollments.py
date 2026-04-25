@@ -35,10 +35,10 @@ def export_csv(rows):
     with open(filename, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(["序号", "BattleTag", "AccountIdLo", "报名时间", "状态"])
-        for r in rows:
+        for i, r in enumerate(rows, 1):
             status = "替补" if r.get("status") == "waitlist" else ""
             writer.writerow([
-                r.get("position", ""),
+                i,
                 r.get("battleTag", ""),
                 r.get("accountIdLo", ""),
                 r.get("enrollAt", ""),
@@ -78,8 +78,9 @@ def export_excel(rows):
 
     # 数据
     for i, r in enumerate(rows, 2):
+        seq = i - 1
         status = "替补" if r.get("status") == "waitlist" else ""
-        ws.cell(row=i, column=1, value=r.get("position", "")).alignment = Alignment(horizontal="center")
+        ws.cell(row=i, column=1, value=seq).alignment = Alignment(horizontal="center")
         ws.cell(row=i, column=2, value=r.get("battleTag", ""))
         ws.cell(row=i, column=3, value=r.get("accountIdLo", ""))
         ws.cell(row=i, column=4, value=r.get("enrollAt", ""))
