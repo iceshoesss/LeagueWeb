@@ -872,6 +872,7 @@ const mtSearchSlots = {};    // 管理赛事弹窗搜索实例
 function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
     container.innerHTML = '';
     container.style.position = 'relative';
+    let _players = allPlayers;  // 闭包内可更新
 
     const input = document.createElement('input');
     input.type = 'text';
@@ -882,13 +883,13 @@ function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
     const dropdown = document.createElement('div');
     dropdown.className = 'hidden absolute left-0 right-0 top-full mt-1 bg-[#1a1a2e] border border-hearth-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto';
 
-    let selectedPlayer = selectedTag ? allPlayers.find(p => p.battleTag === selectedTag) : null;
+    let selectedPlayer = selectedTag ? _players.find(p => p.battleTag === selectedTag) : null;
     if (selectedPlayer) input.value = selectedPlayer.battleTag;
 
     function renderDropdown(query) {
         if (!query) { dropdown.classList.add('hidden'); return; }
         const q = query.toLowerCase();
-        const matches = allPlayers.filter(p =>
+        const matches = _players.filter(p =>
             p.battleTag.toLowerCase().includes(q) ||
             (p.displayName && p.displayName.toLowerCase().includes(q))
         ).slice(0, 20);
@@ -921,7 +922,7 @@ function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
         const opt = e.target.closest('.search-opt');
         if (!opt) return;
         const tag = opt.dataset.tag;
-        selectedPlayer = allPlayers.find(p => p.battleTag === tag) || null;
+        selectedPlayer = _players.find(p => p.battleTag === tag) || null;
         input.value = tag;
         dropdown.classList.add('hidden');
         if (onSelect) onSelect(selectedPlayer);
@@ -934,16 +935,16 @@ function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
     container.appendChild(input);
     container.appendChild(dropdown);
 
-    // 返回读取当前值的方法
     return {
         getValue: () => selectedPlayer ? selectedPlayer.accountIdLo : '',
         getTag: () => selectedPlayer ? selectedPlayer.battleTag : '',
         getName: () => selectedPlayer ? (selectedPlayer.displayName || '') : '',
         setValue: (lo) => {
-            selectedPlayer = allPlayers.find(p => String(p.accountIdLo) === String(lo)) || null;
+            selectedPlayer = _players.find(p => String(p.accountIdLo) === String(lo)) || null;
             input.value = selectedPlayer ? selectedPlayer.battleTag : '';
         },
-        clear: () => { selectedPlayer = null; input.value = ''; }
+        clear: () => { selectedPlayer = null; input.value = ''; },
+        refresh: (newPlayers) => { _players = newPlayers; }
     };
 }
 
@@ -1014,18 +1015,29 @@ function ctToggleGridSection() {
     document.getElementById('ct-grid-enroll-section').classList.toggle('hidden', layout !== 'grid');
 }
 
-async function ctLoadPlayers() {
+async function ctLoadPlayers(retry) {
     const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
     const url = layout === 'grid' ? '/api/admin/enrolled-players' : '/api/admin/players-all';
+    const countEl = document.getElementById('ct-unassigned-count');
     try {
+        countEl.textContent = '加载中...';
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         ctAllPlayers = await res.json();
-        document.getElementById('ct-unassigned-count').textContent = ctAllPlayers.length;
+        countEl.textContent = ctAllPlayers.length;
+        // 刷新已有的搜索框数据
+        Object.values(ctSearchSlots).forEach(slot => {
+            if (slot && slot.refresh) slot.refresh(ctAllPlayers);
+        });
     } catch (e) {
-        console.error('加载选手列表失败:', e);
+        console.error('加载选手列表失败:', e, retry ? `(重试 ${retry})` : '');
+        if (!retry || retry < 3) {
+            countEl.textContent = `加载失败，${2000}ms 后重试...`;
+            await new Promise(r => setTimeout(r, 2000));
+            return ctLoadPlayers((retry || 0) + 1);
+        }
         ctAllPlayers = [];
-        document.getElementById('ct-unassigned-count').textContent = '加载失败，点击选手框重试';
+        countEl.textContent = '加载失败，请刷新页面重试';
     }
 }
 
