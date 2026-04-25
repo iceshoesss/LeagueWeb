@@ -295,10 +295,19 @@
 
     <!-- 赛事管理弹窗 -->
     <div id="manage-tournament-modal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
-        <div class="bg-hearth-card rounded-xl gold-border p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="bg-hearth-card rounded-xl gold-border p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-hearth-gold" id="mt-title">赛事管理</h3>
                 <button onclick="document.getElementById('manage-tournament-modal').classList.add('hidden')" class="text-hearth-dim hover:text-white transition">✕</button>
+            </div>
+            <!-- 搜索/筛选栏 -->
+            <div id="mt-toolbar" class="hidden mb-4">
+                <div class="flex gap-3 items-center">
+                    <input type="text" id="mt-search" placeholder="搜索组号或玩家名..."
+                        class="flex-1 bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50"
+                        oninput="mtFilterGroups(this.value)">
+                    <span id="mt-count" class="text-xs text-hearth-dim whitespace-nowrap"></span>
+                </div>
             </div>
             <div id="mt-content">
                 <div class="text-center text-sm text-hearth-dim py-8">加载中...</div>
@@ -1295,6 +1304,11 @@ async function showManageTournament(name) {
     document.getElementById('manage-tournament-modal').classList.remove('hidden');
     const content = document.getElementById('mt-content');
     content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">加载中...</div>';
+    // 清空搜索框和计数
+    const searchInput = document.getElementById('mt-search');
+    if (searchInput) searchInput.value = '';
+    const countEl = document.getElementById('mt-count');
+    if (countEl) countEl.textContent = '';
 
     try {
         const [pRes, tRes] = await Promise.all([
@@ -1313,81 +1327,173 @@ async function showManageTournament(name) {
     }
 }
 
+// ── 赛事管理：大数据量优化（搜索 + 折叠 + 懒渲染）──
+let mtGroupsData = [];  // 缓存原始数据
+let mtRoundCollapsed = {};  // 轮次折叠状态
+
 function renderManageTournament(data) {
     const content = document.getElementById('mt-content');
-    const groups = data.groups || [];
+    const toolbar = document.getElementById('mt-toolbar');
+    mtGroupsData = data.groups || [];
+    mtRoundCollapsed = {};
+    mtSearchSlots = {};
+
+    const totalGroups = mtGroupsData.length;
+    const isLarge = totalGroups > 16;  // 超过 16 组默认折叠
+
+    // 显示工具栏
+    if (toolbar) toolbar.classList.remove('hidden');
+
+    // 按轮次分组
     const rounds = {};
-    groups.forEach(g => { (rounds[g.round || 1] = rounds[g.round || 1] || []).push(g); });
+    mtGroupsData.forEach(g => { (rounds[g.round || 1] = rounds[g.round || 1] || []).push(g); });
+    const roundKeys = Object.keys(rounds).map(Number).sort((a,b) => a-b);
+
+    // 统计
+    const statusCounts = {waiting:0, active:0, done:0};
+    mtGroupsData.forEach(g => { statusCounts[g.status || 'waiting']++; });
+    document.getElementById('mt-count').textContent = `共 ${totalGroups} 组 · 等待 ${statusCounts.waiting} · 进行 ${statusCounts.active} · 完成 ${statusCounts.done}`;
+
+    // 大赛事默认全部折叠
+    roundKeys.forEach(r => { mtRoundCollapsed[r] = isLarge; });
+
+    _mtRenderContent('');
+}
+
+function _mtRenderContent(filter) {
+    const content = document.getElementById('mt-content');
+    const filterLower = (filter || '').toLowerCase().trim();
+    const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
+
+    // 按轮次分组 + 筛选
+    const rounds = {};
+    const roundMatchCount = {};  // 每轮匹配的组数
+    mtGroupsData.forEach(g => {
+        const r = g.round || 1;
+        // 筛选逻辑：匹配组号或玩家名
+        if (filterLower) {
+            const groupIdx = String(g.groupIndex || '');
+            const players = g.players || [];
+            const matchGroup = groupIdx.includes(filterLower);
+            const matchPlayer = players.some(p => {
+                const name = (p.displayName || p.battleTag || '').toLowerCase();
+                return name.includes(filterLower);
+            });
+            if (!matchGroup && !matchPlayer) return;
+        }
+        (rounds[r] = rounds[r] || []).push(g);
+        roundMatchCount[r] = (roundMatchCount[r] || 0) + 1;
+    });
+
+    const roundKeys = Object.keys(rounds).map(Number).sort((a,b) => a-b);
+    if (!roundKeys.length) {
+        content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
+        return;
+    }
 
     let html = '';
-    const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
-    Object.keys(rounds).map(Number).sort((a,b) => a-b).forEach(r => {
-        html += `<div class="mb-6">
-            <h4 class="text-sm font-bold text-hearth-gold mb-3">第 ${r} 轮 — ${roundLabels[r] || `第${r}轮`}</h4>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">`;
+    roundKeys.forEach(r => {
+        const groups = rounds[r];
+        const collapsed = mtRoundCollapsed[r] && !filterLower;  // 有搜索时不折叠
+        const matchInfo = filterLower ? `（匹配 ${roundMatchCount[r]} 组）` : `（${groups.length} 组）`;
 
-        rounds[r].forEach(g => {
-            const gid = g._id;
-            const boN = g.boN || 1, gp = g.gamesPlayed || 0;
-            const status = g.status || 'waiting';
-            const isEditable = status === 'waiting' && gp === 0;
-            html += `<div class="bg-black/20 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-bold text-gray-300">组 ${g.groupIndex || ''}</span>
-                        <span class="badge ${status}">${status === 'waiting' ? '等待' : status === 'active' ? '进行中' : '已完成'} · ${gp}/${boN} 局</span>
-                    </div>
-                    ${isEditable ? `<div class="flex items-center gap-2">
-                        <label class="text-xs text-hearth-dim">BO</label>
-                        <select class="bg-black/30 border border-hearth-border rounded px-1.5 py-0.5 text-xs text-gray-200 mt-bo-select" data-gid="${gid}">
-                            <option value="1" ${boN===1?'selected':''}>1</option>
-                            <option value="2" ${boN===2?'selected':''}>2</option>
-                            <option value="3" ${boN===3?'selected':''}>3</option>
-                            <option value="4" ${boN===4?'selected':''}>4</option>
-                            <option value="5" ${boN===5?'selected':''}>5</option>
-                            <option value="6" ${boN===6?'selected':''}>6</option>
-                            <option value="7" ${boN===7?'selected':''}>7</option>
-                        </select>
-                        <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
-                    </div>` : ''}
-                    ${status !== 'done' ? `<div class="flex gap-1"><button onclick="mtManualRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">📝 补录结果</button><button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 手动晋级</button></div>` : ''}
-                </div>
-                <div class="space-y-1">`;
+        html += `<div class="mb-4" data-round="${r}">
+            <button onclick="mtToggleRound(${r})" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
+                <span class="text-sm font-bold text-hearth-gold">第 ${r} 轮 — ${roundLabels[r] || `第${r}轮`} ${matchInfo}</span>
+                <span class="text-hearth-dim text-xs">${collapsed ? '▶ 展开' : '▼ 折叠'}</span>
+            </button>`;
 
-            (g.players || []).forEach((p, i) => {
-                const isEmpty = p.empty || !p.battleTag;
-                const pts = p.totalPoints || 0;
-                const gamesStr = (p.games || []).join(', ');
-
-                if (isEditable) {
-                    html += `<div class="flex items-center gap-2">
-                        <div class="flex-1 mt-search-wrap" data-gid="${gid}" data-slot="${i}" data-tag="${(p.battleTag||'').replace(/"/g,'&quot;')}"></div>
-                        ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold w-6 text-right">${pts}</span>` : ''}
-                    </div>`;
-                } else {
-                    const nameClass = isEmpty ? 'text-hearth-dim italic' : p.qualified ? 'text-green-400' : p.eliminated ? 'text-red-400/50 line-through' : 'text-gray-300';
-                    html += `<div class="flex items-center gap-2 px-2 py-1">
-                        <span class="text-xs text-hearth-dim w-4 text-right">${i+1}</span>
-                        <span class="text-xs ${nameClass} flex-1">${isEmpty ? '待定' : p.displayName || p.battleTag}</span>
-                        ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold">${pts}分</span>` : ''}
-                        ${gamesStr ? `<span class="text-xs text-hearth-dim">[${gamesStr}]</span>` : ''}
-                        ${p.qualified ? '<span class="text-xs text-green-400">✓ 晋级</span>' : ''}
-                        ${p.eliminated ? '<span class="text-xs text-red-400/50">✗ 淘汰</span>' : ''}
-                    </div>`;
-                }
+        if (!collapsed) {
+            html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">`;
+            groups.forEach(g => {
+                html += _mtRenderGroup(g, !!filterLower);
             });
-            html += `</div></div>`;
-        });
-        html += `</div></div>`;
+            html += `</div>`;
+        }
+        html += `</div>`;
     });
     content.innerHTML = html;
-    // 初始化搜索组件
-    content.querySelectorAll('.mt-search-wrap').forEach(wrap => {
+
+    // 懒渲染：只为新渲染的搜索组件初始化
+    content.querySelectorAll('.mt-search-wrap:not(.mt-init)').forEach(wrap => {
         const gid = wrap.dataset.gid, slot = wrap.dataset.slot;
         const key = gid + '-' + slot;
         const selectedTag = wrap.dataset.tag || '';
         mtSearchSlots[key] = createSearchSelect(wrap, mtAllPlayers, selectedTag, null);
+        wrap.classList.add('mt-init');
     });
+}
+
+function _mtRenderGroup(g, expanded) {
+    const gid = g._id;
+    const boN = g.boN || 1, gp = g.gamesPlayed || 0;
+    const status = g.status || 'waiting';
+    const isEditable = status === 'waiting' && gp === 0;
+    let html = `<div class="bg-black/20 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-bold text-gray-300">组 ${g.groupIndex || ''}</span>
+                <span class="badge ${status}">${status === 'waiting' ? '等待' : status === 'active' ? '进行中' : '已完成'} · ${gp}/${boN} 局</span>
+            </div>
+            ${isEditable ? `<div class="flex items-center gap-2">
+                <label class="text-xs text-hearth-dim">BO</label>
+                <select class="bg-black/30 border border-hearth-border rounded px-1.5 py-0.5 text-xs text-gray-200 mt-bo-select" data-gid="${gid}">
+                    <option value="1" ${boN===1?'selected':''}>1</option>
+                    <option value="2" ${boN===2?'selected':''}>2</option>
+                    <option value="3" ${boN===3?'selected':''}>3</option>
+                    <option value="4" ${boN===4?'selected':''}>4</option>
+                    <option value="5" ${boN===5?'selected':''}>5</option>
+                    <option value="6" ${boN===6?'selected':''}>6</option>
+                    <option value="7" ${boN===7?'selected':''}>7</option>
+                </select>
+                <button onclick="mtSave('${gid}')" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">保存</button>
+            </div>` : ''}
+            ${status !== 'done' ? `<div class="flex gap-1"><button onclick="mtManualRecord('${gid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">📝 补录</button><button onclick="mtManualAdvance('${gid}')" class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 hover:bg-green-500/30 transition">🎯 晋级</button></div>` : ''}
+        </div>
+        <div class="space-y-1">`;
+
+    (g.players || []).forEach((p, i) => {
+        const isEmpty = p.empty || !p.battleTag;
+        const pts = p.totalPoints || 0;
+        const gamesStr = (p.games || []).join(', ');
+
+        if (isEditable) {
+            html += `<div class="flex items-center gap-2">
+                <div class="flex-1 mt-search-wrap" data-gid="${gid}" data-slot="${i}" data-tag="${(p.battleTag||'').replace(/"/g,'&quot;')}"></div>
+                ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold w-6 text-right">${pts}</span>` : ''}
+            </div>`;
+        } else {
+            const nameClass = isEmpty ? 'text-hearth-dim italic' : p.qualified ? 'text-green-400' : p.eliminated ? 'text-red-400/50 line-through' : 'text-gray-300';
+            html += `<div class="flex items-center gap-2 px-2 py-1">
+                <span class="text-xs text-hearth-dim w-4 text-right">${i+1}</span>
+                <span class="text-xs ${nameClass} flex-1">${isEmpty ? '待定' : p.displayName || p.battleTag}</span>
+                ${pts > 0 ? `<span class="text-xs text-hearth-gold font-bold">${pts}分</span>` : ''}
+                ${gamesStr ? `<span class="text-xs text-hearth-dim">[${gamesStr}]</span>` : ''}
+                ${p.qualified ? '<span class="text-xs text-green-400">✓ 晋级</span>' : ''}
+                ${p.eliminated ? '<span class="text-xs text-red-400/50">✗ 淘汰</span>' : ''}
+            </div>`;
+        }
+    });
+    html += `</div></div>`;
+    return html;
+}
+
+function mtToggleRound(r) {
+    mtRoundCollapsed[r] = !mtRoundCollapsed[r];
+    const filter = (document.getElementById('mt-search')?.value || '');
+    _mtRenderContent(filter);
+}
+
+let mtFilterTimer = null;
+function mtFilterGroups(val) {
+    clearTimeout(mtFilterTimer);
+    mtFilterTimer = setTimeout(() => {
+        // 搜索时展开所有轮次
+        if (val.trim()) {
+            Object.keys(mtRoundCollapsed).forEach(r => mtRoundCollapsed[r] = false);
+        }
+        _mtRenderContent(val);
+    }, 200);  // 200ms 防抖
 }
 
 async function mtSave(gid) {
