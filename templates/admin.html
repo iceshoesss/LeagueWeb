@@ -1328,12 +1328,13 @@ async function showManageTournament(name) {
 }
 
 // ── 赛事管理：大数据量优化（搜索 + 按排折叠 + 懒渲染）──
+// ── 赛事管理：大数据量优化（搜索 + 自适应折叠 + 懒渲染）──
 let mtGroupsData = [];      // 缓存原始数据
-let mtRowCollapsed = {};    // 按排折叠状态（rowIndex: true/false）
-const MT_LABELS = 'ABCD';   // 与对阵图一致的分组标签
+let mtCollapsed = {};       // 折叠状态（key: sectionIndex）
+let mtMode = 'row';         // 'row' = 按排（海选单轮）| 'round' = 按轮（淘汰赛多轮）
+const MT_LABELS = 'ABCD';
 
 function _mtGroupLabel(groupIndex) {
-    // groupIndex 从 1 开始，转为 0-based
     const gi = (groupIndex || 1) - 1;
     return MT_LABELS[gi % 4] + (Math.floor(gi / 4) + 1);
 }
@@ -1342,7 +1343,7 @@ function renderManageTournament(data) {
     const content = document.getElementById('mt-content');
     const toolbar = document.getElementById('mt-toolbar');
     mtGroupsData = data.groups || [];
-    mtRowCollapsed = {};
+    mtCollapsed = {};
     Object.keys(mtSearchSlots).forEach(k => delete mtSearchSlots[k]);
 
     const totalGroups = mtGroupsData.length;
@@ -1352,17 +1353,23 @@ function renderManageTournament(data) {
 
     // 统计
     const statusCounts = {waiting:0, active:0, done:0};
-    mtGroupsData.forEach(g => { statusCounts[g.status || 'waiting']++; });
+    const roundSet = new Set();
+    mtGroupsData.forEach(g => {
+        statusCounts[g.status || 'waiting']++;
+        roundSet.add(g.round || 1);
+    });
     document.getElementById('mt-count').textContent = `共 ${totalGroups} 组 · 等待 ${statusCounts.waiting} · 进行 ${statusCounts.active} · 完成 ${statusCounts.done}`;
 
-    // 按排分组（每 4 组为一排：A/B/C/D）
-    const rows = {};
-    mtGroupsData.forEach(g => {
-        const gi = (g.groupIndex || 1) - 1;
-        const rowIdx = Math.floor(gi / 4);
-        (rows[rowIdx] = rows[rowIdx] || []).push(g);
-    });
-    Object.keys(rows).forEach(r => { mtRowCollapsed[r] = isLarge; });
+    // 判断模式：多轮 → 按轮折叠，单轮 → 按排折叠
+    mtMode = roundSet.size > 1 ? 'round' : 'row';
+
+    // 初始化折叠状态
+    if (mtMode === 'row') {
+        const rowCount = Math.ceil(totalGroups / 4);
+        for (let i = 0; i < rowCount; i++) mtCollapsed[i] = isLarge;
+    } else {
+        roundSet.forEach(r => mtCollapsed[r] = isLarge);
+    }
 
     _mtRenderContent('');
 }
@@ -1371,56 +1378,70 @@ function _mtRenderContent(filter) {
     const content = document.getElementById('mt-content');
     const filterLower = (filter || '').toLowerCase().trim();
 
-    // 按排分组 + 筛选
-    const rows = {};
-    const rowMatchCount = {};
-    mtGroupsData.forEach(g => {
-        const gi = (g.groupIndex || 1) - 1;
-        const rowIdx = Math.floor(gi / 4);
-        const label = _mtGroupLabel(g.groupIndex);
+    // 筛选 + 分组
+    const sections = {};      // sectionKey → [groups]
+    const sectionMatchCount = {};
 
+    mtGroupsData.forEach(g => {
+        const label = _mtGroupLabel(g.groupIndex);
+        // 搜索匹配
         if (filterLower) {
             const labelLower = label.toLowerCase();
             const groupIdx = String(g.groupIndex || '');
+            const roundStr = '第' + (g.round || 1) + '轮';
             const players = g.players || [];
-            const matchLabel = labelLower.includes(filterLower);
-            const matchGroup = groupIdx.includes(filterLower);
-            const matchPlayer = players.some(p => {
-                const name = (p.displayName || p.battleTag || '').toLowerCase();
-                return name.includes(filterLower);
-            });
-            if (!matchLabel && !matchGroup && !matchPlayer) return;
+            const match = labelLower.includes(filterLower)
+                || groupIdx.includes(filterLower)
+                || roundStr.includes(filterLower)
+                || players.some(p => (p.displayName || p.battleTag || '').toLowerCase().includes(filterLower));
+            if (!match) return;
         }
-        (rows[rowIdx] = rows[rowIdx] || []).push(g);
-        rowMatchCount[rowIdx] = (rowMatchCount[rowIdx] || 0) + 1;
+
+        let key;
+        if (mtMode === 'row') {
+            const gi = (g.groupIndex || 1) - 1;
+            key = Math.floor(gi / 4);
+        } else {
+            key = g.round || 1;
+        }
+        (sections[key] = sections[key] || []).push(g);
+        sectionMatchCount[key] = (sectionMatchCount[key] || 0) + 1;
     });
 
-    const rowKeys = Object.keys(rows).map(Number).sort((a,b) => a-b);
-    if (!rowKeys.length) {
+    const sectionKeys = Object.keys(sections).map(Number).sort((a,b) => a-b);
+    if (!sectionKeys.length) {
         content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
         return;
     }
 
+    const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
     let html = '';
-    rowKeys.forEach(ri => {
-        const groups = rows[ri];
-        const collapsed = mtRowCollapsed[ri] && !filterLower;
-        const firstLabel = _mtGroupLabel(groups[0].groupIndex);
-        const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
-        const rowTitle = groups.length === 4 ? `第 ${ri + 1} 排 (${firstLabel} ~ ${lastLabel})` : `第 ${ri + 1} 排 (${groups.length} 组)`;
-        const matchInfo = filterLower ? ` · 匹配 ${rowMatchCount[ri]} 组` : '';
 
-        html += `<div class="mb-3" data-row="${ri}">
-            <button onclick="mtToggleRow(${ri})" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
-                <span class="text-sm font-bold text-hearth-gold">${rowTitle}${matchInfo}</span>
+    sectionKeys.forEach(sk => {
+        const groups = sections[sk];
+        const collapsed = mtCollapsed[sk] && !filterLower;
+        const matchInfo = filterLower ? ` · 匹配 ${sectionMatchCount[sk]} 组` : '';
+
+        // 标题
+        let sectionTitle;
+        if (mtMode === 'row') {
+            const firstLabel = _mtGroupLabel(groups[0].groupIndex);
+            const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
+            sectionTitle = groups.length === 4 ? `第 ${sk + 1} 排 (${firstLabel} ~ ${lastLabel})` : `第 ${sk + 1} 排 (${groups.length} 组)`;
+        } else {
+            sectionTitle = `第 ${sk} 轮 — ${roundLabels[sk] || `第${sk}轮`}（${groups.length} 组）`;
+        }
+
+        html += `<div class="mb-3" data-section="${sk}">
+            <button onclick="mtToggleSection(${sk})" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
+                <span class="text-sm font-bold text-hearth-gold">${sectionTitle}${matchInfo}</span>
                 <span class="text-hearth-dim text-xs">${collapsed ? '▶ 展开' : '▼ 折叠'}</span>
             </button>`;
 
         if (!collapsed) {
-            html += `<div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-3">`;
-            groups.forEach(g => {
-                html += _mtRenderGroup(g);
-            });
+            const cols = mtMode === 'row' ? 'xl:grid-cols-4' : 'lg:grid-cols-2';
+            html += `<div class="grid grid-cols-1 lg:grid-cols-2 ${cols} gap-3">`;
+            groups.forEach(g => { html += _mtRenderGroup(g); });
             html += `</div>`;
         }
         html += `</div>`;
@@ -1489,8 +1510,8 @@ function _mtRenderGroup(g) {
     return html;
 }
 
-function mtToggleRow(ri) {
-    mtRowCollapsed[ri] = !mtRowCollapsed[ri];
+function mtToggleSection(sk) {
+    mtCollapsed[sk] = !mtCollapsed[sk];
     const filter = (document.getElementById('mt-search')?.value || '');
     _mtRenderContent(filter);
 }
@@ -1500,7 +1521,7 @@ function mtFilterGroups(val) {
     clearTimeout(mtFilterTimer);
     mtFilterTimer = setTimeout(() => {
         if (val.trim()) {
-            Object.keys(mtRowCollapsed).forEach(r => mtRowCollapsed[r] = false);
+            Object.keys(mtCollapsed).forEach(k => mtCollapsed[k] = false);
         }
         _mtRenderContent(val);
     }, 200);
