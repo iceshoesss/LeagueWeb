@@ -76,11 +76,37 @@ def api_delete_match(game_uuid):
         return jsonify({"error": "需要管理员权限"}), 403
 
     db = get_db()
-    result = db.league_matches.delete_one({"gameUuid": game_uuid})
-    if result.deleted_count == 0:
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    if not match:
         return jsonify({"error": "对局不存在"}), 404
 
+    # 删除对局前，记录关联的淘汰赛分组
+    tg_id = match.get("tournamentGroupId")
+    was_completed = match.get("endedAt") not in (None, "")
+
+    db.league_matches.delete_one({"gameUuid": game_uuid})
     log.info(f"管理员 {battle_tag} 删除对局 {game_uuid}")
+
+    # 如果关联淘汰赛分组，回滚 group 状态
+    if tg_id:
+        tg = db.tournament_groups.find_one({"_id": tg_id})
+        if tg:
+            bo_n = tg.get("boN", 1)
+            old_gp = tg.get("gamesPlayed", 0)
+            # 已完成的对局才需要回退 gamesPlayed
+            new_gp = max(0, old_gp - 1) if was_completed else old_gp
+            update_fields = {
+                "gamesPlayed": new_gp,
+                "status": "waiting",
+            }
+            # 移除 endedAt（BO 未完成）
+            if tg.get("endedAt"):
+                update_fields["$unset"] = {"endedAt": ""}
+            db.tournament_groups.update_one({"_id": tg_id}, {"$set": {k: v for k, v in update_fields.items() if k != "$unset"}, **({"$unset": update_fields["$unset"]} if "$unset" in update_fields else {})})
+            from routes_tournament import invalidate_bracket_cache
+            invalidate_bracket_cache()
+            log.info(f"管理员 {battle_tag} 删除对局后回滚分组 R{tg.get('round')}G{tg.get('groupIndex')}: gp={old_gp}→{new_gp}, status=waiting")
+
     return jsonify({"ok": True, "gameUuid": game_uuid})
 
 
