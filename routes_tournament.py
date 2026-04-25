@@ -12,7 +12,7 @@ from flask import Blueprint, jsonify, request, session, render_template
 
 from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_SLOTS, ENROLL_DEADLINE, TOURNAMENT_PHASE
 from auth import is_admin, is_super_admin, _admin_required
-from data import get_group_rankings, try_advance_group, try_advance_round
+from data import get_group_rankings, try_advance_group, try_advance_round, SORT_KEYS, _sort_key_chicken, _sort_key_golden
 
 
 log = logging.getLogger("bgtracker")
@@ -286,76 +286,31 @@ def build_bracket_data():
             for g in rounds_map[r]:
                 if g.get("status") == "done":
                     rule = g.get("advancementRule", "chicken")
-                    if rule == "golden":
-                        g["players"].sort(key=lambda p: (
-                            -(p.get("totalPoints", 0)),
-                            -(p.get("maxGamePoints", 0)),
-                            -(p.get("lastGamePoints", 0)),
-                        ))
-                    else:
-                        g["players"].sort(key=lambda p: (
-                            -(p.get("totalPoints", 0)),
-                            -(p.get("chickens", 0)),
-                            p.get("lastGamePlacement", 999),
-                        ))
+                    sort_fn = SORT_KEYS.get(rule, _sort_key_chicken)
+                    g["players"].sort(key=lambda p, fn=sort_fn: fn(p))
 
-        # waiting 组（BO 间歇期）排序
+        # waiting 组（BO 间歇期）排序 — 直接复用 all_rankings，无需逐组聚合
         for r in sorted_rounds:
             for g in rounds_map[r]:
                 if g.get("status") == "waiting" and g.get("gamesPlayed", 0) > 0:
-                    tg_id = g["_id"]
-                    agg_pipeline = [
-                        {"$match": {"tournamentGroupId": tg_id, "endedAt": {"$ne": None}}},
-                        {"$sort": {"startedAt": 1}},
-                        {"$unwind": "$players"},
-                        {"$match": {"players.placement": {"$ne": None}}},
-                        {"$group": {
-                            "_id": "$players.accountIdLo",
-                            "totalPoints": {"$sum": "$players.points"},
-                            "games": {"$push": "$players.points"},
-                            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
-                            "lastPlacement": {"$last": "$players.placement"},
-                            "lastPoints": {"$last": "$players.points"},
-                        }},
-                    ]
-                    stats_by_lo = {}
-                    for doc in db.league_matches.aggregate(agg_pipeline):
-                        lo = str(doc["_id"])
-                        games = doc.get("games", [])
-                        stats_by_lo[lo] = {
-                            "totalPoints": doc["totalPoints"],
-                            "chickens": doc.get("chickens", 0),
-                            "maxGamePoints": max(games) if games else 0,
-                            "lastGamePoints": doc.get("lastPoints", 0),
-                            "lastGamePlacement": doc.get("lastPlacement", 999),
-                        }
-
+                    tg_str = str(g["_id"])
+                    rankings = all_rankings.get(tg_str, {})
                     for p in g.get("players", []):
                         lo = str(p.get("accountIdLo", ""))
-                        if lo in stats_by_lo:
-                            s = stats_by_lo[lo]
-                            p["totalPoints"] = s["totalPoints"]
-                            p["points"] = s["totalPoints"]
-                            p["chickens"] = s["chickens"]
-                            p["maxGamePoints"] = s["maxGamePoints"]
-                            p["lastGamePoints"] = s["lastGamePoints"]
-                            p["lastGamePlacement"] = s["lastGamePlacement"]
+                        rd = rankings.get(lo)
+                        if rd:
+                            p["totalPoints"] = rd["totalPoints"]
+                            p["points"] = rd["totalPoints"]
+                            p["chickens"] = rd.get("chickens", 0)
+                            p["maxGamePoints"] = rd.get("maxGamePoints", 0)
+                            p["lastGamePoints"] = rd.get("lastGamePoints", 0)
+                            p["lastGamePlacement"] = rd.get("lastGamePlacement", 999)
                         elif not p.get("empty"):
                             p["totalPoints"] = 0
                             p["points"] = 0
                     rule = g.get("advancementRule", "chicken")
-                    if rule == "golden":
-                        g["players"].sort(key=lambda p: (
-                            -(p.get("totalPoints", 0)),
-                            -(p.get("maxGamePoints", 0)),
-                            -(p.get("lastGamePoints", 0)),
-                        ))
-                    else:
-                        g["players"].sort(key=lambda p: (
-                            -(p.get("totalPoints", 0)),
-                            -(p.get("chickens", 0)),
-                            p.get("lastGamePlacement", 999),
-                        ))
+                    sort_fn = SORT_KEYS.get(rule, _sort_key_chicken)
+                    g["players"].sort(key=lambda p, fn=sort_fn: fn(p))
 
         # 活跃组注入英雄 + 死亡状态
         active_tg_ids = [g["_id"] for r in sorted_rounds for g in rounds_map[r] if g.get("status") == "active"]
@@ -799,7 +754,6 @@ def api_tournament_qualifier_pool():
     qualifiers = []
     seen_los = set()
 
-    from data import SORT_KEYS
     sort_fn = SORT_KEYS.get(source_rule)
 
     for g in source_groups:
@@ -886,7 +840,6 @@ def api_tournament_generate_next():
     qualifiers = []
     seen_los = set()
 
-    from data import SORT_KEYS
     sort_fn = SORT_KEYS.get(source_rule)
 
     for g in source_groups:
