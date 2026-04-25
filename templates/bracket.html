@@ -489,6 +489,7 @@ function stableStringify(obj) {
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
   bracketSse = new EventSource('/api/events/bracket');
+  window.__sse_list && window.__sse_list.push(bracketSse);
 
   bracketSse.onmessage = function(e) {
     if (!e.data) return;

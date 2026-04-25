@@ -680,11 +680,13 @@ function renderAdminWaiting(data) {
 function connectAdminQueue() {
     if (queueEs) queueEs.close();
     queueEs = new EventSource('/api/events/queue');
+    window.__sse_list && window.__sse_list.push(queueEs);
     queueEs.onmessage = e => { try { renderAdminQueue(JSON.parse(e.data)); } catch(ex) {} };
 }
 function connectAdminWaiting() {
     if (waitingEs) waitingEs.close();
     waitingEs = new EventSource('/api/events/waiting-queue');
+    window.__sse_list && window.__sse_list.push(waitingEs);
     waitingEs.onmessage = e => { try { renderAdminWaiting(JSON.parse(e.data)); } catch(ex) {} };
 }
 

@@ -117,6 +117,14 @@
         }
     }
 
+    // ── SSE 连接全局追踪（页面跳转时关闭，防止服务端僵尸 generator） ──
+    window.__sse_list = window.__sse_list || [];
+    window.__sse_cleanup = function() {
+        window.__sse_list.forEach(function(e) { try { e.close(); } catch(x) {} });
+        window.__sse_list = [];
+    };
+    window.addEventListener('beforeunload', window.__sse_cleanup);
+
     // ── 导航栏实时更新：进行中对局数 ──
     (function() {
         const el = document.querySelector('[data-nav-active-count]');
@@ -124,6 +132,7 @@
         let es = null;
         function connect() {
             es = new EventSource('/api/events/active-games');
+            window.__sse_list.push(es);
             es.onmessage = function(e) {
                 try {
                     const games = JSON.parse(e.data);

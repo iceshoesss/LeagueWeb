@@ -240,6 +240,7 @@ let activeEs = null;
 function connectActiveGames() {
     if (activeEs) activeEs.close();
     activeEs = new EventSource('/api/events/active-games');
+    window.__sse_list && window.__sse_list.push(activeEs);
     activeEs.onmessage = function(e) {
         try {
             const games = JSON.parse(e.data);
@@ -260,6 +261,7 @@ let queueEs = null;
 function connectQueue() {
     if (queueEs) queueEs.close();
     queueEs = new EventSource('/api/events/queue');
+    window.__sse_list && window.__sse_list.push(queueEs);
     queueEs.onmessage = function(e) {
         try {
             queueData = JSON.parse(e.data);
@@ -279,6 +281,7 @@ let waitingEs = null;
 function connectWaitingQueue() {
     if (waitingEs) waitingEs.close();
     waitingEs = new EventSource('/api/events/waiting-queue');
+    window.__sse_list && window.__sse_list.push(waitingEs);
     waitingEs.onmessage = function(e) {
         try {
             waitingData = JSON.parse(e.data);
@@ -299,6 +302,7 @@ let matchesEs = null;
 function connectMatches() {
     if (matchesEs) matchesEs.close();
     matchesEs = new EventSource('/api/events/matches');
+    window.__sse_list && window.__sse_list.push(matchesEs);
     matchesEs.onmessage = function(e) {
         try {
             const matches = JSON.parse(e.data);
@@ -318,6 +322,7 @@ let problemEs = null;
 function connectProblemMatches() {
     if (problemEs) problemEs.close();
     problemEs = new EventSource('/api/events/problem-matches');
+    window.__sse_list && window.__sse_list.push(problemEs);
     problemEs.onmessage = function(e) {
         try {
             const data = JSON.parse(e.data);
