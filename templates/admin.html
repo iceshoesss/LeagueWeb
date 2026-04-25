@@ -915,6 +915,13 @@ function createSearchSelect(container, allPlayers, selectedTag, onSelect) {
     });
 
     input.addEventListener('focus', () => {
+        if (!_players.length) {
+            // 数据为空时尝试重新加载
+            ctLoadPlayers().then(() => {
+                if (input.value.trim()) renderDropdown(input.value.trim());
+            });
+            return;
+        }
         if (input.value.trim()) renderDropdown(input.value.trim());
     });
 
@@ -985,6 +992,8 @@ async function loadTournaments() {
     }
 }
 
+let ctRadioBound = false;
+
 async function showCreateTournament() {
     const modal = document.getElementById('create-tournament-modal');
     modal.classList.remove('hidden');
@@ -992,17 +1001,21 @@ async function showCreateTournament() {
     document.getElementById('ct-name').value = '';
     document.getElementById('ct-groups').innerHTML = '';
     ctGroupIdx = 0;
+    Object.keys(ctSearchSlots).forEach(k => delete ctSearchSlots[k]);
 
     // 加载选手（根据布局方式选择数据源）
     await ctLoadPlayers();
 
-    // 布局切换时重新加载选手 + 显示/隐藏快速分配
-    document.querySelectorAll('input[name="ct-layout"]').forEach(radio => {
-        radio.onchange = () => {
-            ctLoadPlayers();
-            ctToggleGridSection();
-        };
-    });
+    // 布局切换时重新加载选手（只绑定一次）
+    if (!ctRadioBound) {
+        document.querySelectorAll('input[name="ct-layout"]').forEach(radio => {
+            radio.onchange = () => {
+                ctLoadPlayers();
+                ctToggleGridSection();
+            };
+        });
+        ctRadioBound = true;
+    }
     ctToggleGridSection();
 
     // 默认 2 个分组
@@ -1015,13 +1028,17 @@ function ctToggleGridSection() {
     document.getElementById('ct-grid-enroll-section').classList.toggle('hidden', layout !== 'grid');
 }
 
+let ctLoadingSeq = 0;  // 防并发：每次加载递增，旧的请求自动作废
+
 async function ctLoadPlayers(retry) {
+    const seq = ++ctLoadingSeq;
     const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
     const url = layout === 'grid' ? '/api/admin/enrolled-players' : '/api/admin/players-all';
     const countEl = document.getElementById('ct-unassigned-count');
     try {
         countEl.textContent = '加载中...';
         const res = await fetch(url);
+        if (seq !== ctLoadingSeq) return;  // 已有新请求，丢弃旧结果
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         ctAllPlayers = await res.json();
         countEl.textContent = ctAllPlayers.length;
@@ -1030,10 +1047,12 @@ async function ctLoadPlayers(retry) {
             if (slot && slot.refresh) slot.refresh(ctAllPlayers);
         });
     } catch (e) {
+        if (seq !== ctLoadingSeq) return;
         console.error('加载选手列表失败:', e, retry ? `(重试 ${retry})` : '');
         if (!retry || retry < 3) {
-            countEl.textContent = `加载失败，${2000}ms 后重试...`;
+            countEl.textContent = '加载失败，重试中...';
             await new Promise(r => setTimeout(r, 2000));
+            if (seq !== ctLoadingSeq) return;
             return ctLoadPlayers((retry || 0) + 1);
         }
         ctAllPlayers = [];
