@@ -954,176 +954,42 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 
 ## 管理后台 API
 
-以下端点需管理员登录（session）。超级管理员端点额外标注。
-
-### `GET /api/admin/stats`
-
-管理面板总览数据。
-
-**响应：** 聚合统计（选手数、对局数、队列数等）。
-
-### `GET /api/admin/matches`
-
-管理面板对局列表（分页）。
-
-**参数：** `?page=1&per_page=20&status=all`
-
-**响应：** `{"matches": [...], "total": N, "page": 1, "totalPages": 5}`
-
-### `GET /api/admin/players`
-
-管理面板选手列表（分页 + 搜索）。
-
-**参数：** `?page=1&search=关键词`
-
-**响应：** `{"players": [...], "total": N, "page": 1, "totalPages": 5}`
-
-### `GET /api/admin/players-all`
-
-获取全部已注册选手（不分页，用于创建赛事选择器）。
-
-**响应：**
-```json
-[
-  {"battleTag": "xxx#1234", "displayName": "xxx", "accountIdLo": "12345"}
-]
-```
-
-### `GET /api/admin/enrolled-players`
-
-获取报名选手列表（含 accountIdLo，批量查询优化）。
-
-**参数：** `?limit=N`（可选，取前 N 人）
-
-**响应：** 同 `/api/admin/players-all`。
-
-### `POST /api/admin/player/add`
-
-管理员手动添加选手（手机玩家/无插件玩家）。accountIdLo 用 battleTag 作为伪 Lo。
-
-**请求体：** `{"battleTag": "xxx#1234", "displayName": "xxx"}`
-
-**响应：** `{"ok": true, "battleTag": "xxx#1234", "displayName": "xxx"}`
-
-### `PUT /api/admin/player/<battleTag>/seed`
-
-设置/取消种子选手（toggle）。
-
-**响应：** `{"ok": true, "isSeed": true}`
-
-### `GET /api/admin/seed-players`
-
-获取所有种子选手列表。
-
-**响应：** `[{"battleTag": "...", "displayName": "...", "accountIdLo": "..."}]`
-
-### `POST /api/admin/match/<gameUuid>/force-end`
-
-强制结束对局（标记为 timeout）。
-
-**响应：** `{"ok": true}`
-
-### `POST /api/admin/match/<gameUuid>/force-abandon`
-
-强制标记对局掉线（标记为 abandoned）。
-
-**响应：** `{"ok": true}`
-
-### `POST /api/admin/match/<gameUuid>/reset`
-
-重置对局状态（清除 endedAt 和 status，回到进行中）。
-
-**响应：** `{"ok": true}`
-
-### `PUT /api/admin/match/<gameUuid>/edit-placement`
-
-修改已完成对局的排名（覆盖已有排名）。
-
-**请求体：**
-```json
-{
-  "placements": {
-    "1708070391": 1,
-    "12345678": 2
-  }
-}
-```
-
-- key 是 accountIdLo，value 是新排名 1-N
-- 排名必须覆盖所有玩家且不重复
-
-**响应：** `{"ok": true}`
-
-### `DELETE /api/match/<gameUuid>`
-
-删除对局。需管理员登录。
-
-**响应：** `{"ok": true, "gameUuid": "..."}`
-
-### `POST /api/admin/group/<group_id>/advance`
-
-手动晋级：管理员指定晋级者（最多 4 人）。
-
-**请求体：**
-```json
-{
-  "players": ["1708070391", "12345678"]
-}
-```
-
-- `players` 是 accountIdLo 列表
-- bracket 布局：创建/填入下一轮分组
-- grid 布局（海选）：只标记 qualified/eliminated，不创建下一轮
-
-**响应：** `{"ok": true, "advanced": 4}`
-
-### `POST /api/admin/group/<group_id>/manual-record`
-
-纯手工补录：为分组创建完整对局记录（插件失效时使用）。创建 match 记录 + 计算积分 + 触发晋级。
-
-**请求体：**
-```json
-{
-  "placements": {
-    "1708070391": 1,
-    "12345678": 2,
-    "11111111": 3,
-    "22222222": 4
-  }
-}
-```
-
-- key 是 accountIdLo，value 是排名 1-N
-- 必须覆盖组内所有非空玩家
-
-**响应：** `{"ok": true, "gameUuid": "...", "gamesPlayed": 2}`
-
-### `POST /api/admin/queue/remove`
-
-从报名队列移除玩家。
-
-**请求体：** `{"name": "玩家BattleTag"}`
-
-### `POST /api/admin/waiting/remove`
-
-从等待组移除玩家。
-
-**请求体：** `{"name": "玩家BattleTag"}`
-
-### `GET /api/admin/admins`
-
-获取管理员列表。**需超级管理员。**
-
-**响应：** `[{"_id": "...", "battleTag": "...", "addedAt": "...", "addedBy": "...", "isSuperAdmin": false}]`
-
-### `POST /api/admin/admins/add`
-
-添加管理员。**需超级管理员。**
-
-**请求体：** `{"battleTag": "xxx#1234"}`
-
-### `POST /api/admin/admins/remove`
-
-移除管理员。**需超级管理员。** 不能移除自己或超级管理员。
-
-**请求体：** `{"battleTag": "xxx#1234"}`
+> 内部使用，需管理员 session。详见 `routes_admin.py` + `routes_tournament.py`。
+
+<details>
+<summary>展开完整端点列表（~20 个）</summary>
+
+**总览 & 列表**
+- `GET /api/admin/stats` — 管理面板总览
+- `GET /api/admin/matches` — 对局列表（分页，`?page=&per_page=&status=`）
+- `GET /api/admin/players` — 选手列表（分页，`?page=&search=`）
+- `GET /api/admin/players-all` — 全部注册选手（不分页，用于创建赛事选择器）
+- `GET /api/admin/enrolled-players` — 报名选手（含 Lo，`?limit=`）
+- `GET /api/admin/seed-players` — 种子选手列表
+
+**选手管理**
+- `POST /api/admin/player/add` — 手动添加选手 `{battleTag, displayName}`
+- `PUT /api/admin/player/<battleTag>/seed` — 设置/取消种子（toggle）
+
+**对局管理**
+- `POST /api/admin/match/<uuid>/force-end` — 强制结束（timeout）
+- `POST /api/admin/match/<uuid>/force-abandon` — 强制掉线（abandoned）
+- `POST /api/admin/match/<uuid>/reset` — 重置对局（回到进行中）
+- `PUT /api/admin/match/<uuid>/edit-placement` — 修改排名 `{placements: {lo: rank}}`
+- `DELETE /api/match/<uuid>` — 删除对局
+
+**淘汰赛分组**
+- `PUT /api/tournament/group/<id>/update` — 编辑分组（BO + 玩家）
+- `POST /api/admin/group/<id>/advance` — 手动晋级 `{players: [lo]}`
+- `POST /api/admin/group/<id>/manual-record` — 手工补录 `{placements: {lo: rank}}`
+
+**队列管理**
+- `POST /api/admin/queue/remove` — 踢出报名队列 `{name}`
+- `POST /api/admin/waiting/remove` — 踢出等待组 `{name}`
+
+**管理员管理（需超级管理员）**
+- `GET /api/admin/admins` — 管理员列表
+- `POST /api/admin/admins/add` — 添加管理员 `{battleTag}`
+- `POST /api/admin/admins/remove` — 移除管理员 `{battleTag}`
+
+</details>
