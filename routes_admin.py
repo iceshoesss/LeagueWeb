@@ -566,16 +566,37 @@ def api_admin_manual_record(group_id):
     if not group_players:
         return jsonify({"error": "该组没有玩家"}), 400
 
-    # 校验：每个玩家都必须有排名
-    lo_set = {str(p["accountIdLo"]) for p in group_players}
-    missing = lo_set - set(placements.keys())
-    if missing:
-        return jsonify({"error": f"缺少玩家排名: {', '.join(missing)}"}), 400
+    # 查询该组未完成对局中已锁定的排名
+    locked_placements = {}
+    existing_match = None
+    incomplete_matches = list(db.league_matches.find(
+        {"tournamentGroupId": oid, "endedAt": None}
+    ))
+    for m in incomplete_matches:
+        for p in m.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            if p.get("placement") is not None and lo:
+                locked_placements[lo] = p["placement"]
+        if not existing_match:
+            existing_match = m
 
-    # 校验排名值
-    placement_vals = list(placements.values())
-    if sorted(placement_vals) != list(range(1, len(group_players) + 1)):
-        return jsonify({"error": f"排名必须是 1-{len(group_players)} 的不重复整数"}), 400
+    # 校验：提交的 accountIdLo 必须在组内且未被锁定
+    lo_set = {str(p["accountIdLo"]) for p in group_players}
+    for lo in placements:
+        if lo not in lo_set:
+            return jsonify({"error": f"玩家 {lo} 不在该组中"}), 400
+        if lo in locked_placements:
+            return jsonify({"error": f"玩家 {lo} 已有排名（第{locked_placements[lo]}名），不能重复补录"}), 400
+
+    # 合并已有锁定排名 + 本次提交的排名，校验完整性
+    all_placements = dict(locked_placements)
+    all_placements.update(placements)
+    n = len(group_players)
+    if len(all_placements) != n:
+        return jsonify({"error": f"排名不完整：已有 {len(locked_placements)} 个锁定，本次提交 {len(placements)} 个，共需 {n} 个"}), 400
+    placement_vals = list(all_placements.values())
+    if sorted(placement_vals) != list(range(1, n + 1)):
+        return jsonify({"error": f"排名必须是 1-{n} 的不重复整数"}), 400
 
     # 构建 league_matches 的 players 列表
     now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -583,7 +604,7 @@ def api_admin_manual_record(group_id):
     players = []
     for p in group_players:
         lo = str(p["accountIdLo"])
-        pl = placements[lo]
+        pl = all_placements[lo]
         pts = 9 if pl == 1 else max(1, 9 - pl)
         players.append({
             "accountIdLo": lo,
@@ -595,25 +616,39 @@ def api_admin_manual_record(group_id):
             "points": pts,
         })
 
-    # 创建 match 记录
-    match_doc = {
-        "gameUuid": str(_uuid.uuid4()),
-        "players": players,
-        "region": "CN",
-        "mode": "solo",
-        "startedAt": group.get("startedAt") or now_str,
-        "endedAt": now_str,
-        "tournamentGroupId": oid,
-        "tournamentRound": group.get("round"),
-        "manualRecord": True,
-    }
-    db.league_matches.insert_one(match_doc)
-    log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: {len(players)} 人, gameUuid={match_doc['gameUuid']}")
+    # 创建或更新 match 记录
+    if existing_match:
+        # 更新已有对局：补全所有玩家排名
+        db.league_matches.update_one(
+            {"_id": existing_match["_id"]},
+            {"$set": {"players": players, "endedAt": now_str, "manualRecord": True}}
+        )
+        game_uuid = existing_match["gameUuid"]
+        log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: 锁定{len(locked_placements)}人+补录{len(placements)}人, 更新已有对局 {game_uuid}")
+    else:
+        # 创建新对局
+        game_uuid = str(_uuid.uuid4())
+        match_doc = {
+            "gameUuid": game_uuid,
+            "players": players,
+            "region": "CN",
+            "mode": "solo",
+            "startedAt": group.get("startedAt") or now_str,
+            "endedAt": now_str,
+            "tournamentGroupId": oid,
+            "tournamentRound": group.get("round"),
+            "manualRecord": True,
+        }
+        db.league_matches.insert_one(match_doc)
+        log.info(f"[manual-record] 管理员 {admin_tag} 补录 R{group.get('round')}G{group.get('groupIndex')}: {len(players)} 人, 新建对局 {game_uuid}")
 
-    # 更新组状态
+    # 更新组状态（更新已有对局不增加 gamesPlayed，新建对局才增加）
     bo_n = group.get("boN", 1)
     old_gp = group.get("gamesPlayed", 0)
-    games_played = old_gp + 1
+    if existing_match:
+        games_played = old_gp  # 补全已有对局，不增加局数
+    else:
+        games_played = old_gp + 1  # 新建对局，局数+1
     update_fields = {"gamesPlayed": games_played}
 
     if games_played >= bo_n:
@@ -631,7 +666,7 @@ def api_admin_manual_record(group_id):
 
     db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
-    return jsonify({"ok": True, "gameUuid": match_doc["gameUuid"], "gamesPlayed": games_played})
+    return jsonify({"ok": True, "gameUuid": game_uuid, "gamesPlayed": games_played})
 
 @admin_bp.route("/api/admin/match/<game_uuid>/edit-placement", methods=["PUT"])
 def api_admin_edit_placement(game_uuid):

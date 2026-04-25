@@ -534,6 +534,19 @@ def api_tournament_group(group_id):
         if rank_data:
             p.update(rank_data)
 
+    # 查询该组未完成对局中已有排名的玩家（用于补录时判断锁定状态）
+    locked_placements = {}
+    incomplete_matches = list(db.league_matches.find(
+        {"tournamentGroupId": group["_id"], "endedAt": None},
+        {"players.accountIdLo": 1, "players.placement": 1}
+    ))
+    for m in incomplete_matches:
+        for p in m.get("players", []):
+            lo = str(p.get("accountIdLo", ""))
+            if p.get("placement") is not None and lo:
+                locked_placements[lo] = p["placement"]
+    group["lockedPlacements"] = locked_placements
+
     group["_id"] = str(group["_id"])
     return jsonify(group)
 
