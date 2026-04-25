@@ -1019,10 +1019,13 @@ async function ctLoadPlayers() {
     const url = layout === 'grid' ? '/api/admin/enrolled-players' : '/api/admin/players-all';
     try {
         const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         ctAllPlayers = await res.json();
         document.getElementById('ct-unassigned-count').textContent = ctAllPlayers.length;
     } catch (e) {
-        alert('加载选手列表失败');
+        console.error('加载选手列表失败:', e);
+        ctAllPlayers = [];
+        document.getElementById('ct-unassigned-count').textContent = '加载失败，点击选手框重试';
     }
 }
 

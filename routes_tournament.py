@@ -942,10 +942,16 @@ def api_admin_enrolled_players():
         cursor = cursor.limit(limit)
     enrollments = list(cursor)
 
+    # 批量查询 league_players，避免 N+1
+    bts = [p.get("battleTag", "") for p in enrollments]
+    lp_map = {}
+    for lp in db.league_players.find({"battleTag": {"$in": bts}}):
+        lp_map[lp.get("battleTag", "")] = lp
+
     result = []
     for p in enrollments:
         bt = p.get("battleTag", "")
-        lp = db.league_players.find_one({"battleTag": bt})
+        lp = lp_map.get(bt)
         result.append({
             "battleTag": bt,
             "displayName": p.get("displayName", ""),
