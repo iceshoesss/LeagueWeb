@@ -17,6 +17,7 @@
 | 页面路由 | `routes_pages.py` | 前端页面渲染 |
 | 管理后台 | `routes_admin.py` | 管理员面板 API |
 | SSE 推送 | `sse.py` | 实时事件推送 |
+| 浮动角标 | `base.html` | 问题对局角标 + 展开面板（全局） |
 | 后台清理 | `cleanup.py` | 超时检测/问题对局/webhook 通知 |
 | 前端模板 | `templates/` | Jinja2 + Tailwind CSS + ECharts |
 | 管理页面 | `templates/admin.html` | 赛事管理/创建/选手管理，**JS 全在此文件内** |
