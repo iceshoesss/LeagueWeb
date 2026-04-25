@@ -2,9 +2,11 @@
 """导出报名名单
 
 用法:
-  python export_enrollments.py --csv           # 导出 CSV
-  python export_enrollments.py --excel         # 导出 Excel (需要 openpyxl)
-  python export_enrollments.py --missing-lo    # 查找 Lo 为空的玩家
+  python export_enrollments.py --csv                   # 导出 CSV（不含 Lo）
+  python export_enrollments.py --csv --with-lo         # 导出 CSV（含 Lo，从 league_players/player_records 查询）
+  python export_enrollments.py --excel                 # 导出 Excel（不含 Lo）
+  python export_enrollments.py --excel --with-lo       # 导出 Excel（含 Lo）
+  python export_enrollments.py --missing-lo            # 查找 Lo 为空的玩家
 
 环境变量:
   MONGO_URL  MongoDB 地址 (默认 mongodb://mongo:27017)
@@ -28,6 +30,17 @@ def get_enrollments():
         {"status": {"$in": ["enrolled", "waitlist"]}},
         {"_id": 0, "battleTag": 1, "accountIdLo": 1, "status": 1, "position": 1, "enrollAt": 1}
     ).sort("position", 1))
+
+
+def lookup_lo(db, battle_tag):
+    """从 league_players 和 player_records 查 accountIdLo"""
+    lp = db.league_players.find_one({"battleTag": battle_tag}, {"accountIdLo": 1})
+    if lp and lp.get("accountIdLo"):
+        return str(lp["accountIdLo"])
+    pr = db.player_records.find_one({"playerId": battle_tag}, {"accountIdLo": 1})
+    if pr and pr.get("accountIdLo"):
+        return str(pr["accountIdLo"])
+    return ""
 
 
 def check_missing_lo():
@@ -59,11 +72,9 @@ def check_missing_lo():
         tag = r.get("battleTag", "")
         status = "替补" if r.get("status") == "waitlist" else "正选"
 
-        # 查 league_players 是否有 Lo
         lp = db.league_players.find_one({"battleTag": tag}, {"accountIdLo": 1})
         lp_lo = str(lp.get("accountIdLo", "")) if lp else "-"
 
-        # 查 player_records 是否有 Lo
         pr = db.player_records.find_one({"playerId": tag}, {"accountIdLo": 1})
         pr_lo = str(pr.get("accountIdLo", "")) if pr else "-"
 
@@ -76,28 +87,33 @@ def check_missing_lo():
     print("  3. 同步到 league_players: db.league_players.updateOne({battleTag: 'xxx'}, {$set: {accountIdLo: '12345'}})")
 
 
-def export_csv(rows):
+def export_csv(rows, with_lo):
+    from pymongo import MongoClient
+    db = MongoClient(MONGO_URL)[DB_NAME] if with_lo else None
+
     ts = datetime.now().strftime("%Y%m%d%H%M")
-    filename = f"{ts}_报名名单.csv"
+    filename = f"{ts}_报名名单{'_含Lo' if with_lo else ''}.csv"
+
+    if with_lo:
+        headers = ["序号", "BattleTag", "AccountIdLo", "报名时间", "状态"]
+    else:
+        headers = ["序号", "BattleTag", "报名时间", "状态"]
+
     with open(filename, "w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["序号", "BattleTag", "AccountIdLo", "Lo为空", "报名时间", "状态"])
+        writer.writerow(headers)
         for i, r in enumerate(rows, 1):
             status = "替补" if r.get("status") == "waitlist" else ""
-            lo = str(r.get("accountIdLo", "")).strip()
-            lo_empty = "⚠️ 是" if (not lo or lo == "None") else ""
-            writer.writerow([
-                i,
-                r.get("battleTag", ""),
-                r.get("accountIdLo", ""),
-                lo_empty,
-                r.get("enrollAt", ""),
-                status,
-            ])
+            if with_lo:
+                lo = lookup_lo(db, r.get("battleTag", ""))
+                writer.writerow([i, r.get("battleTag", ""), lo, r.get("enrollAt", ""), status])
+            else:
+                writer.writerow([i, r.get("battleTag", ""), r.get("enrollAt", ""), status])
+
     print(f"已导出: {filename} ({len(rows)} 人)")
 
 
-def export_excel(rows):
+def export_excel(rows, with_lo):
     try:
         from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -105,21 +121,24 @@ def export_excel(rows):
         print("Excel 模式需要 openpyxl: pip install openpyxl")
         sys.exit(1)
 
+    from pymongo import MongoClient
+    db = MongoClient(MONGO_URL)[DB_NAME] if with_lo else None
+
     ts = datetime.now().strftime("%Y%m%d%H%M")
-    filename = f"{ts}_报名名单.xlsx"
+    filename = f"{ts}_报名名单{'_含Lo' if with_lo else ''}.xlsx"
 
     wb = Workbook()
     ws = wb.active
     ws.title = "报名名单"
 
-    # 表头
-    headers = ["序号", "BattleTag", "AccountIdLo", "Lo为空", "报名时间", "状态"]
+    if with_lo:
+        headers = ["序号", "BattleTag", "AccountIdLo", "报名时间", "状态"]
+    else:
+        headers = ["序号", "BattleTag", "报名时间", "状态"]
+
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="2a2a4a", end_color="2a2a4a", fill_type="solid")
-    thin_border = Border(
-        bottom=Side(style="thin", color="cccccc")
-    )
-    warn_fill = PatternFill(start_color="ffcccc", end_color="ffcccc", fill_type="solid")
+    thin_border = Border(bottom=Side(style="thin", color="cccccc"))
 
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
@@ -127,47 +146,54 @@ def export_excel(rows):
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
-    # 数据
     for i, r in enumerate(rows, 2):
-        seq = i - 1
         status = "替补" if r.get("status") == "waitlist" else ""
-        lo = str(r.get("accountIdLo", "")).strip()
-        lo_empty = "⚠️ 是" if (not lo or lo == "None") else ""
-
-        ws.cell(row=i, column=1, value=seq).alignment = Alignment(horizontal="center")
+        ws.cell(row=i, column=1, value=i - 1).alignment = Alignment(horizontal="center")
         ws.cell(row=i, column=2, value=r.get("battleTag", ""))
-        ws.cell(row=i, column=3, value=r.get("accountIdLo", ""))
-        cell_warn = ws.cell(row=i, column=4, value=lo_empty)
-        ws.cell(row=i, column=5, value=r.get("enrollAt", ""))
-        cell_status = ws.cell(row=i, column=6, value=status)
+
+        if with_lo:
+            lo = lookup_lo(db, r.get("battleTag", ""))
+            ws.cell(row=i, column=3, value=lo)
+            ws.cell(row=i, column=4, value=r.get("enrollAt", ""))
+            cell_status = ws.cell(row=i, column=5, value=status)
+            col_count = 5
+        else:
+            ws.cell(row=i, column=3, value=r.get("enrollAt", ""))
+            cell_status = ws.cell(row=i, column=4, value=status)
+            col_count = 4
+
         if status == "替补":
             cell_status.font = Font(color="e2b714")
-        if lo_empty:
-            cell_warn.font = Font(bold=True, color="cc0000")
-            # 整行高亮
-            for col in range(1, 7):
-                ws.cell(row=i, column=col).fill = warn_fill
-        for col in range(1, 7):
+        for col in range(1, col_count + 1):
             ws.cell(row=i, column=col).border = thin_border
 
-    # 列宽
     ws.column_dimensions["A"].width = 6
     ws.column_dimensions["B"].width = 28
-    ws.column_dimensions["C"].width = 16
-    ws.column_dimensions["D"].width = 10
-    ws.column_dimensions["E"].width = 24
-    ws.column_dimensions["F"].width = 8
+    if with_lo:
+        ws.column_dimensions["C"].width = 16
+        ws.column_dimensions["D"].width = 24
+        ws.column_dimensions["E"].width = 8
+    else:
+        ws.column_dimensions["C"].width = 24
+        ws.column_dimensions["D"].width = 8
 
     wb.save(filename)
     print(f"已导出: {filename} ({len(rows)} 人)")
 
 
 def main():
-    if len(sys.argv) < 2 or sys.argv[1] not in ("--csv", "--excel", "--missing-lo"):
-        print("用法: python export_enrollments.py --csv | --excel | --missing-lo")
+    args = sys.argv[1:]
+    with_lo = "--with-lo" in args
+    args = [a for a in args if a != "--with-lo"]
+
+    if not args or args[0] not in ("--csv", "--excel", "--missing-lo"):
+        print("用法:")
+        print("  python export_enrollments.py --csv [--with-lo]")
+        print("  python export_enrollments.py --excel [--with-lo]")
+        print("  python export_enrollments.py --missing-lo")
         sys.exit(1)
 
-    if sys.argv[1] == "--missing-lo":
+    if args[0] == "--missing-lo":
         check_missing_lo()
         return
 
@@ -176,10 +202,10 @@ def main():
         print("暂无报名数据")
         return
 
-    if sys.argv[1] == "--csv":
-        export_csv(rows)
+    if args[0] == "--csv":
+        export_csv(rows, with_lo)
     else:
-        export_excel(rows)
+        export_excel(rows, with_lo)
 
 
 if __name__ == "__main__":
