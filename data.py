@@ -256,8 +256,8 @@ def get_rival_stats(battle_tag, account_id_lo=None):
     }
 
 
-def get_player_matches(battle_tag, account_id_lo=None):
-    """获取某选手的所有对局记录"""
+def get_player_matches(battle_tag, account_id_lo=None, limit=50):
+    """获取某选手的最近对局记录"""
     db = get_db()
     match_key = "players.accountIdLo" if account_id_lo else "players.battleTag"
     match_val = account_id_lo if account_id_lo else battle_tag
@@ -270,6 +270,7 @@ def get_player_matches(battle_tag, account_id_lo=None):
             ]
         }},
         {"$sort": {"endedAt": -1}},
+        {"$limit": limit},
         {"$unwind": "$players"},
         {"$match": {match_key: match_val}},
         {"$project": {

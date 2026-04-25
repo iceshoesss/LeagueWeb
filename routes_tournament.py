@@ -21,7 +21,7 @@ tournament_bp = Blueprint("tournament", __name__)
 # ── 对阵图缓存 ──────────────────────────────────────
 _bracket_cache = None
 _bracket_cache_ts = 0
-BRACKET_CACHE_TTL = 5  # 秒
+BRACKET_CACHE_TTL = 30  # 秒
 
 def invalidate_bracket_cache():
     global _bracket_cache, _bracket_cache_ts
