@@ -247,8 +247,8 @@
             <div class="mb-4">
                 <label class="block text-xs text-hearth-dim mb-1">晋级规则</label>
                 <select id="ct-advancement-rule" class="bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
-                    <option value="chicken">吃鸡规则（总积分 → 吃鸡次数 → 最后一局排名）</option>
                     <option value="golden">黄金赛规则（总积分 → 单局最高分 → 最后一局分数）</option>
+                    <option value="chicken">吃鸡规则（总积分 → 吃鸡次数 → 最后一局排名）</option>
                 </select>
                 <span class="text-xs text-hearth-dim/60 mt-1 block">同分时的晋级判定方式</span>
             </div>
@@ -1303,7 +1303,7 @@ async function ctSubmit() {
     }
 
     const layout = document.querySelector('input[name="ct-layout"]:checked')?.value || 'bracket';
-    const advancementRule = document.getElementById('ct-advancement-rule')?.value || 'chicken';
+    const advancementRule = document.getElementById('ct-advancement-rule')?.value || 'golden';
 
     // 自动生成后续轮次：n → n/2 → ... → 1（grid 海选模式只有一轮）
     const allRounds = [{ round: 1, boN: boPerRound[1] || 3, groups: groups }];
