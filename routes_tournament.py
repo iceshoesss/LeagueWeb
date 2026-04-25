@@ -538,28 +538,6 @@ def api_tournament_group(group_id):
     return jsonify(group)
 
 
-@tournament_bp.route("/api/tournament/group/<group_id>/matches")
-def api_tournament_group_matches(group_id):
-    """获取分组关联的对局记录（用于补录时判断已有排名）"""
-    try:
-        oid = ObjectId(group_id)
-    except Exception:
-        return jsonify({"error": "无效的 group ID"}), 400
-
-    db = get_db()
-    matches = list(db.league_matches.find(
-        {"tournamentGroupId": oid},
-        {"gameUuid": 1, "players.accountIdLo": 1, "players.placement": 1, "players.battleTag": 1, "players.displayName": 1, "endedAt": 1}
-    ).sort("endedAt", -1))
-
-    for m in matches:
-        m["_id"] = str(m["_id"])
-        if "tournamentGroupId" in m:
-            m["tournamentGroupId"] = str(m["tournamentGroupId"])
-
-    return jsonify(matches)
-
-
 @tournament_bp.route("/api/tournament/manage/<path:tournament_name>")
 def api_tournament_manage(tournament_name):
     admin_tag = _admin_required()
