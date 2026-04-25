@@ -38,7 +38,7 @@ app.config["SESSION_COOKIE_SECURE"] = False
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")
-WEB_VERSION = "0.10.5"
+WEB_VERSION = "0.11.0"
 
 # ── 注册蓝图 ──────────────────────────────────────
 from routes_pages import pages
