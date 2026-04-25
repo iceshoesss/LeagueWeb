@@ -18,6 +18,17 @@ from data import get_group_rankings, try_advance_group, try_advance_round
 log = logging.getLogger("bgtracker")
 tournament_bp = Blueprint("tournament", __name__)
 
+# ── 对阵图缓存 ──────────────────────────────────────
+_bracket_cache = None
+_bracket_cache_ts = 0
+BRACKET_CACHE_TTL = 5  # 秒
+
+def invalidate_bracket_cache():
+    global _bracket_cache, _bracket_cache_ts
+    _bracket_cache = None
+    _bracket_cache_ts = 0
+    log.debug("[cache] bracket cache invalidated")
+
 
 def _enroll_deadline_reached():
     """检查报名是否已截止"""
@@ -179,7 +190,13 @@ def _build_bracket_mock():
 
 
 def build_bracket_data():
-    """从 tournament_groups 集合读取对阵图数据"""
+    """从 tournament_groups 集合读取对阵图数据（带缓存）"""
+    global _bracket_cache, _bracket_cache_ts
+    import time
+    now = time.time()
+    if _bracket_cache is not None and (now - _bracket_cache_ts) < BRACKET_CACHE_TTL:
+        return _bracket_cache
+
     db = get_db()
     GROUP_LABELS = "ABCD"
 
@@ -400,7 +417,10 @@ def build_bracket_data():
         bracket_tournaments.sort(key=_created_at)
         result = [bracket_tournaments[-1]]
 
-    return {"tournaments": result}
+    result_data = {"tournaments": result}
+    _bracket_cache = result_data
+    _bracket_cache_ts = time.time()
+    return result_data
 
 
 # ── 页面路由 ──────────────────────────────────────────
@@ -490,6 +510,7 @@ def api_tournament_create():
         db.tournament_groups.insert_many(groups_to_insert)
 
     log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组 layout={layout}")
+    invalidate_bracket_cache()
     return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert), "layout": layout})
 
 
@@ -653,9 +674,11 @@ def api_tournament_delete(tournament_name):
         tg_ids = [g["_id"] for g in groups]
         match_result = db.league_matches.delete_many({"tournamentGroupId": {"$in": tg_ids}})
         log.info(f"[tournament] 超级管理员 {admin_tag} 强制删除赛事 {tournament_name}，删除 {match_result.deleted_count} 条对局记录")
+        invalidate_bracket_cache()
 
     result = db.tournament_groups.delete_many({"tournamentName": tournament_name})
     log.info(f"[tournament] 管理员 {admin_tag} 删除赛事 {tournament_name}，删除 {result.deleted_count} 个分组")
+    invalidate_bracket_cache()
     return jsonify({"ok": True, "deleted": result.deleted_count})
 
 

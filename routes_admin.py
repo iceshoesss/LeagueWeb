@@ -535,6 +535,8 @@ def api_admin_manual_advance(group_id):
         db.tournament_groups.update_one({"_id": oid}, {"$set": {"status": "done", "endedAt": now_str}})
         log.info(f"[manual-advance] 源组 R{current_round}G{gi} 标记为 done")
 
+    from routes_tournament import invalidate_bracket_cache
+    invalidate_bracket_cache()
     return jsonify({"ok": True, "advanced": len(quals)})
 
 @admin_bp.route("/api/admin/group/<group_id>/manual-record", methods=["POST"])
@@ -620,6 +622,8 @@ def api_admin_manual_record(group_id):
         # 触发晋级
         from data import try_advance_group
         try_advance_group(db, group)
+        from routes_tournament import invalidate_bracket_cache
+        invalidate_bracket_cache()
         log.info(f"[manual-record] BO 完成: gp={old_gp}→{games_played}/{bo_n}, 触发晋级")
     else:
         update_fields["status"] = "waiting"

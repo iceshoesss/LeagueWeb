@@ -213,6 +213,8 @@ def api_update_placement(game_uuid):
                 update_fields["endedAt"] = now_str
                 log.info(f"[补录] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →done")
                 try_advance_group(db, tg)
+                from routes_tournament import invalidate_bracket_cache
+                invalidate_bracket_cache()
             else:
                 update_fields["status"] = "waiting"
                 log.info(f"[补录] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} →waiting")
