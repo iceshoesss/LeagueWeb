@@ -155,8 +155,8 @@ def export_excel(db, groups, tournament_name, with_lo):
             else:
                 col_count = 4
 
-            for col in range(1, col_count + 1):
-                ws.cell(row=row, col).border = thin_border
+            for c in range(1, col_count + 1):
+                ws.cell(row=row, column=c).border = thin_border
             row += 1
             total += 1
 
