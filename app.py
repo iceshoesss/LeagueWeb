@@ -63,7 +63,7 @@ app.jinja_env.filters['cst'] = to_cst_str
 from db import get_db, GAME_TIMEOUT_MINUTES, to_iso_str, ENROLL_DEADLINE, TOURNAMENT_PHASE
 from auth import is_admin, is_super_admin, PLUGIN_API_KEY, MIN_PLUGIN_VERSION, _version_tuple
 from cleanup import CLEANUP_INTERVAL, _background_cleanup
-from cleanup import cleanup_enrollment_deadline as _cleanup_enroll_deadline
+
 
 
 @app.context_processor
@@ -169,7 +169,6 @@ def _background_cleanup_with_enroll():
             cleanup_partial_matches()
             cleanup_stale_queues()
             cleanup_expired_bind_codes()
-            _cleanup_enroll_deadline()
         except Exception as e:
             log.error(f"后台 cleanup 异常: {e}")
         time.sleep(CLEANUP_INTERVAL)

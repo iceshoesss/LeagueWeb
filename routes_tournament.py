@@ -13,7 +13,7 @@ from flask import Blueprint, jsonify, request, session, render_template
 from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_SLOTS, ENROLL_DEADLINE, TOURNAMENT_PHASE
 from auth import is_admin, is_super_admin, _admin_required
 from data import get_group_rankings, try_advance_group, try_advance_round
-from cleanup import cleanup_enrollment_deadline
+
 
 log = logging.getLogger("bgtracker")
 tournament_bp = Blueprint("tournament", __name__)
@@ -977,9 +977,6 @@ def api_enroll_withdraw():
     battle_tag = session.get("battleTag")
     if not battle_tag:
         return jsonify({"error": "请先登录"}), 401
-
-    if _enroll_deadline_reached():
-        return jsonify({"error": "报名已截止，无法退赛"}), 400
 
     db = get_db()
     existing = db.tournament_enrollments.find_one({"battleTag": battle_tag})
