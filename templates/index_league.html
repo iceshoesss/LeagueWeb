@@ -184,10 +184,15 @@ function renderLeaderboard() {
     }
     let btns = '';
     btns += `<button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
-    for (let p = 1; p <= totalPages; p++) {
+    let start = Math.max(1, currentPage - 3), end = Math.min(totalPages, currentPage + 3);
+    if (start > 1) btns += `<button onclick="goPage(1)" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">1</button>`;
+    if (start > 2) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    for (let p = start; p <= end; p++) {
         const active = p === currentPage;
         btns += `<button onclick="goPage(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
     }
+    if (end < totalPages - 1) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    if (end < totalPages) btns += `<button onclick="goPage(${totalPages})" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">${totalPages}</button>`;
     btns += `<button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
     pager.innerHTML = btns;
 }
@@ -418,10 +423,15 @@ function renderActiveGamesPage() {
     if (totalPages <= 1) { pager.innerHTML = ''; updateTimers(); return; }
     let btns = '';
     btns += `<button onclick="goActivePage(${activePage - 1})" ${activePage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
-    for (let p = 1; p <= totalPages; p++) {
+    let aStart = Math.max(1, activePage - 3), aEnd = Math.min(totalPages, activePage + 3);
+    if (aStart > 1) btns += `<button onclick="goActivePage(1)" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">1</button>`;
+    if (aStart > 2) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    for (let p = aStart; p <= aEnd; p++) {
         const isActive = p === activePage;
         btns += `<button onclick="goActivePage(${p})" class="px-2.5 py-1 rounded text-xs ${isActive ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
     }
+    if (aEnd < totalPages - 1) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    if (aEnd < totalPages) btns += `<button onclick="goActivePage(${totalPages})" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">${totalPages}</button>`;
     btns += `<button onclick="goActivePage(${activePage + 1})" ${activePage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${activePage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
     pager.innerHTML = btns;
 
