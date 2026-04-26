@@ -9,6 +9,7 @@ import urllib.request
 from datetime import datetime, timedelta, UTC
 
 from db import get_db, GAME_TIMEOUT_MINUTES, QUEUE_TIMEOUT_MINUTES, WAITING_QUEUE_TIMEOUT_MINUTES
+from sse import evt_active_games, evt_queue, evt_waiting_queue, evt_matches, evt_problem_matches, evt_bracket
 
 log = logging.getLogger("bgtracker")
 
@@ -86,6 +87,10 @@ def cleanup_stale_games():
     )
     if result.modified_count > 0:
         log.info(f"清理了 {result.modified_count} 个超时对局")
+        evt_active_games.set()
+        evt_matches.set()
+        evt_problem_matches.set()
+        evt_bracket.set()
 
 
 def cleanup_partial_matches():
@@ -132,6 +137,10 @@ def cleanup_partial_matches():
 
     if count > 0:
         log.info(f"标记了 {count} 个部分掉线对局")
+        evt_active_games.set()
+        evt_matches.set()
+        evt_problem_matches.set()
+        evt_bracket.set()
 
 
 def cleanup_stale_queues():
@@ -152,14 +161,17 @@ def cleanup_stale_queues():
         names = [p["name"] for p in expired_queue]
         db.league_queue.delete_many({"name": {"$in": names}})
         log.info(f"报名队列踢出超时玩家: {names}")
+        evt_queue.set()
 
     # 清理等待队列中超时的组
     waiting_cutoff = (now_dt - timedelta(minutes=WAITING_QUEUE_TIMEOUT_MINUTES)).isoformat() + "Z"
     expired_groups = list(db.league_waiting_queue.find({"createdAt": {"$lt": waiting_cutoff}}))
-    for group in expired_groups:
-        db.league_waiting_queue.delete_one({"_id": group["_id"]})
-        expired_names = [p.get("name", "") for p in group.get("players", [])]
-        log.info(f"等待组解散: {expired_names}")
+    if expired_groups:
+        for group in expired_groups:
+            db.league_waiting_queue.delete_one({"_id": group["_id"]})
+            expired_names = [p.get("name", "") for p in group.get("players", [])]
+            log.info(f"等待组解散: {expired_names}")
+        evt_waiting_queue.set()
 
 
 def cleanup_enrollment_deadline():

@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from db import get_db, to_iso_str, MIN_MATCH_PLAYERS
 from auth import is_admin, GAME_UUID_RE
 from cleanup import cleanup_stale_queues, cleanup_expired_bind_codes
+from sse import evt_queue, evt_waiting_queue, evt_matches, evt_problem_matches
 
 log = logging.getLogger("bgtracker")
 league_bp = Blueprint("league", __name__)
@@ -110,6 +111,9 @@ def api_delete_match(game_uuid):
             recalc_group_rankings(db, tg_id)
             log.info(f"管理员 {battle_tag} 删除对局后回滚分组 R{tg.get('round')}G{tg.get('groupIndex')}: gp={old_gp}→{new_gp}, status=waiting")
 
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True, "gameUuid": game_uuid})
 
 
@@ -252,6 +256,10 @@ def api_update_placement(game_uuid):
     elif tg_id:
         log.info(f"[补录] 部分补录，不触发 BO 进度: gameUuid={game_uuid} 已填={sum(1 for p in players if p.get('placement') is not None)}/{len(players)}")
 
+    evt_matches.set()
+    evt_problem_matches.set()
+    if all_filled:
+        evt_bracket.set()
     return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
 
@@ -310,6 +318,8 @@ def api_queue_join():
             {"_id": incomplete_group["_id"]},
             {"$push": {"players": player_entry}}
         )
+        evt_queue.set()
+        evt_waiting_queue.set()
         return jsonify({"ok": True, "name": name, "moved": True})
 
     db.league_queue.update_one(
@@ -335,8 +345,11 @@ def api_queue_join():
             "createdAt": datetime.now(UTC).isoformat() + "Z",
         })
         db.league_queue.delete_many({"name": {"$in": names}})
+        evt_queue.set()
+        evt_waiting_queue.set()
         return jsonify({"ok": True, "name": name, "moved": True})
 
+    evt_queue.set()
     return jsonify({"ok": True, "name": name, "moved": False})
 
 
@@ -368,6 +381,8 @@ def api_queue_leave():
             )
         else:
             db.league_waiting_queue.delete_one({"_id": group["_id"]})
+    evt_queue.set()
+    evt_waiting_queue.set()
     return jsonify({"ok": True, "name": name})
 
 
@@ -531,6 +546,8 @@ def api_logout():
                 )
             else:
                 db.league_waiting_queue.delete_one({"_id": group["_id"]})
+        evt_queue.set()
+        evt_waiting_queue.set()
     session.clear()
     return jsonify({"ok": True})
 

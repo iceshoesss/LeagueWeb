@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from db import get_db, to_iso_str, to_cst_str, GAME_TIMEOUT_MINUTES
 from auth import _admin_required, is_super_admin, is_admin
 from data import get_group_rankings
+from sse import evt_active_games, evt_queue, evt_waiting_queue, evt_matches, evt_problem_matches, evt_bracket
 
 log = logging.getLogger("bgtracker")
 admin_bp = Blueprint("admin", __name__)
@@ -204,6 +205,10 @@ def api_admin_force_end(game_uuid):
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
 
+    evt_active_games.set()
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True})
 
 
@@ -233,6 +238,10 @@ def api_admin_force_abandon(game_uuid):
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
 
+    evt_active_games.set()
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True})
 
 
@@ -253,6 +262,7 @@ def api_admin_queue_remove():
         return jsonify({"error": "该玩家不在报名队列中"}), 404
 
     log.info(f"管理员 {admin_tag} 踢出报名队列: {name}")
+    evt_queue.set()
     return jsonify({"ok": True})
 
 
@@ -282,6 +292,7 @@ def api_admin_waiting_remove():
         db.league_waiting_queue.delete_one({"_id": group["_id"]})
 
     log.info(f"管理员 {admin_tag} 踢出等待组: {name}")
+    evt_waiting_queue.set()
     return jsonify({"ok": True})
 
 
@@ -308,6 +319,10 @@ def api_admin_reset_match(game_uuid):
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
 
+    evt_active_games.set()
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True})
 
 
@@ -567,6 +582,7 @@ def api_admin_manual_advance(group_id):
     # 重算该组 rankings（标记 done 后确保缓存最新）
     from data import recalc_group_rankings
     recalc_group_rankings(db, oid)
+    evt_bracket.set()
     return jsonify({"ok": True, "advanced": len(quals)})
 
 @admin_bp.route("/api/admin/group/<group_id>/manual-record", methods=["POST"])
@@ -746,6 +762,9 @@ def api_admin_manual_record(group_id):
         from data import recalc_group_rankings
         recalc_group_rankings(db, oid)
 
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True, "gameUuid": game_uuid, "updated": updated, "skipped_locked": skipped_locked, "finalized": all_filled})
 
 @admin_bp.route("/api/admin/match/<game_uuid>/edit-placement", methods=["PUT"])
@@ -793,4 +812,7 @@ def api_admin_edit_placement(game_uuid):
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
 
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True})

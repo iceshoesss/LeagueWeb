@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request
 from db import get_db
 from auth import (check_rate_limit, GAME_UUID_RE, PLUGIN_API_KEY, MIN_PLUGIN_VERSION,
                   _version_tuple)
+from sse import evt_active_games, evt_waiting_queue, evt_matches, evt_problem_matches, evt_bracket
 from cleanup import cleanup_stale_queues
 
 log = logging.getLogger("bgtracker")
@@ -200,6 +201,8 @@ def api_plugin_check_league():
             account_id_lo=data.get("accountIdLo", "").strip(), mode=mode, region=region, timestamp=started_at)
         if vc:
             resp["verificationCode"] = vc
+        evt_active_games.set()
+        evt_waiting_queue.set()
         return jsonify(resp)
 
     # ── 积分赛等待队列匹配 ──
@@ -279,6 +282,8 @@ def api_plugin_check_league():
         account_id_lo=data.get("accountIdLo", "").strip(), mode=mode, region=region, timestamp=started_at)
     if vc:
         resp["verificationCode"] = vc
+    evt_active_games.set()
+    evt_waiting_queue.set()
     return jsonify(resp)
 
 
@@ -407,4 +412,9 @@ def api_plugin_update_placement():
         else:
             log.info(f"[update-placement] 非淘汰赛对局（无 tournamentGroupId）")
 
+    # 通知 SSE：排名有变化
+    evt_active_games.set()
+    if finalized:
+        evt_matches.set()
+        evt_bracket.set()
     return jsonify({"ok": True, "finalized": finalized})

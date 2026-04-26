@@ -13,6 +13,7 @@ from flask import Blueprint, jsonify, request, session, render_template
 from db import get_db, to_iso_str, ENROLL_CAP, ENROLL_SLOTS, ENROLL_DEADLINE, TOURNAMENT_PHASE
 from auth import is_admin, is_super_admin, _admin_required
 from data import get_group_rankings, try_advance_group, try_advance_round, SORT_KEYS, _sort_key_chicken, _sort_key_golden
+from sse import evt_matches, evt_bracket
 
 
 log = logging.getLogger("bgtracker")
@@ -512,6 +513,7 @@ def api_tournament_create():
 
     log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组 layout={layout} rule={advancement_rule}")
     invalidate_bracket_cache()
+    evt_bracket.set()
     return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert), "layout": layout, "advancementRule": advancement_rule})
 
 
@@ -665,6 +667,7 @@ def api_tournament_group_update(group_id):
         db.tournament_groups.update_one({"_id": oid}, {"$set": update})
 
     log.info(f"[tournament] 管理员 {admin_tag} 更新分组 {group_id}: {list(update.keys())}")
+    evt_bracket.set()
     return jsonify({"ok": True})
 
 
@@ -693,6 +696,7 @@ def api_tournament_delete(tournament_name):
     result = db.tournament_groups.delete_many({"tournamentName": tournament_name})
     log.info(f"[tournament] 管理员 {admin_tag} 删除赛事 {tournament_name}，删除 {result.deleted_count} 个分组")
     invalidate_bracket_cache()
+    evt_bracket.set()
     return jsonify({"ok": True, "deleted": result.deleted_count})
 
 
@@ -933,6 +937,7 @@ def api_tournament_generate_next():
     db.tournament_groups.insert_many(groups_to_insert)
 
     log.info(f"[tournament] 管理员 {admin_tag} 生成新赛事: {new_name}，晋级者 {len(qualifiers)} 人 + 种子 {len(seed_players)} 人 = {len(arr)} 人，{group_count} 组")
+    evt_bracket.set()
     return jsonify({
         "ok": True,
         "tournamentName": new_name,
