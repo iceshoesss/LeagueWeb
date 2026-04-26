@@ -2,9 +2,9 @@
 
 import json
 import logging
-from flask import Blueprint, render_template, redirect, url_for, session, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, session, request
 
-from db import get_db, TOURNAMENT_PHASE, ENROLL_DEADLINE, to_cst_str
+from db import get_db, TOURNAMENT_PHASE, ENROLL_DEADLINE
 from auth import is_admin
 from data import (get_players, get_completed_matches, get_active_games,
                   get_player, get_player_matches, get_rival_stats,
@@ -91,24 +91,6 @@ def match_edit_page(game_uuid):
 @pages.route("/register")
 def register_page():
     return render_template("register.html")
-
-
-@pages.route("/api/problems")
-def api_problems():
-    matches = get_problem_matches()
-    result = []
-    for m in matches:
-        players = []
-        for p in m.get("players", []):
-            if p.get("placement") is None:
-                players.append(p.get("displayName") or p.get("battleTag", ""))
-        result.append({
-            "gameUuid": m.get("gameUuid", ""),
-            "type": m.get("status", "timeout"),
-            "startedAt": to_cst_str(m.get("startedAt")),
-            "players": players,
-        })
-    return jsonify(result)
 
 
 @pages.route("/problems")
