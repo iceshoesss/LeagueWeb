@@ -82,7 +82,9 @@ def api_delete_match(game_uuid):
 
     # 删除对局前，记录关联的淘汰赛分组
     tg_id = match.get("tournamentGroupId")
-    # 只有已完成且有排名的对局才递增过 gamesPlayed，需要回滚
+    # gamesPlayed 仅在 update-placement 全部提交时递增（同时设置 endedAt），
+    # 超时/掉线的 cleanup 会设 endedAt 但不递增 gamesPlayed，
+    # 所以需要同时检查 endedAt 和 has_placements
     was_completed = match.get("endedAt") not in (None, "")
     has_placements = any(p.get("placement") is not None for p in match.get("players", []))
 
