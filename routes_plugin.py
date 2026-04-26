@@ -398,6 +398,10 @@ def api_plugin_update_placement():
 
                 result = db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
                 log.info(f"[update-placement] 组更新结果: matched={result.matched_count} modified={result.modified_count}")
+
+                # 事件驱动：更新该组缓存的 rankings
+                from data import recalc_group_rankings
+                recalc_group_rankings(db, tg_id)
             else:
                 log.warning(f"[update-placement] tournament_group 不存在: tg_id={tg_id}")
         else:

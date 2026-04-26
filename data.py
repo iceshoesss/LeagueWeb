@@ -448,6 +448,84 @@ def get_group_rankings(db, tournament_name=None, advancement_rule="chicken"):
     return result
 
 
+def recalc_group_rankings(db, group_id):
+    """重新计算单个分组的排名并写入 tournament_groups.rankings（事件驱动缓存）"""
+    from bson import ObjectId
+    tg = db.tournament_groups.find_one({"_id": ObjectId(group_id) if not isinstance(group_id, ObjectId) else group_id})
+    if not tg:
+        return
+
+    tg_id = tg["_id"]
+    advancement_rule = tg.get("advancementRule", "chicken")
+    sort_fn = SORT_KEYS.get(advancement_rule, _sort_key_chicken)
+
+    # 单组聚合：只查该组的已结束对局
+    pipeline = [
+        {"$match": {"tournamentGroupId": tg_id, "endedAt": {"$ne": None}}},
+        {"$match": {"players": {"$not": {"$elemMatch": {"placement": None}}}}},
+        {"$unwind": "$players"},
+        {"$match": {"players.accountIdLo": {"$nin": ["", None, "None"]}}},
+        {"$sort": {"startedAt": 1}},
+        {"$group": {
+            "_id": "$players.accountIdLo",
+            "totalPoints": {"$sum": {"$ifNull": ["$players.points", 0]}},
+            "gamesPlayed": {"$sum": 1},
+            "games": {"$push": {"$ifNull": ["$players.points", 0]}},
+            "chickens": {"$sum": {"$cond": [{"$eq": ["$players.placement", 1]}, 1, 0]}},
+            "lastPlacement": {"$last": "$players.placement"},
+            "lastPoints": {"$last": {"$ifNull": ["$players.points", 0]}},
+        }},
+        {"$addFields": {"maxGamePoints": {"$max": "$games"}}},
+    ]
+
+    players_list = []
+    for doc in db.league_matches.aggregate(pipeline):
+        players_list.append({
+            "accountIdLo": str(doc["_id"]),
+            "totalPoints": doc["totalPoints"],
+            "gamesPlayed": doc["gamesPlayed"],
+            "games": doc["games"],
+            "chickens": doc["chickens"],
+            "lastGamePlacement": doc["lastPlacement"] or 999,
+            "maxGamePoints": doc.get("maxGamePoints", 0),
+            "lastGamePoints": doc.get("lastPoints", 0),
+        })
+
+    players_list.sort(key=sort_fn)
+    rankings = {}
+    for i, p in enumerate(players_list):
+        rankings[p["accountIdLo"]] = {
+            "totalPoints": p["totalPoints"],
+            "gamesPlayed": p["gamesPlayed"],
+            "games": p["games"],
+            "chickens": p["chickens"],
+            "lastGamePlacement": p["lastGamePlacement"],
+            "maxGamePoints": p["maxGamePoints"],
+            "lastGamePoints": p["lastGamePoints"],
+            "placement": i + 1,
+            "qualified": i < 4,
+            "eliminated": i >= 4,
+        }
+
+    # 为组内没有对局数据的玩家补零
+    for p in tg.get("players", []):
+        lo = str(p.get("accountIdLo", ""))
+        if lo and lo not in rankings and not p.get("empty"):
+            rankings[lo] = {
+                "totalPoints": 0, "gamesPlayed": 0, "games": [],
+                "chickens": 0, "lastGamePlacement": 999,
+                "maxGamePoints": 0, "lastGamePoints": 0,
+                "placement": None, "qualified": False, "eliminated": False,
+            }
+
+    db.tournament_groups.update_one(
+        {"_id": tg_id},
+        {"$set": {"rankings": rankings}}
+    )
+    log.info(f"[recalc] 更新分组 rankings: R{tg.get('round')}G{tg.get('groupIndex')} ({len(rankings)} 人)")
+    return rankings
+
+
 def try_advance_group(db, tg):
     """单组完成时立即晋级：将前 4 名放入下一轮分组"""
     # grid 布局（海选赛）不自动晋级

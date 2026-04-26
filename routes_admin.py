@@ -191,6 +191,13 @@ def api_admin_force_end(game_uuid):
         {"$set": {"endedAt": now_str, "status": "timeout"}}
     )
     log.info(f"管理员 {admin_tag} 强制结束对局 {game_uuid}")
+
+    # 淘汰赛对局：重算该组 rankings
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
+
     return jsonify({"ok": True})
 
 
@@ -213,6 +220,13 @@ def api_admin_force_abandon(game_uuid):
         {"$set": {"endedAt": now_str, "status": "abandoned"}}
     )
     log.info(f"管理员 {admin_tag} 强制标记掉线 {game_uuid}")
+
+    # 淘汰赛对局：重算该组 rankings
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
+
     return jsonify({"ok": True})
 
 
@@ -281,6 +295,13 @@ def api_admin_reset_match(game_uuid):
         {"$unset": {"endedAt": "", "status": ""}}
     )
     log.info(f"管理员 {admin_tag} 重置对局状态 {game_uuid}")
+
+    # 淘汰赛对局：重算该组 rankings
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
+
     return jsonify({"ok": True})
 
 
@@ -537,6 +558,9 @@ def api_admin_manual_advance(group_id):
 
     from routes_tournament import invalidate_bracket_cache
     invalidate_bracket_cache()
+    # 重算该组 rankings（标记 done 后确保缓存最新）
+    from data import recalc_group_rankings
+    recalc_group_rankings(db, oid)
     return jsonify({"ok": True, "advanced": len(quals)})
 
 @admin_bp.route("/api/admin/group/<group_id>/manual-record", methods=["POST"])
@@ -712,6 +736,10 @@ def api_admin_manual_record(group_id):
 
         db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
+        # 事件驱动：重算该组 rankings
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, oid)
+
     return jsonify({"ok": True, "gameUuid": game_uuid, "updated": updated, "skipped_locked": skipped_locked, "finalized": all_filled})
 
 @admin_bp.route("/api/admin/match/<game_uuid>/edit-placement", methods=["PUT"])
@@ -752,4 +780,11 @@ def api_admin_edit_placement(game_uuid):
             )
 
     log.info(f"[edit-placement] 管理员 {admin_tag} 修改对局 {game_uuid} 排名")
+
+    # 淘汰赛对局：重算该组 rankings
+    tg_id = match.get("tournamentGroupId")
+    if tg_id:
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
+
     return jsonify({"ok": True})

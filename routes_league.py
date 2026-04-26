@@ -105,6 +105,9 @@ def api_delete_match(game_uuid):
             db.tournament_groups.update_one({"_id": tg_id}, {"$set": {k: v for k, v in update_fields.items() if k != "$unset"}, **({"$unset": update_fields["$unset"]} if "$unset" in update_fields else {})})
             from routes_tournament import invalidate_bracket_cache
             invalidate_bracket_cache()
+            # 重算该组 rankings
+            from data import recalc_group_rankings
+            recalc_group_rankings(db, tg_id)
             log.info(f"管理员 {battle_tag} 删除对局后回滚分组 R{tg.get('round')}G{tg.get('groupIndex')}: gp={old_gp}→{new_gp}, status=waiting")
 
     return jsonify({"ok": True, "gameUuid": game_uuid})

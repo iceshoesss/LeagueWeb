@@ -227,12 +227,13 @@ def build_bracket_data():
         tname = g.get("tournamentName", "赛事")
         tournaments_map.setdefault(tname, []).append(g)
 
-    # 按赛事分别获取排名（不同赛事可能有不同的晋级规则）
+    # 从各组的 rankings 字段读取缓存排名（事件驱动，不再全量聚合）
     all_rankings = {}
-    for tname, tgroups in tournaments_map.items():
-        rule = tgroups[0].get("advancementRule", "chicken") if tgroups else "chicken"
-        rankings = get_group_rankings(db, tname, rule)
-        all_rankings.update(rankings)
+    for g in groups:
+        tg_str = str(g["_id"])
+        cached = g.get("rankings")
+        if cached:
+            all_rankings[tg_str] = cached
 
     result = []
     for tname, tgroups in tournaments_map.items():
@@ -251,7 +252,7 @@ def build_bracket_data():
         rounds_data = []
         sorted_rounds = sorted(rounds_map.keys())
 
-        # 为每组附加排名数据
+        # 为每组附加排名数据（从缓存 rankings 读取）
         for r in sorted_rounds:
             for g in rounds_map[r]:
                 tg_str = str(g["_id"])
@@ -261,7 +262,7 @@ def build_bracket_data():
                     rank_data = rankings.get(lo)
                     if rank_data:
                         p["totalPoints"] = rank_data["totalPoints"]
-                        p["games"] = rank_data["games"]
+                        p["games"] = rank_data.get("games", [])
                         p["placement"] = rank_data["placement"]
                         p["points"] = rank_data["totalPoints"]
                         p["qualified"] = rank_data["qualified"]
@@ -289,7 +290,7 @@ def build_bracket_data():
                     sort_fn = SORT_KEYS.get(rule, _sort_key_chicken)
                     g["players"].sort(key=lambda p, fn=sort_fn: fn(p))
 
-        # waiting 组（BO 间歇期）排序 — 直接复用 all_rankings，无需逐组聚合
+        # waiting 组（BO 间歇期）排序 — 直接复用缓存 rankings，无需聚合
         for r in sorted_rounds:
             for g in rounds_map[r]:
                 if g.get("status") == "waiting" and g.get("gamesPlayed", 0) > 0:
