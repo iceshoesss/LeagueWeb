@@ -638,7 +638,7 @@ def api_admin_manual_record(group_id):
             "players": players,
             "region": "CN",
             "mode": "solo",
-            "startedAt": group.get("startedAt") or now_str,
+            "startedAt": now_str,
             "endedAt": None,
             "tournamentGroupId": oid,
             "tournamentRound": group.get("round"),
