@@ -577,8 +577,22 @@ def api_admin_manual_record(group_id):
     n = len(group_players)
     lo_set = {str(p["accountIdLo"]) for p in group_players}
 
-    # 查找该组未完成对局
-    existing_match = db.league_matches.find_one({"tournamentGroupId": oid, "endedAt": None})
+    # 查找该组对局：优先复用超时/掉线对局，其次活跃对局
+    existing_match = db.league_matches.find_one({
+        "tournamentGroupId": oid,
+        "status": {"$in": ["timeout", "abandoned"]},
+    })
+    if existing_match:
+        # 复用超时/掉线对局：清除 endedAt 和 status，回到可补录状态
+        db.league_matches.update_one(
+            {"_id": existing_match["_id"]},
+            {"$unset": {"endedAt": "", "status": ""}}
+        )
+        existing_match["endedAt"] = None
+        existing_match.pop("status", None)
+        log.info(f"[manual-record] 管理员 {admin_tag} 复用超时/掉线对局 {existing_match['gameUuid']}，清除 endedAt/status")
+    else:
+        existing_match = db.league_matches.find_one({"tournamentGroupId": oid, "endedAt": None})
 
     if not existing_match:
         # 创建空对局（所有玩家 placement=null）
