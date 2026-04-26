@@ -93,24 +93,12 @@
             <span class="text-xs text-hearth-dim ml-auto" id="match-total"></span>
         </div>
 
-        <!-- 对局列表 -->
+        <!-- 对局列表（卡片式） -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="text-hearth-dim text-xs uppercase tracking-wider border-b border-hearth-border">
-                            <th class="px-4 py-3 text-left">对局</th>
-                            <th class="px-4 py-3 text-left">时间</th>
-                            <th class="px-4 py-3 text-left">状态</th>
-                            <th class="px-4 py-3 text-left">玩家</th>
-                            <th class="px-4 py-3 text-right">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="matches-tbody" class="divide-y divide-hearth-border/50">
-                    </tbody>
-                </table>
+            <div id="matches-list" class="divide-y divide-hearth-border">
+                <div class="px-6 py-8 text-center text-hearth-dim">加载中...</div>
             </div>
-            <div id="matches-pager" class="px-4 py-3 flex items-center justify-center gap-1"></div>
+            <div id="matches-pager" class="px-4 py-3 flex items-center justify-center gap-1 border-t border-hearth-border"></div>
         </div>
     </div>
 
@@ -482,22 +470,16 @@ async function loadMatches() {
     try {
         const res = await fetch(`/api/admin/matches?page=${matchPage}&status=${status}&per_page=20`);
         const data = await res.json();
-        const tbody = document.getElementById('matches-tbody');
+        const list = document.getElementById('matches-list');
         document.getElementById('match-total').textContent = `共 ${data.total} 条`;
 
         if (!data.matches || !data.matches.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-hearth-dim">无数据</td></tr>';
+            list.innerHTML = '<div class="px-6 py-12 text-center text-hearth-dim">无数据</div>';
             document.getElementById('matches-pager').innerHTML = '';
             return;
         }
 
-        tbody.innerHTML = data.matches.map(m => {
-            const playerNames = m.players.map(p => {
-                const name = p.displayName || '?';
-                const placed = p.placement != null;
-                return `<span class="${placed ? '' : 'text-red-400/70'}">${name}</span>`;
-            }).join(', ');
-
+        list.innerHTML = data.matches.map(m => {
             const statusBadge = m.isActive
                 ? '<span class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 active-pulse">进行中</span>'
                 : m.statusLabel === '超时'
@@ -507,7 +489,6 @@ async function loadMatches() {
                 : '<span class="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-500/60">完成</span>';
 
             let actions = `<a href="/match/${m.gameUuid}" class="text-xs px-2 py-0.5 rounded bg-white/5 text-hearth-dim hover:text-hearth-gold transition">详情</a>`;
-
             if (m.isActive) {
                 actions += ` <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
                 actions += ` <button onclick="forceEnd('${m.gameUuid}', 'timeout')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition">超时</button>`;
@@ -520,13 +501,39 @@ async function loadMatches() {
             }
             actions += ` <button onclick="deleteMatch('${m.gameUuid}', '${m.matchId}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">删除</button>`;
 
-            return `<tr class="hover:bg-white/5 transition">
-                <td class="px-4 py-3 font-mono text-xs text-hearth-dim">#${m.matchId}</td>
-                <td class="px-4 py-3 text-xs whitespace-nowrap">${fmtDate(m.startedAt)}</td>
-                <td class="px-4 py-3">${statusBadge}</td>
-                <td class="px-4 py-3 text-xs truncate max-w-xs">${playerNames}</td>
-                <td class="px-4 py-3 text-right whitespace-nowrap">${actions}</td>
-            </tr>`;
+            const playerGrid = m.players.map(p => {
+                const placed = p.placement != null;
+                const cls = placed ? 'bg-white/5' : 'bg-red-500/5 border border-red-500/20';
+                const avatar = p.heroCardId
+                    ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
+                    : `<div class="w-8 h-8 rounded-full bg-hearth-border flex-shrink-0 flex items-center justify-center text-xs text-hearth-dim">?</div>`;
+                const info = placed
+                    ? `<div class="text-xs text-hearth-dim">第${p.placement}名${p.points != null ? ` <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span>` : ''}</div>`
+                    : `<div class="text-xs text-red-400/70">未记录</div>`;
+                return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${cls}">
+                    ${avatar}
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs truncate">${p.displayName || '?'}</div>
+                        ${info}
+                    </div>
+                </div>`;
+            }).join('');
+
+            return `<div class="block px-6 py-4 hover:bg-white/5 transition">
+                <div class="flex items-center justify-between mb-3">
+                    <a href="/match/${m.gameUuid}" class="flex items-center gap-2 flex-1 min-w-0">
+                        <span class="text-sm font-medium">${fmtDate(m.startedAt)}</span>
+                        <span class="text-xs font-mono text-hearth-dim bg-white/5 px-1.5 py-0.5 rounded">#${m.matchId}</span>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        ${statusBadge}
+                        ${actions}
+                    </div>
+                </div>
+                <a href="/match/${m.gameUuid}" class="block">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${playerGrid}</div>
+                </a>
+            </div>`;
         }).join('');
 
         // 分页
