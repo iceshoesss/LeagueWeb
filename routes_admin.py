@@ -1,5 +1,6 @@
 """管理员面板 API"""
 
+import re
 import logging
 from datetime import datetime, timedelta, UTC
 from bson import ObjectId
@@ -49,7 +50,7 @@ def get_admin_stats():
     }
 
 
-def get_admin_matches(page=1, per_page=20, status_filter="all"):
+def get_admin_matches(page=1, per_page=20, status_filter="all", search=""):
     """管理员对局列表"""
     db = get_db()
     query = {}
@@ -85,6 +86,10 @@ def get_admin_matches(page=1, per_page=20, status_filter="all"):
         query = {"status": "timeout"}
     elif status_filter == "abandoned":
         query = {"status": "abandoned"}
+
+    if search:
+        search_escaped = re.escape(search)
+        query["players.displayName"] = {"$regex": search_escaped, "$options": "i"}
 
     total = db.league_matches.count_documents(query)
     matches = list(db.league_matches.find(query)
@@ -158,7 +163,8 @@ def api_admin_matches():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     status_filter = request.args.get("status", "all")
-    matches, total, total_pages = get_admin_matches(page, per_page, status_filter)
+    search = request.args.get("search", "").strip()
+    matches, total, total_pages = get_admin_matches(page, per_page, status_filter, search)
     return jsonify({"matches": matches, "total": total, "page": page, "totalPages": total_pages})
 
 

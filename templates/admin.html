@@ -78,8 +78,8 @@
     <!--  对局管理                                  -->
     <!-- ═══════════════════════════════════════════ -->
     <div id="tab-matches" class="tab-panel hidden">
-        <!-- 筛选 -->
-        <div class="flex items-center gap-2 mb-3">
+        <!-- 筛选 + 搜索 -->
+        <div class="flex items-center gap-2 mb-3 flex-wrap">
             <select id="match-status-filter" onchange="matchPage=1;loadMatches()"
                 class="bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
                 <option value="all">全部状态</option>
@@ -89,11 +89,15 @@
                 <option value="timeout">⏰ 超时</option>
                 <option value="abandoned">🔌 掉线</option>
             </select>
-            <button onclick="loadMatches()" class="px-3 py-1.5 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">刷新</button>
+            <input id="match-search-input" type="text" placeholder="搜索选手名字..."
+                onkeydown="if(event.key==='Enter'){matchPage=1;loadMatches()}"
+                class="bg-black/30 border border-hearth-border rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 w-40 sm:w-56">
+            <button onclick="matchPage=1;loadMatches()" class="px-3 py-1.5 text-sm rounded-lg bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">搜索</button>
+            <button onclick="loadMatches()" class="px-3 py-1.5 text-sm rounded-lg bg-white/5 text-hearth-dim hover:text-hearth-gold transition">刷新</button>
             <span class="text-xs text-hearth-dim ml-auto" id="match-total"></span>
         </div>
 
-        <!-- 对局列表（卡片式） -->
+        <!-- 对局列表（紧凑卡片） -->
         <div class="bg-hearth-card rounded-xl gold-border overflow-hidden">
             <div id="matches-list" class="divide-y divide-hearth-border">
                 <div class="px-6 py-8 text-center text-hearth-dim">加载中...</div>
@@ -467,76 +471,64 @@ let matchesLoaded = false;
 async function loadMatches() {
     matchesLoaded = true;
     const status = document.getElementById('match-status-filter').value;
+    const search = document.getElementById('match-search-input').value.trim();
     try {
-        const res = await fetch(`/api/admin/matches?page=${matchPage}&status=${status}&per_page=20`);
+        const res = await fetch(`/api/admin/matches?page=${matchPage}&status=${status}&per_page=20&search=${encodeURIComponent(search)}`);
         const data = await res.json();
         const list = document.getElementById('matches-list');
         document.getElementById('match-total').textContent = `共 ${data.total} 条`;
 
         if (!data.matches || !data.matches.length) {
-            list.innerHTML = '<div class="px-6 py-12 text-center text-hearth-dim">无数据</div>';
+            list.innerHTML = '<div class="px-6 py-8 text-center text-hearth-dim">无数据</div>';
             document.getElementById('matches-pager').innerHTML = '';
             return;
         }
 
         list.innerHTML = data.matches.map(m => {
             const statusBadge = m.isActive
-                ? '<span class="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-400 active-pulse">进行中</span>'
+                ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 active-pulse">进行中</span>'
                 : m.statusLabel === '超时'
-                ? '<span class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>'
+                ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300">超时</span>'
                 : m.statusLabel === '掉线'
-                ? '<span class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300">掉线</span>'
-                : '<span class="text-xs px-2 py-0.5 rounded bg-green-500/10 text-green-500/60">完成</span>';
+                ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300">掉线</span>'
+                : '';
 
-            let actions = `<a href="/match/${m.gameUuid}" class="text-xs px-2 py-0.5 rounded bg-white/5 text-hearth-dim hover:text-hearth-gold transition">详情</a>`;
+            // 玩家紧凑显示：名字 + 排名小标签
+            const playersHtml = m.players.map(p => {
+                const name = p.displayName || '?';
+                if (p.placement != null) {
+                    const rankColor = p.placement === 1 ? 'bg-yellow-500/30 text-yellow-300' :
+                                      p.placement <= 4 ? 'bg-green-500/20 text-green-400' :
+                                      'bg-white/10 text-hearth-dim';
+                    return `<span class="inline-flex items-center gap-0.5">${name}<span class="text-[10px] px-1 rounded ${rankColor}">${p.placement}</span></span>`;
+                }
+                return `<span class="text-red-400/70">${name}</span>`;
+            }).join('<span class="text-hearth-dim/40 mx-0.5">·</span>');
+
+            // 操作按钮
+            let actions = '';
             if (m.isActive) {
-                actions += ` <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
-                actions += ` <button onclick="forceEnd('${m.gameUuid}', 'timeout')" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition">超时</button>`;
-                actions += ` <button onclick="forceEnd('${m.gameUuid}', 'abandon')" class="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition">掉线</button>`;
+                actions += `<a href="/match/${m.gameUuid}/edit" class="text-[10px] px-1.5 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
+                actions += `<button onclick="forceEnd('${m.gameUuid}', 'timeout')" class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 transition">超时</button>`;
             } else if (m.statusLabel === '超时' || m.statusLabel === '掉线') {
-                actions += ` <a href="/match/${m.gameUuid}/edit" class="text-xs px-2 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
+                actions += `<a href="/match/${m.gameUuid}/edit" class="text-[10px] px-1.5 py-0.5 rounded bg-hearth-gold/20 text-hearth-gold hover:bg-hearth-gold/30 transition">补录</a>`;
             } else {
-                actions += ` <a href="/match/${m.gameUuid}/edit?mode=edit" class="text-xs px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition">修改</a>`;
-                actions += ` <button onclick="resetMatch('${m.gameUuid}')" class="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition">重置</button>`;
+                actions += `<a href="/match/${m.gameUuid}/edit?mode=edit" class="text-[10px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition">修改</a>`;
             }
-            actions += ` <button onclick="deleteMatch('${m.gameUuid}', '${m.matchId}')" class="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">删除</button>`;
+            actions += `<a href="/match/${m.gameUuid}" class="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-hearth-dim hover:text-hearth-gold transition">详情</a>`;
+            actions += `<button onclick="deleteMatch('${m.gameUuid}', '${m.matchId}')" class="text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 transition">删除</button>`;
 
-            const playerGrid = m.players.map(p => {
-                const placed = p.placement != null;
-                const cls = placed ? 'bg-white/5' : 'bg-red-500/5 border border-red-500/20';
-                const avatar = p.heroCardId
-                    ? `<div class="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-hearth-card"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="${p.heroName || ''}" class="w-[150%] h-[150%] object-cover" onerror="this.closest('div').style.display='none'"></div>`
-                    : `<div class="w-8 h-8 rounded-full bg-hearth-border flex-shrink-0 flex items-center justify-center text-xs text-hearth-dim">?</div>`;
-                const info = placed
-                    ? `<div class="text-xs text-hearth-dim">第${p.placement}名${p.points != null ? ` <span class="${p.points > 0 ? 'text-hearth-gold' : 'text-hearth-dim'}">+${p.points}</span>` : ''}</div>`
-                    : `<div class="text-xs text-red-400/70">未记录</div>`;
-                return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${cls}">
-                    ${avatar}
-                    <div class="min-w-0 flex-1">
-                        <div class="text-xs truncate">${p.displayName || '?'}</div>
-                        ${info}
-                    </div>
-                </div>`;
-            }).join('');
-
-            return `<div class="block px-6 py-4 hover:bg-white/5 transition">
-                <div class="flex items-center justify-between mb-3">
-                    <a href="/match/${m.gameUuid}" class="flex items-center gap-2 flex-1 min-w-0">
-                        <span class="text-sm font-medium">${fmtDate(m.startedAt)}</span>
-                        <span class="text-xs font-mono text-hearth-dim bg-white/5 px-1.5 py-0.5 rounded">#${m.matchId}</span>
-                    </a>
-                    <div class="flex items-center gap-2">
-                        ${statusBadge}
-                        ${actions}
-                    </div>
-                </div>
-                <a href="/match/${m.gameUuid}" class="block">
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">${playerGrid}</div>
+            return `<div class="flex items-center gap-3 px-4 py-2.5 hover:bg-white/5 transition">
+                <a href="/match/${m.gameUuid}" class="flex items-center gap-2 flex-shrink-0">
+                    <span class="text-xs font-mono text-hearth-dim">#${m.matchId}</span>
+                    <span class="text-[11px] text-hearth-dim whitespace-nowrap">${fmtDate(m.startedAt)}</span>
                 </a>
+                ${statusBadge}
+                <div class="flex-1 min-w-0 text-xs truncate">${playersHtml}</div>
+                <div class="flex items-center gap-1 flex-shrink-0">${actions}</div>
             </div>`;
         }).join('');
 
-        // 分页
         renderPager('matches-pager', data.page, data.totalPages, 'gotoMatchPage');
     } catch (e) {
         console.error('Load matches error:', e);
