@@ -341,15 +341,15 @@ function renderMatches() {
     if (totalPages <= 1) { pager.innerHTML = ''; return; }
     let btns = '';
     btns += `<button onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === 1 ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">‹</button>`;
-    let start = Math.max(1, currentPage - 3), end = Math.min(totalPages, currentPage + 3);
-    if (start > 1) btns += `<button onclick="goPage(1)" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">1</button>`;
-    if (start > 2) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
-    for (let p = start; p <= end; p++) {
+    let pgStart = Math.max(1, currentPage - 3), pgEnd = Math.min(totalPages, currentPage + 3);
+    if (pgStart > 1) btns += `<button onclick="goPage(1)" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">1</button>`;
+    if (pgStart > 2) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    for (let p = pgStart; p <= pgEnd; p++) {
         const active = p === currentPage;
         btns += `<button onclick="goPage(${p})" class="px-2.5 py-1 rounded text-xs ${active ? 'bg-hearth-gold/20 text-hearth-gold font-bold' : 'text-hearth-dim hover:bg-hearth-gold/10'}">${p}</button>`;
     }
-    if (end < totalPages - 1) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
-    if (end < totalPages) btns += `<button onclick="goPage(${totalPages})" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">${totalPages}</button>`;
+    if (pgEnd < totalPages - 1) btns += `<span class="text-hearth-dim text-xs px-1">…</span>`;
+    if (pgEnd < totalPages) btns += `<button onclick="goPage(${totalPages})" class="px-2 py-1 rounded text-xs text-hearth-dim hover:bg-hearth-gold/10">${totalPages}</button>`;
     btns += `<button onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''} class="px-2 py-1 rounded text-xs ${currentPage === totalPages ? 'text-hearth-dim cursor-not-allowed' : 'text-hearth-gold hover:bg-hearth-gold/20'}">›</button>`;
     pager.innerHTML = btns;
 }
