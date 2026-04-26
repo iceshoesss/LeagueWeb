@@ -14,7 +14,11 @@ LEADERBOARD_TTL = 30  # 秒
 
 
 def get_players():
-    """从 league_matches 聚合 + player_records 获取排行榜（带缓存）"""
+    """从 league_matches 聚合 + league_players 获取排行榜（带缓存）
+
+    按 accountIdLo 分组（而非 battleTag），避免观战 bug 导致观战者名字污染排行榜。
+    身份信息（battleTag/displayName）统一从 league_players 获取。
+    """
     now = time.time()
     if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < LEADERBOARD_TTL:
         return _leaderboard_cache["data"]
@@ -25,9 +29,7 @@ def get_players():
         {"$unwind": "$players"},
         {"$match": {"players.accountIdLo": {"$nin": ["", None, "None"]}, "players.points": {"$ne": None}}},
         {"$group": {
-            "_id": "$players.battleTag",
-            "displayName": {"$first": "$players.displayName"},
-            "accountIdLo": {"$first": "$players.accountIdLo"},
+            "_id": "$players.accountIdLo",
             "totalPoints": {"$sum": "$players.points"},
             "leagueGames": {"$sum": 1},
             "wins": {"$sum": {"$cond": [{"$lte": ["$players.placement", 4]}, 1, 0]}},
@@ -47,9 +49,7 @@ def get_players():
     for p in db.league_matches.aggregate(pipeline):
         raw_players.append({
             "_id": str(p["_id"]),
-            "battleTag": p["_id"],
-            "displayName": p.get("displayName", ""),
-            "accountIdLo": p.get("accountIdLo", ""),
+            "accountIdLo": str(p["_id"]),
             "totalPoints": p.get("totalPoints", 0),
             "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
@@ -60,18 +60,29 @@ def get_players():
             "lastGameAt": to_iso_str(p.get("lastGameAt")),
         })
 
-    # 从 league_players 获取真实 battleTag（带 #tag）
+    # 从 league_players 获取真实 battleTag 和 displayName（身份唯一来源）
     lo_ids = [p["accountIdLo"] for p in raw_players if p["accountIdLo"]]
     if lo_ids:
         tag_map = {}
-        for lp in db.league_players.find({"accountIdLo": {"$in": lo_ids}}, {"accountIdLo": 1, "battleTag": 1}):
+        for lp in db.league_players.find(
+            {"accountIdLo": {"$in": lo_ids}},
+            {"accountIdLo": 1, "battleTag": 1, "displayName": 1},
+        ):
             if lp.get("accountIdLo") and lp.get("battleTag"):
-                tag_map[str(lp["accountIdLo"])] = lp["battleTag"]
+                tag_map[str(lp["accountIdLo"])] = {
+                    "battleTag": lp["battleTag"],
+                    "displayName": lp.get("displayName", ""),
+                }
         for p in raw_players:
-            real_tag = tag_map.get(p["accountIdLo"])
-            if real_tag:
-                p["_id"] = real_tag
-                p["battleTag"] = real_tag
+            info = tag_map.get(p["accountIdLo"])
+            if info:
+                p["_id"] = info["battleTag"]
+                p["battleTag"] = info["battleTag"]
+                p["displayName"] = info["displayName"]
+            else:
+                p["_id"] = p["accountIdLo"]
+                p["battleTag"] = p["accountIdLo"]
+                p["displayName"] = p["accountIdLo"]
 
     _leaderboard_cache["data"] = raw_players
     _leaderboard_cache["ts"] = now
@@ -124,20 +135,28 @@ def get_active_games():
 
 
 def get_player(battle_tag):
-    """从 league_matches + league_players 聚合获取单个选手信息"""
+    """从 league_matches + league_players 聚合获取单个选手信息
+
+    先通过 league_players 查找 accountIdLo，再按 accountIdLo 聚合，
+    避免观战 bug 导致 league_matches 中 battleTag 不一致的问题。
+    """
     db = get_db()
 
+    # 优先按 battleTag 查 league_players，其次按 displayName
     lp = db.league_players.find_one({"battleTag": battle_tag})
     if not lp:
         lp = db.league_players.find_one({"displayName": battle_tag})
     real_battle_tag = lp.get("battleTag", battle_tag) if lp else battle_tag
+    real_display_name = lp.get("displayName", "") if lp else ""
     account_id_lo = str(lp["accountIdLo"]) if lp and lp.get("accountIdLo") else None
 
     if account_id_lo:
+        # 按 accountIdLo 聚合（最可靠）
         match_cond = {"players.accountIdLo": account_id_lo}
         inner_match = {"players.accountIdLo": account_id_lo, "players.points": {"$ne": None}}
         group_id = "$players.accountIdLo"
     else:
+        # fallback：按 battleTag 聚合
         match_cond = {"players.battleTag": battle_tag}
         inner_match = {"players.battleTag": battle_tag, "players.points": {"$ne": None}}
         group_id = "$players.battleTag"
@@ -148,8 +167,6 @@ def get_player(battle_tag):
         {"$match": inner_match},
         {"$group": {
             "_id": group_id,
-            "displayName": {"$first": "$players.displayName"},
-            "accountIdLo": {"$first": "$players.accountIdLo"},
             "totalPoints": {"$sum": "$players.points"},
             "leagueGames": {"$sum": 1},
             "wins": {"$sum": {"$cond": [{"$lte": ["$players.placement", 4]}, 1, 0]}},
@@ -169,8 +186,8 @@ def get_player(battle_tag):
         return {
             "_id": real_battle_tag,
             "battleTag": real_battle_tag,
-            "displayName": p.get("displayName", ""),
-            "accountIdLo": p.get("accountIdLo", ""),
+            "displayName": real_display_name or real_battle_tag.split("#")[0],
+            "accountIdLo": account_id_lo or str(p["_id"]),
             "totalPoints": p.get("totalPoints", 0),
             "leagueGames": p.get("leagueGames", 0),
             "wins": p.get("wins", 0),
