@@ -82,11 +82,7 @@ def api_delete_match(game_uuid):
 
     # 删除对局前，记录关联的淘汰赛分组
     tg_id = match.get("tournamentGroupId")
-    # gamesPlayed 仅在 update-placement 全部提交时递增（同时设置 endedAt），
-    # 超时/掉线的 cleanup 会设 endedAt 但不递增 gamesPlayed，
-    # 所以需要同时检查 endedAt 和 has_placements
     was_completed = match.get("endedAt") not in (None, "")
-    has_placements = any(p.get("placement") is not None for p in match.get("players", []))
 
     db.league_matches.delete_one({"gameUuid": game_uuid})
     log.info(f"管理员 {battle_tag} 删除对局 {game_uuid}")
@@ -97,8 +93,8 @@ def api_delete_match(game_uuid):
         if tg:
             bo_n = tg.get("boN", 1)
             old_gp = tg.get("gamesPlayed", 0)
-            # 已完成 + 有排名 = gamesPlayed 被递增过，需要回退
-            new_gp = max(0, old_gp - 1) if (was_completed and has_placements) else old_gp
+            # 已完成的对局才需要回退 gamesPlayed
+            new_gp = max(0, old_gp - 1) if was_completed else old_gp
             update_fields = {
                 "gamesPlayed": new_gp,
                 "status": "waiting",
