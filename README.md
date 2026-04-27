@@ -15,15 +15,13 @@ LeagueWeb/
 │   ├── index.html      # 首页（排行榜 + 对局 + 队列）
 │   └── ...
 ├── scripts/            # 测试、迁移、工具脚本
-│   ├── test_bot_slot.py    # 7 人淘汰赛 bot 空位测试
-│   ├── test_knockout.py    # 淘汰赛全流程测试（8 人）
-│   ├── test_league.py      # 积分赛全流程测试
+│   ├── test_*.py           # 各类测试脚本（bot_slot/knockout/league/grid/...）
 │   ├── mock_qualifier.py   # 模拟海选赛事数据
 │   ├── toggle-test-mode.py # 切换测试/正常模式
 │   ├── enroll_all.py       # 批量报名
-│   ├── export_enrollments.py # 导出报名名单
-│   ├── migrate_mobile_lo.py  # 手机玩家 Lo 迁移
-│   └── migrate_rename_collection.py # 集合重命名迁移
+│   ├── export_*.py         # 导出脚本（报名/分组/晋级者/种子选手）
+│   ├── migrate_*.py        # 数据迁移脚本
+│   └── set_advancement_rule.py # 修改已有赛事晋级规则
 ├── Dockerfile
 ├── docker-compose.yml  # Docker 部署（Flask + MongoDB）
 ├── API.md              # 接口文档（含插件 API + 淘汰赛 API）
@@ -175,14 +173,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.17.0`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.17.1`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.16.0 |
+| `feat/knockout` | 淘汰赛 | v0.17.1 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -330,130 +328,46 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - check-league 响应新增 `gameUuid` 字段，客户端使用服务端返回的 UUID
 - 积分赛仍使用客户端 gameUuid，不受影响
 
-### v0.9.4 (2026-04-24) — 报名进度环修复
-- 进度环改为显示所有报名人数（正选+替补），分母保持 1024
+### v0.1.0 ~ v0.9.4 (2026-04-21 ~ 2026-04-24) — 早期迭代
 
-### v0.9.3 (2026-04-24) — 进度环分母修复
-- 进度环分母从写死 1024 改为动态 ENROLL_SLOTS（896）
+<details>
+<summary>展开完整记录</summary>
 
-### v0.9.2 (2026-04-24) — BO1 淘汰赛后续玩家匹配修复
-- 修复 BO1 淘汰赛后续玩家 check-league 匹配失败：前置检查已有 match + fallback 日志
+#### 淘汰赛 (feat/knockout)
 
-### v0.9.1 (2026-04-24) — 正选名额 + 取前N人修复
-- 正选名额 896 人，超出进替补，cap 仍显示 1024
-- 取前N人改用 enrollAt 排序，修复退赛导致 position 空洞少取人
+- **v0.9.4** — 报名进度环修复（正选+替补）
+- **v0.9.3** — 进度环分母修复
+- **v0.9.2** — BO1 后续玩家匹配修复
+- **v0.9.1** — 正选名额 + 取前N人修复
+- **v0.9.0** — 多赛事按创建时间排序
+- **v0.8.0** — 512强自动隐藏海选
+- **v0.7.0** — 种子选手 + 海选晋级洗牌 + 平铺网格取前N人
+- **v0.5.0** — 手机玩家支持 + BO 选项扩展
+- **v0.4.0** — 代码重构（app.py 拆分 11 模块）+ Bug 修复
+- **v0.3.0** — 赛事报名系统（正选 1024 人 + 替补队列 + 截止锁定）
+- **v0.2.0** — 首页整合对阵图 + 少人开打（5-8 人 Lo 子集匹配）+ 管理优化
+- **v0.1.5** — check-league 空 battleTag 覆盖 fallback 修复
+- **v0.1.4** — tournamentGroupId 序列化 + BO 完成 500 修复
+- **v0.1.3** — Phase 3：管理后台 + 创建赛事 + 确定性洗牌
+- **v0.1.2** — 对阵图卡片 UI 细节
+- **v0.1.1** — Phase 2：check-league 淘汰赛匹配 + 自动晋级
+- **v0.1.0** — 淘汰赛版首发：对阵图 + SVG 连线
 
-### v0.9.0 (2026-04-24) — 多赛事按创建时间排序
-- 多个 bracket 赛事时只显示最后创建的（512强出现后隐藏海选 bracket）
-- 创建赛事时写入 `createdAt` 字段，排序依据从 `startedAt` 改为 `createdAt`
-- mock_qualifier.py 的 createdAt 固定为早期时间，避免干扰排序
+#### 积分赛 (main)
 
-### v0.8.0 (2026-04-24) — 512强自动隐藏海选
-- 有 bracket 布局赛事时自动隐藏 grid 海选网格
+- **v0.5.2** — 修复选手管理页日期显示
+- **v0.5.1** — 超级管理员系统
+- **v0.5.0** — 管理员面板（总览/对局/选手/队列）
 
-### v0.7.0 (2026-04-24) — 种子选手 + 海选晋级洗牌 + 平铺网格取前N人
-- 选手管理页新增种子选手 toggle 按钮（league_players.isSeed 字段）
-- 创建赛事新增「🎲 海选晋级洗牌」：从已完成赛事晋级者 + 种子选手池洗牌分配
-- 创建平铺网格赛事新增「取前N人」：输入 N 自动取报名前 N 人缩小选手池
-- 新增 `/api/tournament/qualifier-pool` 接口获取晋级者+种子选手池
-- `/api/admin/enrolled-players` 支持 `limit` 参数
-
-### v0.5.0 (2026-04-23) — 手机玩家支持 + BO 选项扩展
-- 手机玩家注册时 accountIdLo 用 battleTag 作为伪 Lo，对阵图正常显示
-- check-league 匹配时跳过非数字 Lo（`lo.isdigit()`），不影响子集匹配
-- 登录/注册时伪 Lo 变真 Lo 自动同步 tournament_groups + league_matches 历史记录
-- BO 选项扩展到 1-7（创建赛事 + 编辑分组）
-- 新增 migrate_mobile_lo.py 迁移脚本（修复已有空 Lo 数据）
-
-### v0.4.0 (2026-04-23) — 代码重构 + Bug 修复
-- app.py 拆分为 11 个模块（Blueprint 架构），最大单文件 797 行
-- 修复 SSE bracket 端点返回简化快照导致对阵图闪一下就消失
-- 修复洗牌重复分配：清空 ctSearchSlots 避免复用脱离 DOM 的旧实例
-- 洗牌/创建赛事/选手列表三层去重保护
-
-### v0.3.0 (2026-04-23) — 赛事报名系统
-- 新增报名入口页面（`/enroll`），正选 1024 人上限 + 替补队列
-- 报名/退赛/状态 API（`/api/enroll`、`/api/enroll/withdraw`、`/api/enroll/status`）
-- 报名截止定时触发（环境变量 `ENROLL_DEADLINE`，ISO 时间格式）
-- 正选退出后替补自动补上（按报名时间顺序）
-- 截止后禁止新报名和退赛，替补仍可被补上
-- 管理员查看报名列表 API（`/api/admin/enrolled`，含 accountIdLo）
-- 导航栏新增"📢 报名参赛"入口
-- 新增 `tournament_enrollments` 集合
-
-### v0.2.0 (2026-04-23) — 首页整合 + 少人开打 + 管理优化
-- 首页改为淘汰赛对阵图（积分赛首页备份为 index_league.html）
-- 去掉首页大标题，直接展示对阵图
-- 匹配逻辑改为 Lo 集合子集匹配（issubset），支持 5-8 人少人开打
-- 手机玩家支持（无 Lo 不影响匹配，管理员手动补录排名）
-- 管理员手动添加选手（POST /api/admin/player/add）
-- 创建/管理赛事选手选择从下拉条改为搜索输入框（支持上千人）
-- 导航栏添加 QQ 绑定按钮（全局可用，🔗 一键生成绑定码）
-- 删除按序分配功能
-
-### v0.1.5 (2026-04-22) — Bug 修复
-- 修复 check-league 构建 players 时空 battleTag 覆盖 fallback：HearthMirror 只有本地玩家有 Name，插件发送的 players dict 中其他人 battleTag 为空串，服务端 `detail.get("battleTag", fallback)` 因 detail 存在返回空串覆盖了等待组的正确名字。改为三级 fallback（请求数据 → 等待组 name → player_records.playerId 查库，确保带 #tag 的完整 battleTag）
-
-### v0.1.4 (2026-04-22) — Bug 修复
-- 修复 tournamentGroupId (ObjectId) 导致管理面板对局列表 JSON 序列化失败
-- 修复 BO 完成时 `now_str` 未定义导致 update-placement 500 错误（BO 进度卡住根因）
-- 对阵图卡片增大：CARD_W 200→280, ROW_H 38→48
-- 活跃组显示英雄头像（从当前 league_matches 注入）和死亡灰化
-- SSE 哈希比较改为确定性序列化（stableStringify），修复等待中→进行中不推送
-- 名称优先显示带 tag 的 battleTag
-- check-league / update-placement 增加 BO 进度诊断日志
-
-### v0.1.3 (2026-04-22) — Phase 3 完成
-- **管理后台赛事管理 Tab**：创建赛事表单 + 赛事列表 + 管理/删除
-- **创建赛事简化**：只填第一轮分组 + BO，后续轮次自动 n/2 生成
-- **每轮独立 BO 设置**：创建时可为每轮指定不同 BO
-- **动态轮次名**：第 N 轮 → 半决赛 → 决赛，根据总轮数计算
-- **自动分组**：按组数×8 从注册选手列表顺序取人
-- **确定性随机烟牌**：SHA256 seed + Fisher-Yates，人人可验证
-- **窝要烟牌页面**：`/verify-shuffle` 公开验证页 + 独立 Python 脚本
-- **赛事管理**：编辑分组玩家/BO、删除赛事
-- 新增 API：`/api/tournaments`、`/api/admin/players-all`、`/api/tournament/manage/<name>`、`/api/tournament/group/<id>/update`、`/api/tournament/<name>` DELETE、`/api/tournament/shuffle`
-
-### v0.1.2 (2026-04-22)
-- BO 进度移到卡片头部右侧，和状态 badge 右对齐
-- 淘汰时头像一起变灰（grayscale + opacity）
-- done 状态淘汰者名字恢复白色，不再灰色
-- waiting/done 状态不显示英雄头像（不在游戏中无头像）
-- 积分在所有状态下都显示
-- nextRoundGroupId 改为自动计算（ceil(groupIndex/2)），管理员无需手动指定
-- 测试脚本移除报名步骤（淘汰赛不需要 queue/join）
-- 修复 mock 数据 R2 淘汰者未标记 eliminated
-
-### v0.1.1 (2026-04-22) — Phase 2 完成
-- **check-league 淘汰赛匹配**：先查 tournament_groups（Lo 集合匹配 + gamesPlayed < boN），匹配不到再走 waiting_queue
-- **update-placement BO 累计**：对局结束后累加积分到 tournament_groups，gamesPlayed+1
-- **自动晋级**：同轮所有组 done 后自动创建下一轮分组（前 4 名晋级）
-- **创建赛事 API**：`POST /api/tournament/create`，管理员指定分组 + 每轮 boN
-- **对阵图改为真实数据**：`_build_bracket_data()` 从 tournament_groups 集合读取
-- 对阵图折叠改为 `..` 标签（round-title 样式），必须从左到右折叠、从右到左展开
-- 等待中小组不显示排名序号和积分
-
-### v0.1.0 (2026-04-21) — 淘汰赛版首发
-- 淘汰赛对阵图（`/bracket`）：数据驱动布局，SVG 连线，已完成轮次可折叠
-- 多赛事支持（tournaments 数组结构）
-- mock 数据对齐 tournament_groups 真实结构
-
-### v0.5.2 (2026-04-21) — 积分赛
-- 修复选手管理页日期显示为 "-"
-
-### v0.5.1 (2026-04-21) — 积分赛
-- 超级管理员系统、manage_admins.py
-
-### v0.5.0 (2026-04-21) — 积分赛
-- 管理员面板（`/admin`）：总览/对局管理/选手管理/队列管理
+</details>
 
 ## 待办
 
-- [ ] Phase 3 — 管理后台（创建赛事表单、赛事管理 Tab）— 进行中
-- [ ] Phase 4 — 首页整合（对阵图接入真实数据、移除积分赛 UI）
-- [ ] Phase 5 — 边界处理（弃赛/递补/历史归档）
+- [ ] 边界处理（弃赛/递补/历史归档）
 - [ ] CSRF 防护
 - [ ] HTTPS（Cloudflare Tunnel）
+- [ ] 问题对局浮动角标重新上线（v0.14.6 撤回，待修复后重新上线）
+- [ ] 观战者身份修正（服务端 check-league 不信任插件传的 battleTag，从 player_records 按 accountIdLo 查库）
 
 ## API 文档
 
