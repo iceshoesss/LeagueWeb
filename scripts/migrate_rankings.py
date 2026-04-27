@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""迁移脚本：为所有现有 tournament_groups 补写 rankings 字段
+"""迁移脚本：为所有现有 tournament_groups 重算 rankings 字段
 
 用法:
-  python migrate_rankings.py
+  python migrate_rankings.py [--force]
+
+参数:
+  --force  强制重算所有组（包括已有 rankings 的组）
 
 环境变量:
   MONGO_URL  MongoDB 地址 (默认 mongodb://mongo:27017)
@@ -21,6 +24,8 @@ DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 
 
 def main():
+    force = "--force" in sys.argv
+
     client = MongoClient(MONGO_URL)
     db = client[DB_NAME]
 
@@ -30,16 +35,18 @@ def main():
     updated = 0
 
     for g in groups:
-        if g.get("rankings"):
+        if not force and g.get("rankings"):
             skipped += 1
             continue
         gid = g["_id"]
-        print(f"  R{g.get('round')}G{g.get('groupIndex')} ({g.get('tournamentName', '?')}) ...", end=" ", flush=True)
+        label = f"R{g.get('round')}G{g.get('groupIndex')} ({g.get('tournamentName', '?')})"
+        print(f"  {label} ...", end=" ", flush=True)
         recalc_group_rankings(db, gid)
         updated += 1
         print("OK")
 
-    print(f"\n完成：共 {total} 组，更新 {updated} 组，跳过 {skipped} 组（已有 rankings）")
+    mode = "强制重算" if force else "补写"
+    print(f"\n完成：共 {total} 组，{mode} {updated} 组，跳过 {skipped} 组")
 
 
 if __name__ == "__main__":
