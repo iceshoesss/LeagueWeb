@@ -747,37 +747,24 @@ def api_admin_manual_record(group_id):
         if games_played >= bo_n:
             update_fields["status"] = "done"
             update_fields["endedAt"] = now_str
+            from data import try_advance_group
+            try_advance_group(db, group)
+            from routes_tournament import invalidate_bracket_cache
+            invalidate_bracket_cache()
             log.info(f"[manual-record] BO 完成: gp={old_gp}→{games_played}/{bo_n}, 触发晋级")
         else:
             update_fields["status"] = "waiting"
             log.info(f"[manual-record] BO 进度: gp={old_gp}→{games_played}/{bo_n}")
 
-        # 同步：更新 gamesPlayed + status（轻活，下局匹配依赖此数据）
         db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
-        # 后台：晋级计算 + rankings 重算 + SSE 通知（重活，不影响响应）
-        def _post_finalize():
-            try:
-                if games_played >= bo_n:
-                    from data import try_advance_group
-                    try_advance_group(db, group)
-                    from routes_tournament import invalidate_bracket_cache
-                    invalidate_bracket_cache()
-                from data import recalc_group_rankings
-                recalc_group_rankings(db, oid)
-                evt_matches.set()
-                evt_problem_matches.set()
-                evt_bracket.set()
-            except Exception as e:
-                log.error(f"[manual-record] 后台处理异常: {e}")
+        # 事件驱动：重算该组 rankings
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, oid)
 
-        import threading
-        threading.Thread(target=_post_finalize, daemon=True).start()
-    else:
-        evt_matches.set()
-        evt_problem_matches.set()
-        evt_bracket.set()
-
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True, "gameUuid": game_uuid, "updated": updated, "skipped_locked": skipped_locked, "finalized": all_filled})
 
 @admin_bp.route("/api/admin/match/<game_uuid>/edit-placement", methods=["PUT"])
@@ -819,24 +806,13 @@ def api_admin_edit_placement(game_uuid):
 
     log.info(f"[edit-placement] 管理员 {admin_tag} 修改对局 {game_uuid} 排名")
 
-    # 淘汰赛对局：重算该组 rankings（后台执行）
+    # 淘汰赛对局：重算该组 rankings
     tg_id = match.get("tournamentGroupId")
     if tg_id:
-        def _post_edit():
-            try:
-                from data import recalc_group_rankings
-                recalc_group_rankings(db, tg_id)
-                evt_matches.set()
-                evt_problem_matches.set()
-                evt_bracket.set()
-            except Exception as e:
-                log.error(f"[edit-placement] 后台处理异常: {e}")
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
 
-        import threading
-        threading.Thread(target=_post_edit, daemon=True).start()
-    else:
-        evt_matches.set()
-        evt_problem_matches.set()
-        evt_bracket.set()
-
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True})
