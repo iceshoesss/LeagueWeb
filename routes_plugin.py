@@ -410,6 +410,8 @@ def api_plugin_update_placement():
 
                 db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
                 recalc_group_rankings(db, tg_id)
+                from routes_tournament import invalidate_bracket_cache
+                invalidate_bracket_cache()
             else:
                 log.warning(f"[update-placement] tournament_group 不存在: tg_id={tg_id}")
         else:
@@ -417,7 +419,7 @@ def api_plugin_update_placement():
 
     # 通知 SSE：排名有变化
     evt_active_games.set()
+    evt_bracket.set()
     if i_did_finalize:
         evt_matches.set()
-        evt_bracket.set()
     return jsonify({"ok": True, "finalized": i_did_finalize})
