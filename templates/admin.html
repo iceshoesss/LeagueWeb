@@ -1396,6 +1396,7 @@ async function showManageTournament(name) {
 let mtGroupsData = [];      // 缓存原始数据
 let mtCollapsed = {};       // 折叠状态（key: sectionIndex）
 let mtMode = 'row';         // 'row' = 按排（海选单轮）| 'round' = 按轮（淘汰赛多轮）
+let mtRenderLimit = 16;     // 初始只渲染前 N 组（防 DOM 过大卡顿）
 const MT_LABELS = 'ABCD';
 
 function _mtGroupLabel(groupIndex) {
@@ -1408,6 +1409,7 @@ function renderManageTournament(data) {
     const toolbar = document.getElementById('mt-toolbar');
     mtGroupsData = data.groups || [];
     mtCollapsed = {};
+    mtRenderLimit = 16;  // 重置渲染上限
     Object.keys(mtSearchSlots).forEach(k => delete mtSearchSlots[k]);
 
     const totalGroups = mtGroupsData.length;
@@ -1480,6 +1482,7 @@ function _mtRenderContent(filter) {
 
     const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
     let html = '';
+    let renderedCount = 0;
 
     sectionKeys.forEach(sk => {
         const groups = sections[sk];
@@ -1505,11 +1508,26 @@ function _mtRenderContent(filter) {
         if (!collapsed) {
             const cols = mtMode === 'row' ? 'xl:grid-cols-4' : 'lg:grid-cols-2';
             html += `<div class="grid grid-cols-1 lg:grid-cols-2 ${cols} gap-3">`;
-            groups.forEach(g => { html += _mtRenderGroup(g); });
+            groups.forEach(g => {
+                if (!filterLower && renderedCount >= mtRenderLimit) return;
+                html += _mtRenderGroup(g);
+                renderedCount++;
+            });
             html += `</div>`;
         }
         html += `</div>`;
     });
+
+    // 加载更多按钮
+    const totalVisible = filterLower ? mtGroupsData.filter(() => true).length : mtGroupsData.length;
+    if (!filterLower && renderedCount < totalVisible) {
+        html += `<div class="text-center py-4">
+            <button onclick="mtRenderLimit += 16; _mtRenderContent('')" class="text-xs px-4 py-2 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">
+                加载更多（已显示 ${renderedCount} / ${totalVisible} 组）
+            </button>
+        </div>`;
+    }
+
     content.innerHTML = html;
 
     // 懒渲染搜索组件
