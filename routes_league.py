@@ -256,15 +256,16 @@ def api_update_placement(game_uuid):
     elif tg_id:
         log.info(f"[补录] 部分补录，不触发 BO 进度: gameUuid={game_uuid} 已填={sum(1 for p in players if p.get('placement') is not None)}/{len(players)}")
 
-    evt_matches.set()
-    evt_problem_matches.set()
-    evt_bracket.set()
-
-    # 淘汰赛对局：补录后重算该组排名数据
+    # 淘汰赛对局：先重算 rankings + 清缓存，再推送 SSE
     if tg_id:
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
+        from routes_tournament import invalidate_bracket_cache
+        invalidate_bracket_cache()
 
+    evt_matches.set()
+    evt_problem_matches.set()
+    evt_bracket.set()
     return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
 

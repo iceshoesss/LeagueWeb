@@ -817,11 +817,13 @@ def api_admin_edit_placement(game_uuid):
 
     log.info(f"[edit-placement] 管理员 {admin_tag} 修改对局 {game_uuid} 排名")
 
-    # 淘汰赛对局：重算该组 rankings
+    # 淘汰赛对局：重算该组 rankings + 清对阵图缓存
     tg_id = match.get("tournamentGroupId")
     if tg_id:
         from data import recalc_group_rankings
         recalc_group_rankings(db, tg_id)
+        from routes_tournament import invalidate_bracket_cache
+        invalidate_bracket_cache()
 
     evt_matches.set()
     evt_problem_matches.set()
