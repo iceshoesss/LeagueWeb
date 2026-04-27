@@ -770,8 +770,11 @@ def api_admin_manual_record(group_id):
 
         db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
-        from data import recalc_group_rankings
-        recalc_group_rankings(db, oid)
+    # 每次补录都重算 rankings + 清缓存
+    from data import recalc_group_rankings
+    recalc_group_rankings(db, oid)
+    from routes_tournament import invalidate_bracket_cache
+    invalidate_bracket_cache()
 
     evt_matches.set()
     evt_problem_matches.set()
