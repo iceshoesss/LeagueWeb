@@ -9,7 +9,7 @@ from flask import Blueprint, jsonify, request, session
 from db import get_db, to_iso_str, MIN_MATCH_PLAYERS
 from auth import is_admin, GAME_UUID_RE
 from cleanup import cleanup_stale_queues, cleanup_expired_bind_codes
-from sse import evt_queue, evt_waiting_queue, evt_matches, evt_problem_matches
+from sse import evt_queue, evt_waiting_queue, evt_matches, evt_problem_matches, evt_bracket
 
 log = logging.getLogger("bgtracker")
 league_bp = Blueprint("league", __name__)
@@ -258,8 +258,13 @@ def api_update_placement(game_uuid):
 
     evt_matches.set()
     evt_problem_matches.set()
-    if all_filled:
-        evt_bracket.set()
+    evt_bracket.set()
+
+    # 淘汰赛对局：补录后重算该组排名数据
+    if tg_id:
+        from data import recalc_group_rankings
+        recalc_group_rankings(db, tg_id)
+
     return jsonify({"ok": True, "updated": updated, "skipped_locked": skipped_locked})
 
 
