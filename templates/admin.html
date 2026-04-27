@@ -1448,8 +1448,8 @@ function renderManageTournament(data) {
         Object.keys(mtRoundGroupCounts).forEach(r => {
             const count = mtRoundGroupCounts[r];
             mtCollapsed[r] = true;  // 轮级默认折叠
-            if (Number(r) === 1 && count > 16) {
-                // 第一轮大轮：子段也默认折叠
+            if (count > 16) {
+                // 大轮：子段也默认折叠
                 const subCount = Math.ceil(count / 4);
                 for (let s = 0; s < subCount; s++) {
                     mtCollapsed[r + '-' + s] = true;
@@ -1530,7 +1530,7 @@ function _mtRenderContent(filter) {
                 </button>`;
 
             if (!roundCollapsed) {
-                if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
+                if ((mtRoundGroupCounts[round] || 0) > 16) {
                     // 大轮：内部子折叠
                     const subSections = {};
                     groups.forEach(g => {
@@ -1544,8 +1544,8 @@ function _mtRenderContent(filter) {
                         const subGroups = subSections[sub];
                         const subKey = round + '-' + sub;
                         const subCollapsed = mtCollapsed[subKey] && !filterLower;
-                        const firstLabel = _mtGroupLabel(subGroups[0].groupIndex);
-                        const lastLabel = _mtGroupLabel(subGroups[subGroups.length - 1].groupIndex);
+                        const firstLabel = _mtGroupDisplayLabel(subGroups[0]);
+                        const lastLabel = _mtGroupDisplayLabel(subGroups[subGroups.length - 1]);
                         const subTitle = subGroups.length === 4 ? `${firstLabel} ~ ${lastLabel}` : `${firstLabel} ~ ${lastLabel}（${subGroups.length} 组）`;
                         html += _mtSectionWrap(subKey, subTitle, '', subCollapsed, subGroups, 'xl:grid-cols-4');
                     });
@@ -1663,7 +1663,7 @@ function mtToggleRound(roundKey) {
     // 折叠轮次时联动子段，展开时子段保持折叠（只渲染折叠头）
     if (!newState) {
         const round = Number(roundKey);
-        if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
+        if ((mtRoundGroupCounts[round] || 0) > 16) {
             const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
             for (let s = 0; s < subCount; s++) {
                 mtCollapsed[round + '-' + s] = true;
