@@ -453,10 +453,20 @@ function initBracketTournament(t, tIdx) {
     scroll.appendChild(area);
     container.appendChild(scroll);
 
+    // 自动折叠所有比赛已完成的轮次（从第 0 轮开始连续完成才折叠）
+    const autoCollapsed = new Set();
+    for (let ri = 0; ri < t.rounds.length; ri++) {
+      if (t.rounds[ri].groups.every(g => g.status === 'done')) {
+        autoCollapsed.add(ri);
+      } else {
+        break; // 遇到未完成的轮次停止，后续轮次不折叠
+      }
+    }
+
     tournaments.push({
       rounds: t.rounds,
       flat,
-      collapsed: new Set(),
+      collapsed: autoCollapsed,
       areaEl: area,
       svgEl: svg,
     });
