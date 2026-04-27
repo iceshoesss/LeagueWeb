@@ -178,6 +178,10 @@ _cleanup_thread = threading.Thread(target=_background_cleanup_with_enroll, daemo
 _cleanup_thread.start()
 log.info(f"后台 cleanup 已启动，间隔 {CLEANUP_INTERVAL} 秒")
 
+# 启动后台预计算（排行榜 + 最近对局 + 进行中对局）
+from data import start_precompute
+start_precompute()
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True, threaded=True)

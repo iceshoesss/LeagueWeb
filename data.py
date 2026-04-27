@@ -2,27 +2,28 @@
 
 import logging
 import time
+import threading
 from datetime import datetime, timedelta, UTC
 
 from db import get_db, to_iso_str, to_cst_str, to_epoch, VALID_MATCH_FILTER, GAME_TIMEOUT_MINUTES
 
 log = logging.getLogger("bgtracker")
 
-# ── 排行榜缓存 ───────────────────────────────────────
+# ── 缓存 ─────────────────────────────────────────────
 _leaderboard_cache = {"data": None, "ts": 0}
+_completed_matches_cache = {"data": None, "ts": 0}
+_active_games_cache = {"data": None, "ts": 0}
 LEADERBOARD_TTL = 30  # 秒
+COMPLETED_MATCHES_TTL = 15  # 秒
+ACTIVE_GAMES_TTL = 10  # 秒
+
+# ── 后台预计算 ────────────────────────────────────────
+_PRECOMPUTE_INTERVAL = 15  # 秒，每 15 秒刷新一次
+_precompute_started = False
 
 
-def get_players():
-    """从 league_matches 聚合 + league_players 获取排行榜（带缓存）
-
-    按 accountIdLo 分组（而非 battleTag），避免观战 bug 导致观战者名字污染排行榜。
-    身份信息（battleTag/displayName）统一从 league_players 获取。
-    """
-    now = time.time()
-    if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < LEADERBOARD_TTL:
-        return _leaderboard_cache["data"]
-
+def _query_leaderboard():
+    """内部查询：排行榜聚合（无缓存检查）"""
     db = get_db()
     pipeline = [
         {"$match": {"$and": [{"endedAt": {"$ne": None}}, VALID_MATCH_FILTER]}},
@@ -84,13 +85,22 @@ def get_players():
                 p["battleTag"] = p["accountIdLo"]
                 p["displayName"] = p["accountIdLo"]
 
-    _leaderboard_cache["data"] = raw_players
-    _leaderboard_cache["ts"] = now
     return raw_players
 
 
-def get_completed_matches(limit=10):
-    """获取已完成的对局（endedAt 非 null，且所有玩家都有 placement）"""
+def get_players():
+    """排行榜（带缓存）"""
+    now = time.time()
+    if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < LEADERBOARD_TTL:
+        return _leaderboard_cache["data"]
+    result = _query_leaderboard()
+    _leaderboard_cache["data"] = result
+    _leaderboard_cache["ts"] = now
+    return result
+
+
+def _query_completed_matches(limit=10):
+    """内部查询：获取已完成的对局"""
     db = get_db()
     pipeline = [
         {"$match": {
@@ -114,8 +124,19 @@ def get_completed_matches(limit=10):
     return matches
 
 
-def get_active_games():
-    """获取进行中的对局（endedAt 为 null 或字段不存在，且未超时）"""
+def get_completed_matches(limit=10):
+    """获取已完成的对局（带缓存）"""
+    now = time.time()
+    if _completed_matches_cache["data"] is not None and now - _completed_matches_cache["ts"] < COMPLETED_MATCHES_TTL:
+        return _completed_matches_cache["data"]
+    result = _query_completed_matches(limit)
+    _completed_matches_cache["data"] = result
+    _completed_matches_cache["ts"] = now
+    return result
+
+
+def _query_active_games():
+    """内部查询：获取进行中的对局"""
     db = get_db()
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
@@ -132,6 +153,17 @@ def get_active_games():
         g["startedAtEpoch"] = to_epoch(g.get("startedAt"))
         g["startedAt"] = to_iso_str(g.get("startedAt"))
     return games
+
+
+def get_active_games():
+    """获取进行中的对局（带缓存）"""
+    now = time.time()
+    if _active_games_cache["data"] is not None and now - _active_games_cache["ts"] < ACTIVE_GAMES_TTL:
+        return _active_games_cache["data"]
+    result = _query_active_games()
+    _active_games_cache["data"] = result
+    _active_games_cache["ts"] = now
+    return result
 
 
 def get_player(battle_tag):
@@ -673,3 +705,47 @@ def try_advance_round(db, current_round, tournament_name, group_rankings=None):
         })
 
     log.info(f"[advance] 第 {current_round} 轮全部完成，已创建第 {next_round} 轮分组 ({len(buckets)} 组)")
+
+
+# ── 后台预计算 ────────────────────────────────────────
+
+def _precompute_loop():
+    """后台线程：定期刷新排行榜 + 最近对局 + 进行中对局缓存"""
+    log.info(f"[precompute] 后台预计算已启动，间隔 {_PRECOMPUTE_INTERVAL} 秒")
+    while True:
+        try:
+            time.sleep(_PRECOMPUTE_INTERVAL)
+            # 刷新排行榜
+            try:
+                data = _query_leaderboard()
+                _leaderboard_cache["data"] = data
+                _leaderboard_cache["ts"] = time.time()
+            except Exception as e:
+                log.error(f"[precompute] 排行榜刷新失败: {e}")
+            # 刷新最近对局
+            try:
+                data = _query_completed_matches()
+                _completed_matches_cache["data"] = data
+                _completed_matches_cache["ts"] = time.time()
+            except Exception as e:
+                log.error(f"[precompute] 最近对局刷新失败: {e}")
+            # 刷新进行中对局
+            try:
+                data = _query_active_games()
+                _active_games_cache["data"] = data
+                _active_games_cache["ts"] = time.time()
+            except Exception as e:
+                log.error(f"[precompute] 进行中对局刷新失败: {e}")
+        except Exception as e:
+            log.error(f"[precompute] 预计算异常: {e}")
+
+
+def start_precompute():
+    """启动后台预计算线程（幂等，重复调用安全）"""
+    global _precompute_started
+    if _precompute_started:
+        return
+    _precompute_started = True
+    t = threading.Thread(target=_precompute_loop, daemon=True)
+    t.start()
+    log.info("[precompute] 预计算线程已启动")
