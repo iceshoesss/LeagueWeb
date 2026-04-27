@@ -1403,6 +1403,12 @@ function _mtGroupLabel(groupIndex) {
     return MT_LABELS[gi % 4] + (Math.floor(gi / 4) + 1);
 }
 
+function _mtGroupDisplayLabel(g) {
+    const round = g.round || 1;
+    if (round <= 1) return _mtGroupLabel(g.groupIndex);
+    return String(g.groupIndex || '');
+}
+
 function renderManageTournament(data) {
     const content = document.getElementById('mt-content');
     const toolbar = document.getElementById('mt-toolbar');
@@ -1437,18 +1443,17 @@ function renderManageTournament(data) {
     // 初始化折叠状态
     if (mtMode === 'row') {
         const rowCount = Math.ceil(totalGroups / 4);
-        for (let i = 0; i < rowCount; i++) mtCollapsed[i] = isLarge;
+        for (let i = 0; i < rowCount; i++) mtCollapsed[i] = true;
     } else {
         Object.keys(mtRoundGroupCounts).forEach(r => {
             const count = mtRoundGroupCounts[r];
-            if (count > 16) {
-                mtCollapsed[r] = true;  // 大轮默认折叠
+            mtCollapsed[r] = true;  // 轮级默认折叠
+            if (Number(r) === 1 && count > 16) {
+                // 第一轮大轮：子段也默认折叠
                 const subCount = Math.ceil(count / 4);
                 for (let s = 0; s < subCount; s++) {
-                    mtCollapsed[r + '-' + s] = true;  // 子段也默认折叠
+                    mtCollapsed[r + '-' + s] = true;
                 }
-            } else {
-                mtCollapsed[r] = isLarge;
             }
         });
     }
@@ -1462,7 +1467,7 @@ function _mtRenderContent(filter) {
 
     // 搜索过滤
     const filteredData = filterLower ? mtGroupsData.filter(g => {
-        const label = _mtGroupLabel(g.groupIndex);
+        const label = _mtGroupDisplayLabel(g);
         const labelLower = label.toLowerCase();
         const groupIdx = String(g.groupIndex || '');
         const roundStr = '第' + (g.round || 1) + '轮';
@@ -1525,7 +1530,7 @@ function _mtRenderContent(filter) {
                 </button>`;
 
             if (!roundCollapsed) {
-                if ((mtRoundGroupCounts[round] || 0) > 16) {
+                if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
                     // 大轮：内部子折叠
                     const subSections = {};
                     groups.forEach(g => {
@@ -1587,7 +1592,7 @@ function _mtRenderGroup(g) {
     const boN = g.boN || 1, gp = g.gamesPlayed || 0;
     const status = g.status || 'waiting';
     const isEditable = status === 'waiting' && gp === 0;
-    const label = _mtGroupLabel(g.groupIndex);
+    const label = _mtGroupDisplayLabel(g);
     const rule = g.advancementRule || 'chicken';
     const ruleShort = rule === 'golden' ? '黄金赛' : '吃鸡';
 
@@ -1646,9 +1651,9 @@ function mtToggleSection(sk) {
 function mtToggleRound(roundKey) {
     const newState = !mtCollapsed[roundKey];
     mtCollapsed[roundKey] = newState;
-    // 大轮：联动子段折叠状态
+    // 大轮：联动子段折叠状态（仅第一轮）
     const round = Number(roundKey);
-    if ((mtRoundGroupCounts[round] || 0) > 16) {
+    if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
         const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
         for (let s = 0; s < subCount; s++) {
             mtCollapsed[round + '-' + s] = newState;
