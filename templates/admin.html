@@ -1391,10 +1391,9 @@ async function showManageTournament(name) {
     }
 }
 
-// ── 赛事管理：大数据量优化（搜索 + 按排折叠 + 懒渲染）──
 // ── 赛事管理：大数据量优化（搜索 + 自适应折叠 + 懒渲染）──
 let mtGroupsData = [];      // 缓存原始数据
-let mtCollapsed = {};       // 折叠状态（key: sectionIndex）
+let mtCollapsed = {};       // 折叠状态（key: number=row, string="round" or "round-sub"）
 let mtMode = 'row';         // 'row' = 按排（海选单轮）| 'round' = 按轮（淘汰赛多轮）
 let mtRoundGroupCounts = {}; // 每轮组数（用于判断是否子折叠）
 const MT_LABELS = 'ABCD';
@@ -1443,10 +1442,10 @@ function renderManageTournament(data) {
         Object.keys(mtRoundGroupCounts).forEach(r => {
             const count = mtRoundGroupCounts[r];
             if (count > 16) {
-                // 大轮：按每 4 组子折叠
+                mtCollapsed[r] = true;  // 大轮默认折叠
                 const subCount = Math.ceil(count / 4);
                 for (let s = 0; s < subCount; s++) {
-                    mtCollapsed[r + '-' + s] = true;  // 大轮子段默认折叠
+                    mtCollapsed[r + '-' + s] = true;  // 子段也默认折叠
                 }
             } else {
                 mtCollapsed[r] = isLarge;
@@ -1461,99 +1460,101 @@ function _mtRenderContent(filter) {
     const content = document.getElementById('mt-content');
     const filterLower = (filter || '').toLowerCase().trim();
 
-    // 筛选 + 分组
-    const sections = {};      // sectionKey → [groups]
-    const sectionMatchCount = {};
-
-    mtGroupsData.forEach(g => {
+    // 搜索过滤
+    const filteredData = filterLower ? mtGroupsData.filter(g => {
         const label = _mtGroupLabel(g.groupIndex);
-        // 搜索匹配
-        if (filterLower) {
-            const labelLower = label.toLowerCase();
-            const groupIdx = String(g.groupIndex || '');
-            const roundStr = '第' + (g.round || 1) + '轮';
-            const players = g.players || [];
-            const match = labelLower.includes(filterLower)
-                || groupIdx.includes(filterLower)
-                || roundStr.includes(filterLower)
-                || players.some(p => (p.displayName || p.battleTag || '').toLowerCase().includes(filterLower));
-            if (!match) return;
-        }
+        const labelLower = label.toLowerCase();
+        const groupIdx = String(g.groupIndex || '');
+        const roundStr = '第' + (g.round || 1) + '轮';
+        const players = g.players || [];
+        return labelLower.includes(filterLower)
+            || groupIdx.includes(filterLower)
+            || roundStr.includes(filterLower)
+            || players.some(p => (p.displayName || p.battleTag || '').toLowerCase().includes(filterLower));
+    }) : mtGroupsData;
 
-        let key;
-        if (mtMode === 'row') {
-            const gi = (g.groupIndex || 1) - 1;
-            key = Math.floor(gi / 4);
-        } else {
-            const r = g.round || 1;
-            if ((mtRoundGroupCounts[r] || 0) > 16) {
-                // 大轮：按每 4 组子折叠，key = "round-sub"
-                const gi = (g.groupIndex || 1) - 1;
-                const sub = Math.floor(gi / 4);
-                key = r + '-' + sub;
-            } else {
-                key = r;
-            }
-        }
-        (sections[key] = sections[key] || []).push(g);
-        sectionMatchCount[key] = (sectionMatchCount[key] || 0) + 1;
+    // 按轮分组（淘汰赛用）
+    const roundMap = {};  // round → [groups]
+    filteredData.forEach(g => {
+        const r = g.round || 1;
+        (roundMap[r] = roundMap[r] || []).push(g);
     });
-
-    // 排序：纯数字 key 按数值排，"round-sub" 格式按轮+子段排
-    const sectionKeys = Object.keys(sections).sort((a, b) => {
-        const na = Number(a), nb = Number(b);
-        if (!isNaN(na) && !isNaN(nb)) return na - nb;
-        // "3-0" vs "3-1" vs "2-0" → 先按轮排，再按子段排
-        const pa = a.split('-').map(Number), pb = b.split('-').map(Number);
-        if (pa.length === 2 && pb.length === 2) {
-            return pa[0] - pb[0] || pa[1] - pb[1];
-        }
-        return a.localeCompare(b);
-    });
-    if (!sectionKeys.length) {
-        content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
-        return;
-    }
 
     const roundLabels = {1:'小组赛',2:'第二轮',3:'半决赛',4:'决赛'};
     let html = '';
 
-    sectionKeys.forEach(sk => {
-        const groups = sections[sk];
-        const collapsed = mtCollapsed[sk] && !filterLower;
-        const matchInfo = filterLower ? ` · 匹配 ${sectionMatchCount[sk]} 组` : '';
-
-        // 标题
-        let sectionTitle;
-        if (mtMode === 'row') {
-            const firstLabel = _mtGroupLabel(groups[0].groupIndex);
-            const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
-            sectionTitle = groups.length === 4 ? `第 ${sk + 1} 排 (${firstLabel} ~ ${lastLabel})` : `第 ${sk + 1} 排 (${groups.length} 组)`;
-        } else if (typeof sk === 'string' && sk.includes('-')) {
-            // 大轮子段：A1 ~ D1
-            const firstLabel = _mtGroupLabel(groups[0].groupIndex);
-            const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
-            sectionTitle = groups.length === 4 ? `${firstLabel} ~ ${lastLabel}` : `${firstLabel} ~ ${lastLabel}（${groups.length} 组）`;
-        } else {
-            sectionTitle = `第 ${sk} 轮 — ${roundLabels[sk] || `第${sk}轮`}（${groups.length} 组）`;
+    if (mtMode === 'row') {
+        // ── 海选：按排折叠 ──
+        const sections = {};
+        filteredData.forEach(g => {
+            const gi = (g.groupIndex || 1) - 1;
+            const key = Math.floor(gi / 4);
+            (sections[key] = sections[key] || []).push(g);
+        });
+        const sectionKeys = Object.keys(sections).map(Number).sort((a, b) => a - b);
+        if (!sectionKeys.length) {
+            content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
+            return;
         }
+        sectionKeys.forEach(sk => {
+            const groups = sections[sk];
+            const collapsed = mtCollapsed[sk] && !filterLower;
+            const firstLabel = _mtGroupLabel(groups[0].groupIndex);
+            const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
+            const title = groups.length === 4 ? `第 ${sk + 1} 排 (${firstLabel} ~ ${lastLabel})` : `第 ${sk + 1} 排 (${groups.length} 组)`;
+            html += _mtSectionWrap(sk, title, '', collapsed, groups, 'xl:grid-cols-4');
+        });
+    } else {
+        // ── 淘汰赛：按轮折叠，大轮内部再子折叠 ──
+        const roundNums = Object.keys(roundMap).map(Number).sort((a, b) => a - b);
+        if (!roundNums.length) {
+            content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
+            return;
+        }
+        roundNums.forEach(round => {
+            const groups = roundMap[round];
+            const roundKey = String(round);
+            const roundCollapsed = mtCollapsed[roundKey] && !filterLower;
+            const roundTitle = `第 ${round} 轮 — ${roundLabels[round] || `第${round}轮`}（${groups.length} 组）`;
+            const roundMatchInfo = filterLower ? ` · 匹配 ${groups.length} 组` : '';
 
-        const skAttr = typeof sk === 'string' ? `'${sk}'` : sk;
-        html += `<div class="mb-3" data-section="${sk}">
-            <button onclick="mtToggleSection(${skAttr})" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
-                <span class="text-sm font-bold text-hearth-gold">${sectionTitle}${matchInfo}</span>
-                <span class="text-hearth-dim text-xs">${collapsed ? '▶ 展开' : '▼ 折叠'}</span>
-            </button>`;
+            html += `<div class="mb-3" data-section="${roundKey}">
+                <button onclick="mtToggleRound('${roundKey}')" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
+                    <span class="text-sm font-bold text-hearth-gold">${roundTitle}${roundMatchInfo}</span>
+                    <span class="text-hearth-dim text-xs">${roundCollapsed ? '▶ 展开' : '▼ 折叠'}</span>
+                </button>`;
 
-        if (!collapsed) {
-            const isSubSection = typeof sk === 'string' && sk.includes('-');
-            const cols = (mtMode === 'row' || isSubSection) ? 'xl:grid-cols-4' : 'lg:grid-cols-2';
-            html += `<div class="grid grid-cols-1 lg:grid-cols-2 ${cols} gap-3">`;
-            groups.forEach(g => { html += _mtRenderGroup(g); });
+            if (!roundCollapsed) {
+                if ((mtRoundGroupCounts[round] || 0) > 16) {
+                    // 大轮：内部子折叠
+                    const subSections = {};
+                    groups.forEach(g => {
+                        const gi = (g.groupIndex || 1) - 1;
+                        const sub = Math.floor(gi / 4);
+                        (subSections[sub] = subSections[sub] || []).push(g);
+                    });
+                    const subKeys = Object.keys(subSections).map(Number).sort((a, b) => a - b);
+                    html += `<div class="ml-3">`;
+                    subKeys.forEach(sub => {
+                        const subGroups = subSections[sub];
+                        const subKey = round + '-' + sub;
+                        const subCollapsed = mtCollapsed[subKey] && !filterLower;
+                        const firstLabel = _mtGroupLabel(subGroups[0].groupIndex);
+                        const lastLabel = _mtGroupLabel(subGroups[subGroups.length - 1].groupIndex);
+                        const subTitle = subGroups.length === 4 ? `${firstLabel} ~ ${lastLabel}` : `${firstLabel} ~ ${lastLabel}（${subGroups.length} 组）`;
+                        html += _mtSectionWrap(subKey, subTitle, '', subCollapsed, subGroups, 'xl:grid-cols-4');
+                    });
+                    html += `</div>`;
+                } else {
+                    // 小轮：直接显示
+                    html += `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3">`;
+                    groups.forEach(g => { html += _mtRenderGroup(g); });
+                    html += `</div>`;
+                }
+            }
             html += `</div>`;
-        }
-        html += `</div>`;
-    });
+        });
+    }
     content.innerHTML = html;
 
     // 懒渲染搜索组件
@@ -1564,6 +1565,21 @@ function _mtRenderContent(filter) {
         mtSearchSlots[key] = createSearchSelect(wrap, mtAllPlayers, selectedTag, null);
         wrap.classList.add('mt-init');
     });
+}
+
+function _mtSectionWrap(key, title, matchInfo, collapsed, groups, colClass) {
+    let html = `<div class="mb-3" data-section="${key}">
+        <button onclick="mtToggleSection(${typeof key === 'string' ? "'" + key + "'" : key})" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-black/20 hover:bg-black/30 transition mb-2">
+            <span class="text-sm font-bold text-hearth-gold">${title}${matchInfo}</span>
+            <span class="text-hearth-dim text-xs">${collapsed ? '▶ 展开' : '▼ 折叠'}</span>
+        </button>`;
+    if (!collapsed) {
+        html += `<div class="grid grid-cols-1 lg:grid-cols-2 ${colClass} gap-3">`;
+        groups.forEach(g => { html += _mtRenderGroup(g); });
+        html += `</div>`;
+    }
+    html += `</div>`;
+    return html;
 }
 
 function _mtRenderGroup(g) {
@@ -1623,6 +1639,21 @@ function _mtRenderGroup(g) {
 
 function mtToggleSection(sk) {
     mtCollapsed[sk] = !mtCollapsed[sk];
+    const filter = (document.getElementById('mt-search')?.value || '');
+    _mtRenderContent(filter);
+}
+
+function mtToggleRound(roundKey) {
+    const newState = !mtCollapsed[roundKey];
+    mtCollapsed[roundKey] = newState;
+    // 大轮：联动子段折叠状态
+    const round = Number(roundKey);
+    if ((mtRoundGroupCounts[round] || 0) > 16) {
+        const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
+        for (let s = 0; s < subCount; s++) {
+            mtCollapsed[round + '-' + s] = newState;
+        }
+    }
     const filter = (document.getElementById('mt-search')?.value || '');
     _mtRenderContent(filter);
 }
