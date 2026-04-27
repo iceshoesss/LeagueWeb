@@ -1417,7 +1417,7 @@ function renderManageTournament(data) {
     Object.keys(mtSearchSlots).forEach(k => delete mtSearchSlots[k]);
 
     const totalGroups = mtGroupsData.length;
-    const isLarge = totalGroups > 16;
+    const isLarge = totalGroups >= 16;
 
     if (toolbar) toolbar.classList.remove('hidden');
 
@@ -1448,7 +1448,7 @@ function renderManageTournament(data) {
         Object.keys(mtRoundGroupCounts).forEach(r => {
             const count = mtRoundGroupCounts[r];
             mtCollapsed[r] = true;  // 轮级默认折叠
-            if (count > 16) {
+            if (count >= 16) {
                 // 大轮：子段也默认折叠
                 const subCount = Math.ceil(count / 4);
                 for (let s = 0; s < subCount; s++) {
@@ -1530,7 +1530,7 @@ function _mtRenderContent(filter) {
                 </button>`;
 
             if (!roundCollapsed) {
-                if ((mtRoundGroupCounts[round] || 0) > 16) {
+                if ((mtRoundGroupCounts[round] || 0) >= 16) {
                     // 大轮：内部子折叠
                     const subSections = {};
                     groups.forEach(g => {
@@ -1643,8 +1643,8 @@ function _mtRenderGroup(g) {
 }
 
 function mtToggleSection(sk) {
-    // 子段展开时自动收起同轮其他子段
-    if (typeof sk === 'string' && sk.includes('-')) {
+    // 子段展开时自动收起同轮其他子段（仅在展开时，折叠时不联动）
+    if (typeof sk === 'string' && sk.includes('-') && mtCollapsed[sk]) {
         const parts = sk.split('-');
         const round = parts[0];
         const subCount = Math.ceil((mtRoundGroupCounts[Number(round)] || 0) / 4);
@@ -1663,7 +1663,7 @@ function mtToggleRound(roundKey) {
     // 折叠轮次时联动子段，展开时子段保持折叠（只渲染折叠头）
     if (!newState) {
         const round = Number(roundKey);
-        if ((mtRoundGroupCounts[round] || 0) > 16) {
+        if ((mtRoundGroupCounts[round] || 0) >= 16) {
             const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
             for (let s = 0; s < subCount; s++) {
                 mtCollapsed[round + '-' + s] = true;
