@@ -271,7 +271,10 @@
                 <div id="ct-groups" class="space-y-4"></div>
                 <div class="flex items-center gap-2 mt-2 flex-wrap">
                     <button onclick="ctAddGroup()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">+ 添加分组</button>
-
+                    <div class="flex items-center gap-1 ml-2">
+                        <input type="number" id="ct-batch-count" min="1" max="128" placeholder="组数" class="w-16 bg-black/30 border border-hearth-border rounded px-2 py-1 text-xs text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50 text-center">
+                        <button onclick="ctBatchAddGroups()" class="text-xs px-3 py-1 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition">批量添加</button>
+                    </div>
                 </div>
                 <div class="flex items-center gap-2 mt-2">
                     <input type="text" id="ct-seed" placeholder="随机种子（如：安德罗妮4月29日14:00第一句话）"
@@ -1211,6 +1214,17 @@ function ctAddGroup() {
     ctInitNewSlots(div);
     ctUpdateCounts();
     ctRefreshBoRounds();
+}
+
+function ctBatchAddGroups() {
+    const input = document.getElementById('ct-batch-count');
+    const count = parseInt(input.value);
+    if (!count || count < 1) { alert('请输入有效的组数'); return; }
+    if (count > 128) { alert('最多 128 组'); return; }
+    const current = document.querySelectorAll('#ct-groups > div').length;
+    if (current > 0 && !confirm(`当前已有 ${current} 个分组，将追加 ${count} 个。继续？`)) return;
+    for (let i = 0; i < count; i++) ctAddGroup();
+    input.value = '';
 }
 
 function ctInitNewSlots(root) {
