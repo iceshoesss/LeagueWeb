@@ -1396,6 +1396,7 @@ async function showManageTournament(name) {
 let mtGroupsData = [];      // 缓存原始数据
 let mtCollapsed = {};       // 折叠状态（key: sectionIndex）
 let mtMode = 'row';         // 'row' = 按排（海选单轮）| 'round' = 按轮（淘汰赛多轮）
+let mtRoundSet = new Set(); // 当前赛事的轮次集合
 const MT_LABELS = 'ABCD';
 
 function _mtGroupLabel(groupIndex) {
@@ -1422,10 +1423,11 @@ function renderManageTournament(data) {
         statusCounts[g.status || 'waiting']++;
         roundSet.add(g.round || 1);
     });
+    mtRoundSet = roundSet;
     document.getElementById('mt-count').textContent = `共 ${totalGroups} 组 · 等待 ${statusCounts.waiting} · 进行 ${statusCounts.active} · 完成 ${statusCounts.done}`;
 
     // 判断模式：多轮 → 按轮折叠，单轮 → 按排折叠
-    mtMode = roundSet.size > 1 ? 'round' : 'row';
+    mtMode = mtRoundSet.size > 1 ? 'round' : 'row';
 
     // 初始化折叠状态
     if (mtMode === 'row') {
@@ -1465,6 +1467,10 @@ function _mtRenderContent(filter) {
         if (mtMode === 'row') {
             const gi = (g.groupIndex || 1) - 1;
             key = Math.floor(gi / 4);
+        } else if (mtRoundSet.size === 1) {
+            // 单轮淘汰赛：按数字后缀分组（A1-D1、A2-D2...）
+            const label = _mtGroupLabel(g.groupIndex);
+            key = label.substring(1);  // "A1" → "1", "B1" → "1"
         } else {
             key = g.round || 1;
         }
@@ -1472,7 +1478,12 @@ function _mtRenderContent(filter) {
         sectionMatchCount[key] = (sectionMatchCount[key] || 0) + 1;
     });
 
-    const sectionKeys = Object.keys(sections).map(Number).sort((a,b) => a-b);
+    // 排序：数字 key 按数值排，字母 key 按字母排
+    const sectionKeys = Object.keys(sections).sort((a, b) => {
+        const na = Number(a), nb = Number(b);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return a.localeCompare(b);
+    });
     if (!sectionKeys.length) {
         content.innerHTML = '<div class="text-center text-sm text-hearth-dim py-8">没有匹配的分组</div>';
         return;
@@ -1492,6 +1503,11 @@ function _mtRenderContent(filter) {
             const firstLabel = _mtGroupLabel(groups[0].groupIndex);
             const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
             sectionTitle = groups.length === 4 ? `第 ${sk + 1} 排 (${firstLabel} ~ ${lastLabel})` : `第 ${sk + 1} 排 (${groups.length} 组)`;
+        } else if (mtRoundSet.size === 1) {
+            // 单轮：按数字后缀标题（A1 ~ D1）
+            const firstLabel = _mtGroupLabel(groups[0].groupIndex);
+            const lastLabel = _mtGroupLabel(groups[groups.length - 1].groupIndex);
+            sectionTitle = groups.length === 4 ? `第 ${sk} 组 (${firstLabel} ~ ${lastLabel})` : `第 ${sk} 组 (${groups.length} 组)`;
         } else {
             sectionTitle = `第 ${sk} 轮 — ${roundLabels[sk] || `第${sk}轮`}（${groups.length} 组）`;
         }
