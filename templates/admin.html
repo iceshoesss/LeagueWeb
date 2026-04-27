@@ -1643,6 +1643,15 @@ function _mtRenderGroup(g) {
 }
 
 function mtToggleSection(sk) {
+    // 子段展开时自动收起同轮其他子段
+    if (typeof sk === 'string' && sk.includes('-')) {
+        const parts = sk.split('-');
+        const round = parts[0];
+        const subCount = Math.ceil((mtRoundGroupCounts[Number(round)] || 0) / 4);
+        for (let s = 0; s < subCount; s++) {
+            mtCollapsed[round + '-' + s] = true;
+        }
+    }
     mtCollapsed[sk] = !mtCollapsed[sk];
     const filter = (document.getElementById('mt-search')?.value || '');
     _mtRenderContent(filter);
