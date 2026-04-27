@@ -331,25 +331,39 @@ def api_plugin_update_placement():
         log.error(f"[update-placement] 玩家不在对局中: accountIdLo={account_id_lo} gameUuid={game_uuid}")
         return jsonify({"error": "该玩家不在此对局中"}), 404
 
-    result = db.league_matches.update_one(
-        {"gameUuid": game_uuid},
+    # ── 原子写入当前玩家排名（防止竞态） ──
+    update_result = db.league_matches.update_one(
+        {"gameUuid": game_uuid, f"players.{target_index}.placement": None},
         {"$set": {
             f"players.{target_index}.placement": placement,
             f"players.{target_index}.points": points,
         }}
     )
-
-    if result.modified_count == 0:
-        log.error(f"[update-placement] 更新失败: accountIdLo={account_id_lo} index={target_index}")
-        return jsonify({"error": "更新失败"}), 500
+    if update_result.modified_count == 0:
+        # 该位置已有排名（并发提交或重复请求）
+        log.warning(f"[update-placement] 竞态拦截: accountIdLo={account_id_lo} index={target_index} 已被其他请求写入")
+        return jsonify({"error": "该玩家已提交过排名，不可重复提交"}), 409
 
     log.info(f"[update-placement] 已更新: accountIdLo={account_id_lo} → players[{target_index}].placement={placement} points={points}")
 
-    players[target_index]["placement"] = placement
-    players[target_index]["points"] = points
+    # ── 重新读取最新数据（防止基于过期快照做判断） ──
+    match = db.league_matches.find_one({"gameUuid": game_uuid})
+    players = match.get("players", [])
     all_done = all(p.get("placement") is not None for p in players)
+    i_did_finalize = False
 
-    if not all_done:
+    if all_done:
+        # 所有人都已提交，尝试原子终结（endedAt=None → 设置 endedAt）
+        now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        fin_result = db.league_matches.update_one(
+            {"gameUuid": game_uuid, "endedAt": None},
+            {"$set": {"endedAt": now_str}}
+        )
+        if fin_result.modified_count > 0:
+            i_did_finalize = True
+            log.info(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
+    else:
+        # 检查是否只剩 1 个空位 → 自动推算
         null_indices = [i for i, p in enumerate(players) if p.get("placement") is None]
         if len(null_indices) == 1:
             used = {p["placement"] for p in players if p.get("placement") is not None}
@@ -357,55 +371,44 @@ def api_plugin_update_placement():
             if len(remaining) == 1:
                 auto_placement = remaining.pop()
                 auto_points = 9 if auto_placement == 1 else max(1, 9 - auto_placement)
-                db.league_matches.update_one(
-                    {"gameUuid": game_uuid},
+                # 原子推算 + 终结（只执行一次，防止竞态导致重复递增）
+                now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+                auto_result = db.league_matches.update_one(
+                    {"gameUuid": game_uuid, f"players.{null_indices[0]}.placement": None, "endedAt": None},
                     {"$set": {
                         f"players.{null_indices[0]}.placement": auto_placement,
                         f"players.{null_indices[0]}.points": auto_points,
+                        "endedAt": now_str,
                     }}
                 )
-                players[null_indices[0]]["placement"] = auto_placement
-                players[null_indices[0]]["points"] = auto_points
-                log.info(f"[update-placement] 自动推算: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
-                all_done = True
+                if auto_result.modified_count > 0:
+                    i_did_finalize = True
+                    log.info(f"[update-placement] 自动推算+终结: players[{null_indices[0]}] placement={auto_placement} points={auto_points}")
 
-    finalized = False
-    if all_done:
-        now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-        db.league_matches.update_one(
-            {"gameUuid": game_uuid},
-            {"$set": {"endedAt": now_str}}
-        )
-        finalized = True
-        log.info(f"[update-placement] 对局已结束: gameUuid={game_uuid}")
-
-        # ── 淘汰赛 BO 累计 ──
+    # ── BO 累计（仅终结方执行，原子递增防竞态） ──
+    if i_did_finalize:
         tg_id = match.get("tournamentGroupId")
         log.info(f"[update-placement] BO检查: tg_id={tg_id} type={type(tg_id).__name__}")
         if tg_id:
-            from data import try_advance_group
+            from data import try_advance_group, recalc_group_rankings
             tg = db.tournament_groups.find_one({"_id": tg_id})
             if tg:
                 bo_n = tg.get("boN", 1)
                 old_gp = tg.get("gamesPlayed", 0)
                 old_status = tg.get("status", "waiting")
-                games_played = old_gp + 1  # 打完一局才递增
+                new_gp = old_gp + 1
 
-                update_fields = {"gamesPlayed": games_played}
-                if games_played >= bo_n:
+                update_fields = {"gamesPlayed": new_gp}
+                if new_gp >= bo_n:
                     update_fields["status"] = "done"
-                    update_fields["endedAt"] = now_str
-                    log.info(f"[update-placement] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} {old_status}→done")
+                    update_fields["endedAt"] = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+                    log.info(f"[update-placement] BO 完成: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{new_gp}/{bo_n} {old_status}→done")
                     try_advance_group(db, tg)
                 else:
                     update_fields["status"] = "waiting"
-                    log.info(f"[update-placement] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{games_played}/{bo_n} {old_status}→waiting")
+                    log.info(f"[update-placement] BO 进度: group=R{tg.get('round')}G{tg.get('groupIndex')} gp={old_gp}→{new_gp}/{bo_n} {old_status}→waiting")
 
-                result = db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
-                log.info(f"[update-placement] 组更新结果: matched={result.matched_count} modified={result.modified_count}")
-
-                # 事件驱动：更新该组缓存的 rankings
-                from data import recalc_group_rankings
+                db.tournament_groups.update_one({"_id": tg_id}, {"$set": update_fields})
                 recalc_group_rankings(db, tg_id)
             else:
                 log.warning(f"[update-placement] tournament_group 不存在: tg_id={tg_id}")
@@ -414,7 +417,7 @@ def api_plugin_update_placement():
 
     # 通知 SSE：排名有变化
     evt_active_games.set()
-    if finalized:
+    if i_did_finalize:
         evt_matches.set()
         evt_bracket.set()
-    return jsonify({"ok": True, "finalized": finalized})
+    return jsonify({"ok": True, "finalized": i_did_finalize})
