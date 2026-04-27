@@ -1651,12 +1651,14 @@ function mtToggleSection(sk) {
 function mtToggleRound(roundKey) {
     const newState = !mtCollapsed[roundKey];
     mtCollapsed[roundKey] = newState;
-    // 大轮：联动子段折叠状态（仅第一轮）
-    const round = Number(roundKey);
-    if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
-        const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
-        for (let s = 0; s < subCount; s++) {
-            mtCollapsed[round + '-' + s] = newState;
+    // 折叠轮次时联动子段，展开时子段保持折叠（只渲染折叠头）
+    if (!newState) {
+        const round = Number(roundKey);
+        if (round === 1 && (mtRoundGroupCounts[round] || 0) > 16) {
+            const subCount = Math.ceil(mtRoundGroupCounts[round] / 4);
+            for (let s = 0; s < subCount; s++) {
+                mtCollapsed[round + '-' + s] = true;
+            }
         }
     }
     const filter = (document.getElementById('mt-search')?.value || '');
