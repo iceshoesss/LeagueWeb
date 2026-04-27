@@ -755,26 +755,24 @@ def api_admin_manual_record(group_id):
         # 同步：更新 gamesPlayed + status（轻活，下局匹配依赖此数据）
         db.tournament_groups.update_one({"_id": oid}, {"$set": update_fields})
 
-        # 同步：重算 rankings（单组聚合，返回前必须完成，否则对阵图读到旧数据）
-        from data import recalc_group_rankings
-        recalc_group_rankings(db, oid)
-
-        # 后台：晋级计算 + SSE 通知（重活，不影响响应）
-        def _post_advance():
+        # 后台：晋级计算 + rankings 重算 + SSE 通知（重活，不影响响应）
+        def _post_finalize():
             try:
                 if games_played >= bo_n:
                     from data import try_advance_group
                     try_advance_group(db, group)
                     from routes_tournament import invalidate_bracket_cache
                     invalidate_bracket_cache()
+                from data import recalc_group_rankings
+                recalc_group_rankings(db, oid)
                 evt_matches.set()
                 evt_problem_matches.set()
                 evt_bracket.set()
             except Exception as e:
-                log.error(f"[manual-record] 后台晋级处理异常: {e}")
+                log.error(f"[manual-record] 后台处理异常: {e}")
 
         import threading
-        threading.Thread(target=_post_advance, daemon=True).start()
+        threading.Thread(target=_post_finalize, daemon=True).start()
     else:
         evt_matches.set()
         evt_problem_matches.set()
@@ -821,14 +819,24 @@ def api_admin_edit_placement(game_uuid):
 
     log.info(f"[edit-placement] 管理员 {admin_tag} 修改对局 {game_uuid} 排名")
 
-    # 淘汰赛对局：重算该组 rankings（同步，单组聚合很快）
+    # 淘汰赛对局：重算该组 rankings（后台执行）
     tg_id = match.get("tournamentGroupId")
     if tg_id:
-        from data import recalc_group_rankings
-        recalc_group_rankings(db, tg_id)
+        def _post_edit():
+            try:
+                from data import recalc_group_rankings
+                recalc_group_rankings(db, tg_id)
+                evt_matches.set()
+                evt_problem_matches.set()
+                evt_bracket.set()
+            except Exception as e:
+                log.error(f"[edit-placement] 后台处理异常: {e}")
 
-    evt_matches.set()
-    evt_problem_matches.set()
-    evt_bracket.set()
+        import threading
+        threading.Thread(target=_post_edit, daemon=True).start()
+    else:
+        evt_matches.set()
+        evt_problem_matches.set()
+        evt_bracket.set()
 
     return jsonify({"ok": True})
