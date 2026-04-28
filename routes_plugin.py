@@ -294,6 +294,7 @@ def api_plugin_update_placement():
     account_id_lo = str(data.get("accountIdLo", ""))
     player_id = data.get("playerId", "")
     placement = data.get("placement")
+    reconnect_times = data.get("reconnectTimes")  # 断线重连时间列表（可选）
 
     log.info(f"[update-placement] 收到请求: accountIdLo={account_id_lo} gameUuid={game_uuid} placement={placement} playerId={player_id}")
 
@@ -332,12 +333,18 @@ def api_plugin_update_placement():
         return jsonify({"error": "该玩家不在此对局中"}), 404
 
     # ── 原子写入当前玩家排名（防止竞态） ──
+    set_fields = {
+        f"players.{target_index}.placement": placement,
+        f"players.{target_index}.points": points,
+    }
+    # 断线重连时间列表（bg_tool 上传，每项为 UTC ISO 时间字符串）
+    if reconnect_times and isinstance(reconnect_times, list) and len(reconnect_times) > 0:
+        set_fields[f"players.{target_index}.reconnectTimes"] = reconnect_times
+        log.info(f"[update-placement] 断线重连 {len(reconnect_times)} 次: accountIdLo={account_id_lo}")
+
     update_result = db.league_matches.update_one(
         {"gameUuid": game_uuid, f"players.{target_index}.placement": None},
-        {"$set": {
-            f"players.{target_index}.placement": placement,
-            f"players.{target_index}.points": points,
-        }}
+        {"$set": set_fields}
     )
     if update_result.modified_count == 0:
         # 该位置已有排名（并发提交或重复请求）

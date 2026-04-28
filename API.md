@@ -113,6 +113,7 @@ GET /api/players/%E5%8D%97%E6%80%80%E5%8C%97%E7%91%BE%E4%B8%A8%E5%B0%91%E5%A4%B4
 | `players[].points` | int | 积分（1st=9, 2nd=7, ..., 8th=1） |
 | `players[].heroCardId` | string | 英雄卡牌 ID |
 | `players[].heroName` | string | 英雄中文名 |
+| `players[].reconnectTimes` | string[] | 断线重连时间列表（UTC），仅该玩家有断线记录时存在 |
 
 **英雄头像 URL 模板：**
 ```
@@ -493,7 +494,8 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
   "playerId": "南怀北瑾丨少头脑#5267",
   "gameUuid": "888fc109-...",
   "accountIdLo": "1708070391",
-  "placement": 3
+  "placement": 3,
+  "reconnectTimes": ["2026-04-28T12:35:00Z", "2026-04-28T12:42:00Z"]
 }
 ```
 
@@ -503,6 +505,7 @@ https://art.hearthstonejson.com/v1/256x/{heroCardId}.jpg
 | `accountIdLo` | string | ✅ | 当前玩家 accountIdLo |
 | `placement` | int | ✅ | 排名 1-8 |
 | `playerId` | string | | 用于速率限制 |
+| `reconnectTimes` | string[] | | 断线重连时间列表（UTC ISO 格式），每项为一次重连时刻 |
 
 **响应：**
 ```json
