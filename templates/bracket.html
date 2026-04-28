@@ -114,10 +114,13 @@
 {% endblock %}
 
 {% block content %}
-<div class="flex justify-center gap-5 mb-4 text-xs text-hearth-dim">
-  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#34d399"></i> 进行中</span>
-  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#4e505a"></i> 已结束</span>
-  <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
+<div class="flex justify-between items-center mb-4">
+  <div class="flex gap-5 text-xs text-hearth-dim">
+    <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#34d399"></i> 进行中</span>
+    <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#4e505a"></i> 已结束</span>
+    <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
+  </div>
+  <a href="/bracket/history" class="text-xs text-hearth-dim hover:text-hearth-gold transition px-3 py-1 rounded border border-hearth-border hover:border-hearth-gold/40">📜 历史赛事</a>
 </div>
 <div id="brackets-container"></div>
 {% endblock %}

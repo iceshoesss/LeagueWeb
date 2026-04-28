@@ -55,7 +55,7 @@
                             {{ p.displayName }}
                             {% if p.reconnectTimes %}
                             <span class="inline-flex items-center ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/20 text-orange-400 align-middle" title="断线重连 {{ p.reconnectTimes|length }} 次：{{ p.reconnectTimes | join(', ') }}">
-                                🔄 ×{{ p.reconnectTimes|length }}
+                                🔄 {{ p.reconnectTimes|length }}
                             </span>
                             {% endif %}
                         </a>

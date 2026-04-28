@@ -173,14 +173,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.17.6`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.18.0`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.17.6 |
+| `feat/knockout` | 淘汰赛 | v0.18.0 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -190,6 +190,18 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.0 (2026-04-28) — 赛事归档 + 历史查看
+- 新增 `tournaments` 集合存储赛事元数据（status/layout/seasonName）
+- 创建赛事时自动写入 tournaments 记录
+- 归档接口 `POST /api/tournament/<name>/archive` — 隐藏已结束赛事
+- 取消归档 `POST /api/tournament/<name>/unarchive` — 恢复显示
+- 首页对阵图只显示活跃赛事，归档赛事不再出现
+- 历史赛事页面 `/bracket/history` — 查看所有归档赛事
+- 对阵图右上角「📜 历史赛事」入口
+- 管理后台 API 新增归档/取消归档操作
+- 数据迁移脚本 `scripts/migrate_tournaments.py` — 给已有赛事补 tournaments 记录
+- 新增 `POST /api/plugin/update-placement` 存储 reconnectTimes 字段（断线重连信息）
+
 ### v0.17.6 (2026-04-28) — 断线重连信息展示
 - update-placement 接收并存储 reconnectTimes 字段（bg_tool 上传的断线重连时间列表）
 - 对局详情页玩家 ID 旁显示断线重连标记（🔄 ×N），hover 查看具体时间

@@ -649,6 +649,12 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 
 ---
 
+### `GET /api/bracket/history`
+
+返回归档赛事的对阵图数据（结构同 `/api/bracket`）。
+
+---
+
 ### `GET /api/tournaments`
 
 获取所有赛事列表。
@@ -662,7 +668,47 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
     "name": "2026 春季赛",
     "totalGroups": 112,
     "statusCounts": {"waiting": 80, "done": 32},
-    "rounds": [1]
+    "rounds": [1],
+    "status": "active",
+    "seasonName": "2026春季赛",
+    "layout": "bracket"
+  }
+]
+```
+
+---
+
+### `POST /api/tournament/<name>/archive`
+
+归档赛事（首页不再显示）。
+
+**认证：** 需管理员登录（session）
+
+**响应：** `{"ok": true, "name": "...", "status": "archived"}`
+
+---
+
+### `POST /api/tournament/<name>/unarchive`
+
+取消归档（恢复到首页显示）。
+
+**认证：** 需管理员登录（session）
+
+**响应：** `{"ok": true, "name": "...", "status": "active"}`
+
+---
+
+### `GET /api/seasons`
+
+获取所有赛季列表。
+
+**响应：**
+```json
+[
+  {
+    "name": "2026春季赛",
+    "tournamentCount": 2,
+    "latest": "2026-04-28T10:00:00Z"
   }
 ]
 ```
@@ -701,6 +747,7 @@ https://art.hearthstonejson.com/v1/256x/TB_BaconShop_HERO_56.jpg
 |------|------|
 | `tournamentName` | 赛事名称 |
 | `layout` | `"bracket"`（淘汰赛）或 `"grid"`（海选平铺），默认 `"bracket"` |
+| `seasonName` | 所属赛季名称（可选），用于历史赛事分组展示 |
 | `rounds[].round` | 轮次编号 |
 | `rounds[].boN` | 本轮局数（BO1~BO7） |
 | `rounds[].groups[].groupIndex` | 组号（1-based） |

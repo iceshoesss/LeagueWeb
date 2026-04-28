@@ -22,12 +22,16 @@ tournament_bp = Blueprint("tournament", __name__)
 # ── 对阵图缓存 ──────────────────────────────────────
 _bracket_cache = None
 _bracket_cache_ts = 0
+_bracket_archived_cache = None
+_bracket_archived_cache_ts = 0
 BRACKET_CACHE_TTL = 5  # 秒
 
 def invalidate_bracket_cache():
-    global _bracket_cache, _bracket_cache_ts
+    global _bracket_cache, _bracket_cache_ts, _bracket_archived_cache, _bracket_archived_cache_ts
     _bracket_cache = None
     _bracket_cache_ts = 0
+    _bracket_archived_cache = None
+    _bracket_archived_cache_ts = 0
     log.debug("[cache] bracket cache invalidated")
 
 
@@ -190,13 +194,23 @@ def _build_bracket_mock():
     ]}]}
 
 
-def build_bracket_data():
-    """从 tournament_groups 集合读取对阵图数据（带缓存）"""
-    global _bracket_cache, _bracket_cache_ts
+def build_bracket_data(status="active"):
+    """从 tournament_groups 集合读取对阵图数据（带缓存）
+    
+    Args:
+        status: "active" = 首页（只显示最新赛事）, "archived" = 历史赛事
+    """
+    global _bracket_cache, _bracket_cache_ts, _bracket_archived_cache, _bracket_archived_cache_ts
     import time
     now = time.time()
-    if _bracket_cache is not None and (now - _bracket_cache_ts) < BRACKET_CACHE_TTL:
-        return _bracket_cache
+
+    # 按 status 选择对应缓存
+    if status == "archived":
+        if _bracket_archived_cache is not None and (now - _bracket_archived_cache_ts) < BRACKET_CACHE_TTL:
+            return _bracket_archived_cache
+    else:
+        if _bracket_cache is not None and (now - _bracket_cache_ts) < BRACKET_CACHE_TTL:
+            return _bracket_cache
 
     db = get_db()
     GROUP_LABELS = "ABCD"
@@ -222,6 +236,22 @@ def build_bracket_data():
     groups = list(db.tournament_groups.find().sort([("round", 1), ("groupIndex", 1)]))
     if not groups:
         return _build_bracket_mock()
+
+    # 从 tournaments 集合读取赛事状态，过滤分组
+    tournaments_meta = {t["name"]: t for t in db.tournaments.find()}
+    if tournaments_meta:
+        # 有 tournaments 记录 → 按 status 过滤
+        allowed_names = {
+            t["name"] for t in tournaments_meta.values()
+            if t.get("status", "active") == status
+        }
+        groups = [g for g in groups if g.get("tournamentName", "赛事") in allowed_names]
+    else:
+        # 无 tournaments 记录（旧数据迁移前）→ active 显示全部，archived 返回空
+        if status == "archived":
+            return {"tournaments": []}
+        # active 走原有逻辑
+        pass
 
     tournaments_map = {}
     for g in groups:
@@ -397,27 +427,34 @@ def build_bracket_data():
 
         result.append({"name": tname, "rounds": rounds_data, "layout": layout})
 
-    # 如果有 bracket 布局的赛事，隐藏 grid 布局（海选）
-    has_bracket = any(t["layout"] == "bracket" for t in result)
-    if has_bracket:
-        result = [t for t in result if t["layout"] != "grid"]
+    # 如果有 bracket 布局的赛事，隐藏 grid 布局（海选）—— 仅 active 模式
+    if status == "active":
+        has_bracket = any(t["layout"] == "bracket" for t in result)
+        if has_bracket:
+            result = [t for t in result if t["layout"] != "grid"]
 
-    # 多个 bracket 赛事时只显示最后创建的（海选 → 512强）
-    bracket_tournaments = [t for t in result if t["layout"] == "bracket"]
-    if len(bracket_tournaments) > 1:
-        def _created_at(t):
-            for rd in t.get("rounds", []):
-                for g in rd.get("groups", []):
-                    ca = g.get("createdAt")
-                    if ca:
-                        return ca
-            return ""
-        bracket_tournaments.sort(key=_created_at)
-        result = [bracket_tournaments[-1]]
+        # 多个 bracket 赛事时只显示最后创建的（海选 → 512强）
+        bracket_tournaments = [t for t in result if t["layout"] == "bracket"]
+        if len(bracket_tournaments) > 1:
+            def _created_at(t):
+                for rd in t.get("rounds", []):
+                    for g in rd.get("groups", []):
+                        ca = g.get("createdAt")
+                        if ca:
+                            return ca
+                return ""
+            bracket_tournaments.sort(key=_created_at)
+            result = [bracket_tournaments[-1]]
 
-    result_data = {"tournaments": result}
-    _bracket_cache = result_data
-    _bracket_cache_ts = time.time()
+    result_data = {"tournaments": result, "status": status}
+
+    # 写入对应缓存
+    if status == "archived":
+        _bracket_archived_cache = result_data
+        _bracket_archived_cache_ts = time.time()
+    else:
+        _bracket_cache = result_data
+        _bracket_cache_ts = time.time()
     return result_data
 
 
@@ -425,8 +462,14 @@ def build_bracket_data():
 
 @tournament_bp.route("/bracket")
 def bracket_page():
-    data = build_bracket_data()
+    data = build_bracket_data(status="active")
     return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
+
+
+@tournament_bp.route("/bracket/history")
+def bracket_history_page():
+    data = build_bracket_data(status="archived")
+    return render_template("bracket_history.html", data_json=json.dumps(data, ensure_ascii=False))
 
 
 @tournament_bp.route("/verify-shuffle")
@@ -443,7 +486,13 @@ def enroll_page():
 
 @tournament_bp.route("/api/bracket")
 def api_bracket():
-    return jsonify(build_bracket_data())
+    return jsonify(build_bracket_data(status="active"))
+
+
+@tournament_bp.route("/api/bracket/history")
+def api_bracket_history():
+    """获取归档赛事的对阵图数据"""
+    return jsonify(build_bracket_data(status="archived"))
 
 
 @tournament_bp.route("/api/tournament/create", methods=["POST"])
@@ -457,6 +506,7 @@ def api_tournament_create():
     rounds = data.get("rounds", [])
     layout = data.get("layout", "bracket")  # "bracket" | "grid"
     advancement_rule = data.get("advancementRule", "chicken")  # "chicken" | "golden"
+    season_name = data.get("seasonName", "").strip()  # 所属赛季（可选）
 
     if layout not in ("bracket", "grid"):
         layout = "bracket"
@@ -511,7 +561,22 @@ def api_tournament_create():
     if groups_to_insert:
         db.tournament_groups.insert_many(groups_to_insert)
 
-    log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组 layout={layout} rule={advancement_rule}")
+    # 写入 tournaments 元数据记录
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    db.tournaments.update_one(
+        {"name": tname},
+        {"$setOnInsert": {
+            "name": tname,
+            "status": "active",
+            "layout": layout,
+            "seasonName": season_name,
+            "createdAt": now_str,
+            "archivedAt": None,
+        }},
+        upsert=True,
+    )
+
+    log.info(f"[tournament] 创建赛事: {tname} {len(groups_to_insert)} 个分组 layout={layout} rule={advancement_rule} season={season_name or '(无)'}")
     invalidate_bracket_cache()
     evt_bracket.set()
     return jsonify({"ok": True, "tournamentName": tname, "groupsCreated": len(groups_to_insert), "layout": layout, "advancementRule": advancement_rule})
@@ -694,6 +759,8 @@ def api_tournament_delete(tournament_name):
         invalidate_bracket_cache()
 
     result = db.tournament_groups.delete_many({"tournamentName": tournament_name})
+    # 同时删除 tournaments 元数据
+    db.tournaments.delete_one({"name": tournament_name})
     log.info(f"[tournament] 管理员 {admin_tag} 删除赛事 {tournament_name}，删除 {result.deleted_count} 个分组")
     invalidate_bracket_cache()
     evt_bracket.set()
@@ -709,6 +776,9 @@ def api_tournaments():
     db = get_db()
     groups = list(db.tournament_groups.find().sort([("tournamentName", 1), ("round", 1), ("groupIndex", 1)]))
 
+    # 读取 tournaments 元数据
+    tournaments_meta = {t["name"]: t for t in db.tournaments.find()}
+
     tournaments_map = {}
     for g in groups:
         tname = g.get("tournamentName", "未知赛事")
@@ -722,14 +792,96 @@ def api_tournaments():
 
     result = []
     for tname, info in tournaments_map.items():
+        meta = tournaments_meta.get(tname, {})
         result.append({
             "name": tname,
             "totalGroups": info["totalGroups"],
             "statusCounts": info["statusCounts"],
             "rounds": sorted(info["rounds"].keys()),
+            "status": meta.get("status", "active"),
+            "seasonName": meta.get("seasonName", ""),
+            "layout": meta.get("layout", ""),
         })
 
     return jsonify(result)
+
+
+@tournament_bp.route("/api/tournament/<path:tournament_name>/archive", methods=["POST"])
+def api_tournament_archive(tournament_name):
+    """归档赛事"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    result = db.tournaments.update_one(
+        {"name": tournament_name, "status": "active"},
+        {"$set": {"status": "archived", "archivedAt": now_str}},
+    )
+    if result.modified_count == 0:
+        return jsonify({"error": "赛事不存在或已归档"}), 404
+
+    log.info(f"[tournament] 管理员 {admin_tag} 归档赛事: {tournament_name}")
+    invalidate_bracket_cache()
+    evt_bracket.set()
+    return jsonify({"ok": True, "name": tournament_name, "status": "archived"})
+
+
+@tournament_bp.route("/api/tournament/<path:tournament_name>/unarchive", methods=["POST"])
+def api_tournament_unarchive(tournament_name):
+    """取消归档（恢复显示）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    db = get_db()
+    result = db.tournaments.update_one(
+        {"name": tournament_name, "status": "archived"},
+        {"$set": {"status": "active", "archivedAt": None}},
+    )
+    if result.modified_count == 0:
+        return jsonify({"error": "赛事不存在或未归档"}), 404
+
+    log.info(f"[tournament] 管理员 {admin_tag} 取消归档: {tournament_name}")
+    invalidate_bracket_cache()
+    evt_bracket.set()
+    return jsonify({"ok": True, "name": tournament_name, "status": "active"})
+
+
+@tournament_bp.route("/api/seasons")
+def api_seasons():
+    """获取所有赛季列表"""
+    db = get_db()
+    pipeline = [
+        {"$match": {"seasonName": {"$ne": ""}}},
+        {"$group": {
+            "_id": "$seasonName",
+            "count": {"$sum": 1},
+            "latest": {"$max": "$createdAt"},
+        }},
+        {"$sort": {"latest": -1}},
+    ]
+    seasons = []
+    for s in db.tournaments.aggregate(pipeline):
+        meta = db.tournaments.find_one({"name": s["_id"]})  # 赛季名可能也是赛事名
+        seasons.append({
+            "name": s["_id"],
+            "tournamentCount": s["count"],
+            "latest": s["latest"],
+        })
+
+    # 也把没有 seasonName 的赛事作为独立项列出
+    orphan = list(db.tournaments.find({"$or": [{"seasonName": None}, {"seasonName": ""}]}))
+    for t in orphan:
+        seasons.append({
+            "name": t["name"],
+            "tournamentCount": 1,
+            "latest": t.get("createdAt"),
+            "isTournament": True,
+        })
+
+    return jsonify(seasons)
 
 
 @tournament_bp.route("/api/tournament/qualifier-pool")
