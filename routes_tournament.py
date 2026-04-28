@@ -491,8 +491,102 @@ def api_bracket():
 
 @tournament_bp.route("/api/bracket/history")
 def api_bracket_history():
-    """获取归档赛事的对阵图数据"""
+    """获取归档赛事的对阵图数据（全部）"""
     return jsonify(build_bracket_data(status="archived"))
+
+
+@tournament_bp.route("/api/bracket/history/<path:tournament_name>")
+def api_bracket_history_single(tournament_name):
+    """获取单个归档赛事的对阵图数据"""
+    db = get_db()
+    meta = db.tournaments.find_one({"name": tournament_name, "status": "archived"})
+    if not meta:
+        return jsonify({"error": "赛事不存在或未归档"}), 404
+
+    groups = list(db.tournament_groups.find({"tournamentName": tournament_name}).sort([("round", 1), ("groupIndex", 1)]))
+    if not groups:
+        return jsonify({"tournaments": []})
+
+    # 复用 build_bracket_data 的内部逻辑（简化版）
+    from data import get_group_rankings, SORT_KEYS, _sort_key_chicken
+
+    GROUP_LABELS = "ABCD"
+    layout = meta.get("layout", "bracket")
+
+    rounds_map = {}
+    for g in groups:
+        r = g.get("round", 1)
+        rounds_map.setdefault(r, []).append(g)
+
+    all_rankings = {}
+    for g in groups:
+        cached = g.get("rankings")
+        if cached:
+            all_rankings[str(g["_id"])] = cached
+
+    sorted_rounds = sorted(rounds_map.keys())
+    total_rounds = len(sorted_rounds)
+
+    def _round_label(r):
+        if layout == "grid":
+            return f"第 {r} 轮" if total_rounds > 1 else "海选"
+        if r == total_rounds:
+            return "决赛"
+        if r == total_rounds - 1:
+            return "半决赛"
+        return f"第 {r} 轮"
+
+    def _group_label(r, gi, total):
+        if layout == "grid":
+            return f"{GROUP_LABELS[gi]} 组" if total <= 4 else f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组"
+        if r == total_rounds and total == 1:
+            return "决赛"
+        if r == 1:
+            return f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组" if total > 4 else f"{GROUP_LABELS[gi]} 组"
+        return f"{gi + 1} 组"
+
+    rounds_data = []
+    for r in sorted_rounds:
+        rgroups = sorted(rounds_map[r], key=lambda g: g.get("groupIndex", 0))
+        total = len(rgroups)
+        groups_data = []
+        for g in rgroups:
+            gi = g.get("groupIndex", 1) - 1
+            tg_str = str(g["_id"])
+            rankings = all_rankings.get(tg_str, {})
+            for p in g.get("players", []):
+                lo = str(p.get("accountIdLo", ""))
+                rd = rankings.get(lo)
+                if rd:
+                    p["totalPoints"] = rd["totalPoints"]
+                    p["points"] = rd["totalPoints"]
+                    p["qualified"] = rd.get("qualified", False)
+                    p["eliminated"] = rd.get("eliminated", False)
+                else:
+                    p["totalPoints"] = 0
+                    p["points"] = None
+                    p["qualified"] = False
+                    p["eliminated"] = False
+                p["empty"] = p.get("empty", False)
+
+            rule = g.get("advancementRule", "chicken")
+            sort_fn = SORT_KEYS.get(rule, _sort_key_chicken)
+            g["players"].sort(key=lambda p, fn=sort_fn: fn(p))
+
+            groups_data.append({
+                "round": r,
+                "groupIndex": gi + 1,
+                "label": _group_label(r, gi, total),
+                "status": "done",
+                "boN": g.get("boN", 1),
+                "gamesPlayed": g.get("gamesPlayed", 0),
+                "players": g.get("players", []),
+                "startedAt": g.get("startedAt"),
+                "endedAt": g.get("endedAt"),
+            })
+        rounds_data.append({"label": _round_label(r), "groups": groups_data})
+
+    return jsonify({"tournaments": [{"name": tournament_name, "rounds": rounds_data, "layout": layout}]})
 
 
 @tournament_bp.route("/api/tournament/create", methods=["POST"])
