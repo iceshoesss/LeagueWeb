@@ -120,9 +120,18 @@
     <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#4e505a"></i> 已结束</span>
     <span class="flex items-center gap-1.5"><i class="w-2 h-2 rounded-full inline-block" style="background:#9a7420"></i> 等待中</span>
   </div>
-  <a href="/bracket/history" class="text-xs text-hearth-dim hover:text-hearth-gold transition px-3 py-1 rounded border border-hearth-border hover:border-hearth-gold/40">📜 历史赛事</a>
+  <select id="bracket-switcher" onchange="switchBracketView(this.value)"
+    class="text-xs text-hearth-dim bg-hearth-card border border-hearth-border rounded px-2 py-1 hover:border-hearth-gold/40 transition cursor-pointer focus:outline-none focus:border-hearth-gold/60">
+    <option value="active">当前赛事</option>
+    <option value="archived">历史赛事</option>
+  </select>
 </div>
 <div id="brackets-container"></div>
+<div id="empty-state" class="text-center py-20 text-hearth-dim" style="display:none">
+  <div class="text-4xl mb-4">📭</div>
+  <div class="text-lg font-medium mb-2">暂无历史赛事</div>
+  <div class="text-sm">归档的赛事会显示在这里</div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -411,6 +420,8 @@ function initBrackets(data) {
   container.innerHTML = '';
   tournaments.length = 0;
 
+  if (!data.tournaments || data.tournaments.length === 0) return;
+
   data.tournaments.forEach((t, tIdx) => {
     if (t.layout === 'grid') {
       // ── Grid 平铺模式（海选赛）──
@@ -481,7 +492,52 @@ function initBracketTournament(t, tIdx) {
 initBrackets(DATA);
 
 /* ══════════════════════════════════════════
-   SSE 实时更新
+   视图切换（当前赛事 / 历史赛事）
+   ══════════════════════════════════════════ */
+let currentView = 'active';
+
+async function switchBracketView(view) {
+  currentView = view;
+  const container = document.getElementById('brackets-container');
+  const emptyState = document.getElementById('empty-state');
+
+  if (view === 'active') {
+    // 回到当前赛事：关闭 SSE 再重连，拉最新数据
+    emptyState.style.display = 'none';
+    container.style.display = '';
+    if (bracketSse) { bracketSse.close(); bracketSse = null; }
+    // 重新加载活跃数据
+    try {
+      const res = await fetch('/api/bracket');
+      const data = await res.json();
+      initBrackets(data);
+      lastBracketHash = stableStringify(data);
+      connectBracketSse();
+    } catch (e) {
+      console.error('switchBracketView active error:', e);
+    }
+  } else {
+    // 切到历史赛事：关闭 SSE，加载归档数据
+    if (bracketSse) { bracketSse.close(); bracketSse = null; }
+    try {
+      const res = await fetch('/api/bracket/history');
+      const data = await res.json();
+      if (!data.tournaments || data.tournaments.length === 0) {
+        container.style.display = 'none';
+        emptyState.style.display = '';
+      } else {
+        emptyState.style.display = 'none';
+        container.style.display = '';
+        initBrackets(data);
+      }
+    } catch (e) {
+      console.error('switchBracketView archived error:', e);
+    }
+  }
+}
+
+/* ══════════════════════════════════════════
+   SSE 实时更新（仅 active 视图）
    ══════════════════════════════════════════ */
 let bracketSse = null;
 let lastBracketHash = '';
@@ -506,6 +562,7 @@ function connectBracketSse() {
 
   bracketSse.onmessage = function(e) {
     if (!e.data) return;
+    if (currentView !== 'active') return;  // 历史视图不处理 SSE
     if (e.data !== lastBracketHash) {
       lastBracketHash = e.data;
       try {
@@ -528,8 +585,8 @@ connectBracketSse();
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (bracketSse) { bracketSse.close(); bracketSse = null; }
-  } else {
-    lastBracketData = null;  // 切回来强制刷新
+  } else if (currentView === 'active') {
+    lastBracketHash = '';
     connectBracketSse();
   }
 });
