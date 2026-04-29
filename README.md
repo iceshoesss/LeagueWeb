@@ -190,6 +190,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.4 (2026-04-30) — GitHub Action 自动构建
+- 新增 GitHub Action 自动构建 Docker 镜像（ghcr.io）
+- 推送到 `feat/knockout` 且 `app.py` 有变更时自动构建并推送 `:knockout-{version}` + `:latest`
+- `hotfix/*` 分支构建 `:knockout-{version}`，不覆盖 latest
+- 支持 `linux/amd64` + `linux/arm64` 双架构
+- PR 仅构建验证，不推送镜像
+
 ### v0.18.3 (2026-04-30) — 淘汰赛决赛轮修复
 - 对阵图最后 3 轮（四分之一决赛、半决赛、决赛）始终不折叠
 - 决赛组完成后不再错误创建下一轮分组
