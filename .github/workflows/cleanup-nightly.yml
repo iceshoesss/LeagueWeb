@@ -1,0 +1,69 @@
+name: Cleanup Old Nightly Images
+
+on:
+  schedule:
+    - cron: "0 4 * * 0"  # 每周日 UTC 04:00（北京时间 12:00）
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Delete old nightly packages
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = 'league-web';
+            const packageName = `${owner}/${repo}`;
+            const keepDays = 7;
+            const cutoff = Date.now() - keepDays * 24 * 60 * 60 * 1000;
+
+            let page = 1;
+            let deleted = 0;
+            let kept = 0;
+
+            while (true) {
+              // 使用 REST API 获取包版本（兼容个人账号和组织）
+              const { data: versions } = await github.request(
+                'GET /user/packages/{package_type}/{package_name}/versions',
+                {
+                  package_type: 'container',
+                  package_name: packageName,
+                  per_page: 100,
+                  page: page
+                }
+              );
+
+              if (versions.length === 0) break;
+
+              for (const version of versions) {
+                const tags = version.metadata?.container?.tags || [];
+                // 匹配 nightly-YYYYMMDD 但不匹配 nightly（最新版）
+                const isOldNightly = tags.some(t => /^nightly-\d{8}$/.test(t));
+                const created = new Date(version.created_at).getTime();
+
+                if (isOldNightly && created < cutoff) {
+                  console.log(`Deleting: ${tags.join(', ')} (${version.created_at})`);
+                  await github.request(
+                    'DELETE /user/packages/{package_type}/{package_name}/versions/{version_id}',
+                    {
+                      package_type: 'container',
+                      package_name: packageName,
+                      version_id: version.id
+                    }
+                  );
+                  deleted++;
+                } else if (isOldNightly) {
+                  kept++;
+                  console.log(`Keeping: ${tags.join(', ')} (${version.created_at})`);
+                }
+              }
+
+              page++;
+            }
+
+            console.log(`\nDone. Deleted: ${deleted}, Kept: ${kept}`);
