@@ -528,6 +528,7 @@ def recalc_group_rankings(db, group_id):
 
 def try_advance_group(db, tg):
     """单组完成时立即晋级：将前 4 名放入下一轮分组"""
+    log.info(f"[advance] try_advance_group 被调用: R{tg.get('round')}G{tg.get('groupIndex')} tournament={tg.get('tournamentName')}")
     # grid 布局（海选赛）不自动晋级
     if tg.get("layout") == "grid":
         log.info(f"[advance] 跳过 grid 布局晋级: R{tg.get('round')}G{tg.get('groupIndex')}")
@@ -538,6 +539,17 @@ def try_advance_group(db, tg):
     tournament_name = tg.get("tournamentName", "赛事")
     tg_id = tg["_id"]
     advancement_rule = tg.get("advancementRule", "chicken")
+
+    # 决赛（最后一轮）不晋级
+    max_round = db.tournament_groups.find_one(
+        {"tournamentName": tournament_name},
+        sort=[("round", -1)],
+    )
+    max_r = max_round.get("round", 1) if max_round else 0
+    log.info(f"[advance] R{current_round}G{gi} 检查: max_round={max_r}, current_round={current_round}, 跳过={current_round >= max_r}")
+    if max_round and current_round >= max_r:
+        log.info(f"[advance] R{current_round}G{gi} 已是最后一轮，跳过晋级")
+        return
 
     groups_in_round = db.tournament_groups.count_documents({
         "round": current_round, "tournamentName": tournament_name,
@@ -614,6 +626,15 @@ def try_advance_round(db, current_round, tournament_name, group_rankings=None):
     if round_groups[0].get("layout") == "grid":
         return
     if not all(g.get("status") == "done" for g in round_groups):
+        return
+
+    # 决赛（最后一轮）不晋级
+    max_round = db.tournament_groups.find_one(
+        {"tournamentName": tournament_name},
+        sort=[("round", -1)],
+    )
+    if max_round and current_round >= max_round.get("round", 1):
+        log.info(f"[advance] 第 {current_round} 轮已是最后一轮，跳过晋级")
         return
 
     next_round = current_round + 1
