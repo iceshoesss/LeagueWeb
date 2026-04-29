@@ -191,9 +191,11 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 更新日志
 ### v0.18.4 (2026-04-30) — GitHub Action 自动构建
-- 新增 GitHub Action 自动构建 Docker 镜像（ghcr.io）
-- 推送到 `feat/knockout` 且 `app.py` 有变更时自动构建并推送 `:knockout-{version}` + `:latest`
-- `hotfix/*` 分支构建 `:knockout-{version}`，不覆盖 latest
+- 新增 GitHub Action 自动构建 Docker 镜像（ghcr.io/iceshoesss/league-web）
+- 仅 WEB_VERSION 变更时触发构建，避免无关改动重复构建
+- `feat/knockout` 推送 → `:knockout-{version}` + `:latest`
+- `hotfix/*` 推送 → `:knockout-{version}`，不覆盖 latest
+- 每日北京时间 10:00 自动构建 nightly 版本（`:nightly` + `:nightly-YYYYMMDD`）
 - 支持 `linux/amd64` + `linux/arm64` 双架构
 - PR 仅构建验证，不推送镜像
 
