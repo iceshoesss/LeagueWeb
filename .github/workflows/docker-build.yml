@@ -11,6 +11,8 @@ on:
   pull_request:
     branches:
       - feat/knockout
+  schedule:
+    - cron: "0 2 * * *"  # 每天 UTC 02:00（北京时间 10:00）
 
 env:
   REGISTRY: ghcr.io
@@ -26,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: feat/knockout  # schedule 事件固定 checkout feat/knockout
 
       - name: Extract WEB_VERSION from app.py
         id: version
@@ -38,17 +42,26 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Detected WEB_VERSION: $VERSION"
 
+      - name: Get date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> "$GITHUB_OUTPUT"
+
       - name: Determine image tags
         id: tags
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           VERSION="${{ steps.version.outputs.version }}"
+          DATE="${{ steps.date.outputs.date }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # PR: 只构建不推送，tag 仅用于本地验证
+            # PR: 只构建不推送
             echo "tags=${IMAGE}:knockout-${VERSION}" >> "$GITHUB_OUTPUT"
             echo "push=false" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "schedule" ]]; then
+            # 定时构建: nightly + nightly-YYYYMMDD
+            echo "tags=${IMAGE}:nightly,${IMAGE}:nightly-${DATE}" >> "$GITHUB_OUTPUT"
+            echo "push=true" >> "$GITHUB_OUTPUT"
           elif [[ "$BRANCH" == "feat/knockout" ]]; then
             # feat/knockout: knockout-{version} + latest
             echo "tags=${IMAGE}:knockout-${VERSION},${IMAGE}:latest" >> "$GITHUB_OUTPUT"
