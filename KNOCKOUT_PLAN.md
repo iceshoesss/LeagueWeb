@@ -88,14 +88,14 @@ BO N 下每局积分不变，N 局累加。
 - [x] SSE 推送对阵图状态变化（`/api/events/bracket`）
 - [x] 积分赛首页备份为 `index_league.html`
 
-### Phase 5 — 边界处理 🔶
+### Phase 5 — 边界处理 ✅
 - [x] 少人开打支持（5-8 人，issubset 匹配）
 - [x] 手机玩家支持（无 Lo 不影响匹配，管理员手动补录排名）
 - [x] 赛事报名系统（报名 + 1024 名额上限 + 替补队列 + 定时截止）
-- [ ] 赛事归档（当前单赛事场景暂不需要）
+- [x] 赛事归档（tournaments 集合 + archive/unarchive API + 历史赛事页面 + 迁移脚本）
 
 ## 待办
 
-- [ ] 赛事归档（多赛事场景）
+- [x] 赛事归档
 - [ ] CSRF 防护
-- [ ] HTTPS（Cloudflare Tunnel）
+- [ ] ~~HTTPS（Cloudflare Tunnel）~~ 备案中，暂不做
