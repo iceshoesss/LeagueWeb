@@ -260,7 +260,7 @@ function render(tIdx) {
     const cx = colXs[ri];
     const isLast = ri === nR - 1;
     const allDone = round.groups.every(g => g.status === 'done');
-    const canCollapse = allDone && !isLast;
+    const canCollapse = allDone && !isLast && ri < nR - 3;
 
     if (collapsed.has(ri)) {
       // ── 折叠指示（.. 标签）──
@@ -386,6 +386,8 @@ function renderCard(g, x, y, isFinal) {
 function toggleRound(tIdx, ri) {
   const t = tournaments[tIdx];
   const nR = t.rounds.length;
+  // 最后 3 轮不支持折叠
+  if (ri >= nR - 3) return;
   if (t.collapsed.has(ri)) {
     // 展开：右边所有轮次必须已展开（从右到左展开）
     for (let j = ri + 1; j < nR; j++) {
@@ -466,9 +468,10 @@ function initBracketTournament(t, tIdx) {
     scroll.appendChild(area);
     container.appendChild(scroll);
 
-    // 自动折叠所有比赛已完成的轮次（从第 0 轮开始连续完成才折叠）
+    // 自动折叠已完成的轮次（从第 0 轮开始连续完成才折叠）
+    // 最后 3 轮（四分之一决赛、半决赛、决赛）始终显示，不折叠
     const autoCollapsed = new Set();
-    for (let ri = 0; ri < t.rounds.length; ri++) {
+    for (let ri = 0; ri < t.rounds.length - 3; ri++) {
       if (t.rounds[ri].groups.every(g => g.status === 'done')) {
         autoCollapsed.add(ri);
       } else {
