@@ -7,13 +7,14 @@ on:
       - "hotfix/*"
     paths:
       - "app.py"
+      - ".github/workflows/docker-build.yml"
   pull_request:
     branches:
       - feat/knockout
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: iceshoesss/league-web
 
 jobs:
   build:
