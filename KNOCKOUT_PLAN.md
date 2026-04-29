@@ -97,5 +97,39 @@ BO N 下每局积分不变，N 局累加。
 ## 待办
 
 - [x] 赛事归档
-- [ ] CSRF 防护
+- [ ] CSRF 防护（优先级低，等 HTTPS 后再考虑）
 - [ ] ~~HTTPS（Cloudflare Tunnel）~~ 备案中，暂不做
+- [ ] 安全加固 — 密码系统（见下方，比赛结束后实施）
+
+## 安全加固计划 — 密码系统（比赛后）
+
+### 问题
+
+当前 `upload-rating` 接口既写数据又返回验证码，攻击者反编译 DLL 拿到 API key 后，
+可以调用 `upload-rating` 传任意 playerId + accountIdLo 获取验证码，冒充任意玩家登录。
+
+### 方案
+
+验证码改为随机一次性，新增密码系统：
+
+1. `upload-rating` 返回**随机验证码**（一次性，5 分钟过期）
+2. 玩家首次在网站注册时输入验证码 + **设置密码**，验证码作废
+3. 后续登录使用 **BattleTag + 密码**，不再需要验证码
+
+### 改动点
+
+**服务端（LeagueWeb）：**
+- `upload-rating`：验证码改为随机生成，写入 `player_records` 并加 `expireAt` 字段（TTL 索引自动清理）
+- `POST /api/register`：验证码 + 密码 → 注册成功后验证码作废，密码哈希存入 `league_players`
+- `POST /api/login`：改为 BattleTag + 密码登录
+- `player_records` 新增字段：`verificationCodeExpire`（datetime）
+
+**插件（HDT_BGTracker / bg_tool）：**
+- 插件侧无须改动（验证码仍然从 upload-rating 响应获取）
+- 首次注册后验证码作废，后续登录用密码
+
+### 防护效果
+
+- 攻击者有 API key → 能生成验证码 → 但 5 分钟过期
+- 玩家自己注册后设密码 → 验证码作废 → 攻击者无法接管
+- 密码不在插件/二进制中，攻击者拿不到
