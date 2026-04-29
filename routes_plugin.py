@@ -68,7 +68,7 @@ def api_plugin_upload_rating():
     if not check_rate_limit(player_id):
         return jsonify({"error": "请求过于频繁，请稍后重试"}), 429
 
-    log.info(f"[upload-rating] playerId={player_id} rating={rating} mode={mode} region={region}")
+    log.info(f"[upload-rating] playerId={player_id}")
     db = get_db()
     now_str = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     existing = db.player_records.find_one({"playerId": player_id})
