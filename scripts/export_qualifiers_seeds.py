@@ -36,25 +36,32 @@ def get_qualifiers(db, tournament_name):
     if not groups:
         return []
 
-    rankings = get_group_rankings(db, tournament_name)
+    # 按 advancementRule 分组查询排名，确保使用正确的排序规则
+    rules = set(g.get("advancementRule", "chicken") for g in groups)
+    rankings_by_rule = {}
+    for rule in rules:
+        rankings_by_rule[rule] = get_group_rankings(db, tournament_name, rule)
+
     seen = set()
     result = []
     for g in groups:
         tg_str = str(g["_id"])
-        group_rankings = rankings.get(tg_str, {})
+        rule = g.get("advancementRule", "chicken")
+        group_rankings = rankings_by_rule.get(rule, {}).get(tg_str, {})
+
+        # 直接使用 get_group_rankings 算好的 placement 排序，不再自己重排
         ranked = sorted(
             g.get("players", []),
-            key=lambda p: group_rankings.get(str(p.get("accountIdLo", "")), {}).get("totalPoints", 0),
-            reverse=True,
+            key=lambda p: group_rankings.get(str(p.get("accountIdLo", "")), {}).get("placement", 999),
         )
-        for i, p in enumerate(ranked):
-            if i >= 4:
-                break
+        for p in ranked:
             lo = str(p.get("accountIdLo", ""))
+            rd_data = group_rankings.get(lo, {})
+            if not rd_data.get("qualified", False):
+                continue
             tag = p.get("battleTag", "")
             if tag and tag not in seen:
                 seen.add(tag)
-                rd_data = group_rankings.get(lo, {})
                 result.append({
                     "battleTag": tag,
                     "accountIdLo": lo,
