@@ -530,6 +530,14 @@ def api_admin_manual_advance(group_id):
         return jsonify({"ok": True, "advanced": len(advance_los)})
 
     # 淘汰赛（bracket）：创建/填入下一轮分组
+    # 决赛（最后一轮）不允许晋级
+    max_round_doc = db.tournament_groups.find(
+        {"tournamentName": tournament_name}, {"round": 1}
+    ).sort("round", -1).limit(1)
+    max_round_list = list(max_round_doc)
+    if max_round_list and current_round >= max_round_list[0].get("round", 1):
+        return jsonify({"error": "决赛组不能晋级到下一轮"}), 400
+
     groups_in_round = db.tournament_groups.count_documents({
         "round": current_round, "tournamentName": tournament_name,
     })
