@@ -34,7 +34,7 @@ def make_rng(s):
 
 def deterministic_shuffle(arr, seed_str):
     h = hashlib.sha256(seed_str.encode("utf-8")).digest()
-    seed_int = sum(struct.unpack_from("<I", h, i) for i in range(0, 32, 4))
+    seed_int = sum(struct.unpack_from("<I", h, i)[0] for i in range(0, 32, 4))
     rng = make_rng(seed_int)
     result = list(arr)
     for i in range(len(result) - 1, 0, -1):
