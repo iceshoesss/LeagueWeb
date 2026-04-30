@@ -2,22 +2,22 @@
 """
 重新分配淘汰赛分组，保证每组恰好 1 个种子选手。
 
-用法：
-  python scripts/fix_seed_distribution.py "赛事名称"
+用法:
+  python scripts/fix_seed_distribution.py <赛事名称> [--seed 洗牌种子] [--dry-run]
 
-可选参数：
-  --seed "自定义seed"   指定洗牌种子（默认用赛事名称）
-  --dry-run             只打印不写入
+示例:
+  python scripts/fix_seed_distribution.py "2026 春季赛" --dry-run
+  python scripts/fix_seed_distribution.py "2026 春季赛"
+  python scripts/fix_seed_distribution.py "2026 春季赛" --seed "自定义种子"
 """
 
-import sys
 import os
+import sys
 import hashlib
 import struct
-import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from db import get_db
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
+DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 
 
 def make_rng(s):
@@ -44,21 +44,27 @@ def deterministic_shuffle(arr, seed_str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="重新分配分组，每组 1 种子 + 7 晋级者")
-    parser.add_argument("tournament", help="赛事名称")
-    parser.add_argument("--seed", help="洗牌种子（默认=赛事名称）")
-    parser.add_argument("--dry-run", action="store_true", help="只打印不写入")
-    args = parser.parse_args()
+    if len(sys.argv) < 2:
+        print("用法: python scripts/fix_seed_distribution.py <赛事名称> [--seed 洗牌种子] [--dry-run]")
+        sys.exit(1)
 
-    tournament = args.tournament
-    seed_str = args.seed or tournament
-    db = get_db()
+    tournament = sys.argv[1]
+    dry_run = "--dry-run" in sys.argv
+    seed_str = tournament
+    if "--seed" in sys.argv:
+        idx = sys.argv.index("--seed")
+        if idx + 1 < len(sys.argv):
+            seed_str = sys.argv[idx + 1]
+
+    from pymongo import MongoClient
+    client = MongoClient(MONGO_URL)
+    db = client[DB_NAME]
 
     # 1. 获取所有分组
     groups = list(db.tournament_groups.find({"tournamentName": tournament}))
     if not groups:
         print(f"❌ 赛事「{tournament}」没有分组")
-        return
+        sys.exit(1)
 
     print(f"📋 赛事「{tournament}」共 {len(groups)} 组")
 
@@ -85,12 +91,11 @@ def main():
 
     print(f"   种子选手: {len(all_seeds)} 人")
     print(f"   晋级选手: {len(all_qualifiers)} 人")
-    total = len(all_seeds) + len(all_qualifiers)
     group_count = len(groups)
 
     if len(all_seeds) < group_count:
         print(f"❌ 种子选手 ({len(all_seeds)}) 少于分组数 ({group_count})，无法保证每组 1 种子")
-        return
+        sys.exit(1)
 
     # 4. 分别洗牌
     shuffled_seeds = deterministic_shuffle(all_seeds, f"{seed_str}:seeds")
@@ -103,18 +108,16 @@ def main():
 
     for gi in range(group_count):
         players = []
-        # 1 个种子
         if seed_idx < len(shuffled_seeds):
             players.append(shuffled_seeds[seed_idx])
             seed_idx += 1
-        # 7 个晋级者
         for _ in range(7):
             if qual_idx < len(shuffled_qualifiers):
                 players.append(shuffled_qualifiers[qual_idx])
                 qual_idx += 1
         new_groups.append(players)
 
-    # 剩余选手（如果有）放到最后一组
+    # 剩余选手放到最后一组
     while seed_idx < len(shuffled_seeds):
         new_groups[-1].append(shuffled_seeds[seed_idx])
         seed_idx += 1
@@ -129,11 +132,16 @@ def main():
         names = [p.get("displayName", "?") for p in players]
         print(f"   第 {gi+1} 组 ({len(players)} 人, 种子 {seed_count}): {', '.join(names)}")
 
-    if args.dry_run:
+    if dry_run:
         print("\n⚠️  dry-run 模式，未写入数据库")
         return
 
     # 7. 写入数据库
+    confirm = input(f"\n确认更新 {len(groups)} 个分组？(y/N): ").strip().lower()
+    if confirm != "y":
+        print("已取消")
+        return
+
     from bson import ObjectId
     for gi, group in enumerate(groups):
         if gi < len(new_groups):
