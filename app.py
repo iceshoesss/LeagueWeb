@@ -38,6 +38,7 @@ app.config["SESSION_COOKIE_SECURE"] = False
 # ── 网站外观 ──────────────────────────────────────
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")
+ICP_NUMBER = os.environ.get("ICP_NUMBER", "")
 WEB_VERSION = "0.17.6"
 
 # ── 注册蓝图 ──────────────────────────────────────
@@ -100,6 +101,7 @@ def inject_counts():
         "is_super_admin": is_super_admin_user,
         "site_name": SITE_NAME,
         "site_logo": SITE_LOGO,
+        "icp_number": ICP_NUMBER,
         "web_version": WEB_VERSION,
     }
 

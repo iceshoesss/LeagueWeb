@@ -76,6 +76,9 @@
     </main>
     <footer class="text-center py-4 text-xs text-hearth-dim/50">
         {{ site_name }} v{{ web_version }}
+        {% if icp_number %}
+        <br><a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ icp_number }}</a>
+        {% endif %}
     </footer>
     {% block scripts %}{% endblock %}
     <script>
