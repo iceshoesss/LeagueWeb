@@ -196,6 +196,27 @@ def api_plugin_check_league():
         else:
             log.info(f"[check-league] 淘汰赛匹配(已有): group=R{matched_tournament_group.get('round')}G{matched_tournament_group.get('groupIndex')} gameUuid={server_game_uuid} playerId={player_id}")
 
+            # ── 补全 heroCardId：match 已存在时，用本次请求的 hero 数据补全空缺 ──
+            if server_game_uuid and detailed_players:
+                existing_match = db.league_matches.find_one(
+                    {"gameUuid": server_game_uuid}, {"players": 1})
+                if existing_match:
+                    hero_updates = {}
+                    for i, ep in enumerate(existing_match.get("players", [])):
+                        if ep.get("heroCardId"):
+                            continue  # 已有 hero 数据，跳过
+                        ep_lo = str(ep.get("accountIdLo", ""))
+                        req_detail = detailed_players.get(ep_lo, {})
+                        req_hero = req_detail.get("heroCardId", "")
+                        if req_hero:
+                            hero_updates[f"players.{i}.heroCardId"] = req_hero
+                            hero_updates[f"players.{i}.heroName"] = req_detail.get("heroName", "")
+                    if hero_updates:
+                        db.league_matches.update_one(
+                            {"gameUuid": server_game_uuid},
+                            {"$set": hero_updates})
+                        log.info(f"[check-league] 补全 hero 数据: gameUuid={server_game_uuid} 补全{len(hero_updates)//2}人")
+
         resp = {"isLeague": True, "gameUuid": server_game_uuid}
         vc = _ensure_verification_code(db, player_id=player_id,
             account_id_lo=data.get("accountIdLo", "").strip(), mode=mode, region=region, timestamp=started_at)
