@@ -60,13 +60,13 @@ def main():
     client = MongoClient(MONGO_URL)
     db = client[DB_NAME]
 
-    # 1. 获取所有分组
-    groups = list(db.tournament_groups.find({"tournamentName": tournament}))
+    # 1. 获取第一轮分组
+    groups = list(db.tournament_groups.find({"tournamentName": tournament, "round": 1}))
     if not groups:
-        print(f"❌ 赛事「{tournament}」没有分组")
+        print(f"❌ 赛事「{tournament}」没有第一轮分组")
         sys.exit(1)
 
-    print(f"📋 赛事「{tournament}」共 {len(groups)} 组")
+    print(f"📋 赛事「{tournament}」第一轮共 {len(groups)} 组")
 
     # 2. 获取种子选手 accountIdLo 集合
     seed_players_db = list(db.league_players.find({"isSeed": True}))
