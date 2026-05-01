@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
-"""导出所有已归档赛事到 archive-site/data/（一次性迁移脚本）"""
+"""导出所有已归档赛事到 archive-site/data/（静态归档站）
+
+用法: python scripts/export_archived.py
+
+环境变量:
+  MONGO_URL  MongoDB 地址 (默认 mongodb://mongo:27017)
+  DB_NAME    数据库名 (默认 hearthstone)
+"""
 
 import json
 import os
 import re
 import sys
+from pymongo import MongoClient
 
-sys.path.insert(0, os.path.dirname(__file__))
-from db import get_db
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
+DB_NAME = os.environ.get("DB_NAME", "hearthstone")
 
 
 def sanitize_filename(name):
@@ -15,8 +23,10 @@ def sanitize_filename(name):
 
 
 def main():
-    db = get_db()
-    archive_dir = os.path.join(os.path.dirname(__file__), 'archive-site', 'data')
+    client = MongoClient(MONGO_URL)
+    db = client[DB_NAME]
+
+    archive_dir = os.path.join(os.path.dirname(__file__), '..', 'archive-site', 'data')
     os.makedirs(archive_dir, exist_ok=True)
 
     archived = list(db.tournaments.find(
@@ -62,7 +72,9 @@ def main():
     index_path = os.path.join(archive_dir, 'index.json')
     with open(index_path, 'w', encoding='utf-8') as f:
         json.dump(index_data, f, ensure_ascii=False, indent=2)
-    print(f"\  ✓ index.json（{len(archived)} 个赛事）")
+    print(f"\n  ✓ index.json（{len(archived)} 个赛事）")
+
+    client.close()
     print(f"\n完成！文件在 archive-site/data/ 目录")
 
 
