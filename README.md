@@ -190,6 +190,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.17.9 (2026-05-01) — SSE 性能优化 + MongoDB 查询修复
+- **SSE 共享缓存**: event 触发时仅 1 个 greenlet 查 MongoDB，其余读缓存，查询量降 80%
+- **移除重复 SSE**: base.html 导航栏角标不再独立建 SSE 连接，复用页面已有连接
+- **修复 event.clear() 导致实时更新延迟**: 改用 generation 计数器判断数据变化，对阵图秒级更新
+- **tournament_groups 添加 (round, groupIndex) 索引**: 修复 build_bracket_data() 全表扫描（COLLSCAN → IXSCAN）
+- **简化 endedAt 查询**: 去掉冗余的 `$or + $exists`，修复 MongoDB plan cache 选低效计划（planning 21 秒→毫秒级）
+
 ### v0.17.7 (2026-04-30) — 支持 ICP 备案号显示
 - 新增 `ICP_NUMBER` 环境变量，设置后 footer 显示备案号链接
 - 默认为空（兼容海外部署）
