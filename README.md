@@ -190,28 +190,9 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
-### v0.18.9 (2026-05-02) — 对阵图交互修复 + SSE/MongoDB 优化
-**对阵图交互**
-- 手动展开的轮次不再被 SSE 重渲染自动折叠回去
-- 展开状态用 sessionStorage 持久化，跳转 player 页后返回仍保持展开
-- 折叠后画布高度按可见轮最大组数动态计算，消除大片空白
-- 横向滚动条固定在视口底部，不再被内容推走
-
-**SSE 性能优化**
-- SSE 共享缓存：event 触发时仅 1 个 greenlet 查 MongoDB，其余读缓存
-- 修复 event.clear() 导致对阵图无法实时更新，改用 generation 计数器
-- 移除 base.html 导航栏重复的 active-games SSE 连接
-
-**MongoDB 优化**
-- 连接池添加 waitQueueTimeoutMS=3s，慢查询占满连接时快速失败
-- tournament_groups 添加 (round, groupIndex) 索引，修复全表扫描
-- 简化 endedAt 查询，去掉冗余的 $or + $exists
-
-**其他**
-- 支持 ICP_NUMBER 环境变量显示备案号
-- Docker 镜像名改为小写 + check-league 补全英雄数据
-- docker-compose 添加内存限制（web 512M / mongo 512M）
-- 新增种子选手分配脚本
+### v0.18.9 (2026-05-02) — 从 hotfix/0.17.5 合入对阵图交互修复 + SSE/MongoDB 优化
+- 从 `hotfix/0.17.5-tournament` 分支 cherry-pick 合入 17 个 commit，详见 v0.17.7 ~ v0.17.11
+- 含对阵图展开状态持久化、SSE 共享缓存、MongoDB 索引/连接池优化等
 
 ### v0.18.4 (2026-04-30) — GitHub Action 自动构建
 - 新增 GitHub Action 自动构建 Docker 镜像（ghcr.io/iceshoesss/league-web）
@@ -247,6 +228,26 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 ### v0.17.6 (2026-04-28) — 断线重连信息展示
 - update-placement 接收并存储 reconnectTimes 字段（bg_tool 上传的断线重连时间列表）
 - 对局详情页玩家 ID 旁显示断线重连标记（🔄 ×N），hover 查看具体时间
+
+### v0.17.11 (2026-05-02) — 对阵图交互修复
+- **手动展开不被覆盖**: SSE 重渲染时保留用户手动展开的轮次，不再自动折叠回去
+- **展开状态跨页面保留**: 用 sessionStorage 持久化，跳转 player 页后返回仍保持展开
+- **折叠后画布高度自适应**: 按可见轮最大组数动态计算，消除折叠后大片空白
+- **横向滚动条固定视口底部**: 内容超出时在页面底部显示滚动条，不再被推到画布下方
+
+### v0.17.10 (2026-05-01) — MongoDB 连接池安全网
+- 连接池添加 `waitQueueTimeoutMS=3s`，慢查询占满连接时快速失败而非无限排队
+
+### v0.17.9 (2026-05-01) — SSE 性能优化 + MongoDB 查询修复
+- **SSE 共享缓存**: event 触发时仅 1 个 greenlet 查 MongoDB，其余读缓存，查询量降 80%
+- **移除重复 SSE**: base.html 导航栏角标不再独立建 SSE 连接，复用页面已有连接
+- **修复 event.clear() 导致实时更新延迟**: 改用 generation 计数器判断数据变化，对阵图秒级更新
+- **tournament_groups 添加 (round, groupIndex) 索引**: 修复 build_bracket_data() 全表扫描（COLLSCAN → IXSCAN）
+- **简化 endedAt 查询**: 去掉冗余的 `$or + $exists`，修复 MongoDB plan cache 选低效计划（planning 21 秒→毫秒级）
+
+### v0.17.7 (2026-04-30) — 支持 ICP 备案号显示
+- 新增 `ICP_NUMBER` 环境变量，设置后 footer 显示备案号链接
+- 默认为空（兼容海外部署）
 
 ### v0.17.2 (2026-04-27) — 竞态条件修复，防 gamesPlayed 重复递增
 - `update-placement` / `manual-record` 玩家排名写入改为原子条件更新
