@@ -60,6 +60,7 @@ def _ensure_indexes(db):
         db.tournament_groups.create_index([("status", 1)])
         db.tournaments.create_index([("name", 1)], unique=True)
         db.tournaments.create_index([("status", 1)])
+        db.tournament_groups.create_index([("round", 1), ("groupIndex", 1)])
         db.player_records.create_index([("playerId", 1)], unique=True, sparse=True)
         db.league_players.create_index([("battleTag", 1)], unique=True, sparse=True)
         db.league_queue.create_index([("joinedAt", 1)])
