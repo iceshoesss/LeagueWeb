@@ -47,16 +47,10 @@ class CacheEntry:
         self._cond.clear()
 
     def wait(self, timeout):
-        """等待新数据。返回 generation（可用 _lock 查库）。"""
+        """等待事件触发，返回当前 generation。不清除 event，所有 greenlet 都能看到。"""
         self.event.wait(timeout=timeout)
-        self.event.clear()
-        return self.generation
-
-    def wait_for_update(self, last_gen, timeout):
-        """等待 generation 变化（有新数据）。"""
-        if self.generation != last_gen:
-            return self.generation
-        self._cond.wait(timeout=timeout)
+        # 不 clear！多个 greenlet 共享同一 event，clear 会导致后续 greenlet 阻塞。
+        # 用 generation 计数器判断是否有新数据。
         return self.generation
 
 
@@ -101,14 +95,17 @@ def _sse_generate(fetch_fn, cache, poll_interval=10, max_lifetime=120):
                 break
 
             # 等待事件触发（超时后兜底查一次）
+            # event 不 clear，用 generation 判断是否有新数据
             gen = cache.wait(timeout=poll_interval)
 
-            # 有新数据（generation 变了）→ 直接用缓存
             if gen != last_gen:
+                # 有新数据 → 直接用缓存，不清 event
                 last_gen = gen
                 data = cache.data
             else:
-                # 兜底轮询：只有一个 greenlet 查库，其余等缓存
+                # generation 未变 → 兜底轮询：仅一个 greenlet 查库
+                # 先 clear event（如果还 set 着），让下次 wait 能真正阻塞
+                cache.event.clear()
                 if cache._lock.acquire(blocking=False):
                     try:
                         data = fetch_fn()
@@ -117,13 +114,15 @@ def _sse_generate(fetch_fn, cache, poll_interval=10, max_lifetime=120):
                     finally:
                         cache._lock.release()
                 else:
-                    # 有其他 greenlet 正在查，等缓存更新
-                    fresh_gen = cache.wait_for_update(gen, timeout=2)
-                    if fresh_gen != gen:
-                        last_gen = fresh_gen
+                    # 其他 greenlet 正在查，等缓存更新
+                    for _ in range(20):  # 最多等 2 秒
+                        gsleep(0.1)
+                        if cache.generation != gen:
+                            break
+                    if cache.generation != gen:
+                        last_gen = cache.generation
                         data = cache.data
                     else:
-                        # 超时，自己查
                         data = fetch_fn()
                         cache.update(data)
                         last_gen = cache.generation
