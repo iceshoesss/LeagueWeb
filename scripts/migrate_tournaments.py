@@ -73,6 +73,95 @@ def main():
     db.tournaments.insert_many(tournaments)
     print(f"\n已写入 {len(tournaments)} 条 tournaments 记录")
 
+    # 为归档赛事预计算 bracketData
+    archived = [t for t in tournaments if t["status"] == "archived"]
+    if archived:
+        print(f"\n预计算 {len(archived)} 个归档赛事的 bracketData...")
+        from data import get_group_rankings, SORT_KEYS
+        GROUP_LABELS = "ABCD"
+
+        for t_meta in archived:
+            tname = t_meta["name"]
+            groups = list(db.tournament_groups.find({"tournamentName": tname}).sort([("round", 1), ("groupIndex", 1)]))
+            if not groups:
+                continue
+
+            layout = t_meta.get("layout", "bracket")
+            all_rankings = {}
+            for g in groups:
+                cached = g.get("rankings")
+                if cached:
+                    all_rankings[str(g["_id"])] = cached
+
+            rounds_map = {}
+            for g in groups:
+                r = g.get("round", 1)
+                rounds_map.setdefault(r, []).append(g)
+
+            sorted_rounds = sorted(rounds_map.keys())
+            total_rounds = len(sorted_rounds)
+
+            def _round_label(r):
+                if layout == "grid":
+                    return f"第 {r} 轮" if total_rounds > 1 else "海选"
+                if r == total_rounds:
+                    return "决赛"
+                if r == total_rounds - 1:
+                    return "半决赛"
+                return f"第 {r} 轮"
+
+            def _group_label(r, gi, total):
+                if layout == "grid":
+                    return f"{GROUP_LABELS[gi]} 组" if total <= 4 else f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组"
+                if r == total_rounds and total == 1:
+                    return "决赛"
+                if r == 1:
+                    return f"{GROUP_LABELS[gi % 4]}{gi // 4 + 1} 组" if total > 4 else f"{GROUP_LABELS[gi]} 组"
+                return f"{gi + 1} 组"
+
+            rounds_data = []
+            for r in sorted_rounds:
+                rgroups = sorted(rounds_map[r], key=lambda g: g.get("groupIndex", 0))
+                total = len(rgroups)
+                groups_data = []
+                for g in rgroups:
+                    gi = g.get("groupIndex", 1) - 1
+                    rankings = all_rankings.get(str(g["_id"]), {})
+                    for p in g.get("players", []):
+                        lo = str(p.get("accountIdLo", ""))
+                        rd = rankings.get(lo)
+                        if rd:
+                            p["totalPoints"] = rd["totalPoints"]
+                            p["games"] = rd.get("games", [])
+                            p["points"] = rd["totalPoints"]
+                            p["qualified"] = rd["qualified"]
+                            p["eliminated"] = rd["eliminated"]
+                        else:
+                            p["totalPoints"] = 0
+                            p["games"] = []
+                            p["points"] = None
+                            p["qualified"] = False
+                            p["eliminated"] = False
+                        p["empty"] = p.get("empty", False)
+                    groups_data.append({
+                        "label": _group_label(r, gi, total),
+                        "status": g.get("status", "waiting"),
+                        "boN": g.get("boN", 1),
+                        "gamesPlayed": g.get("gamesPlayed", 0),
+                        "players": g.get("players", []),
+                        "nextRoundGroupId": g.get("nextRoundGroupId"),
+                        "advancementRule": g.get("advancementRule", "chicken"),
+                    })
+                rounds_data.append({"label": _round_label(r), "groups": groups_data})
+
+            db.tournaments.update_one(
+                {"name": tname},
+                {"$set": {"bracketData": [{"name": tname, "rounds": rounds_data, "layout": layout}]}},
+            )
+            print(f"  ✓ {tname}")
+
+        print(f"预计算完成")
+
 
 if __name__ == "__main__":
     main()

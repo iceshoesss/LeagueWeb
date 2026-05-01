@@ -190,6 +190,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.10 (2026-05-02) — 归档赛事预计算，零聚合查询
+- 归档赛事的 bracket 数据在归档时一次性预计算并存储到 `tournaments.bracketData`
+- 查看归档赛事页面从全量查询 + 内存过滤改为直接读取预计算数据
+- `tournament_groups` 添加 `tournamentName` 索引
+- 迁移脚本同步支持预计算（`scripts/migrate_tournaments.py`）
+- 取消归档时自动清除预计算数据
+
 ### v0.18.9 (2026-05-02) — 从 hotfix/0.17.5 合入对阵图交互修复 + SSE/MongoDB 优化
 - 从 `hotfix/0.17.5-tournament` 分支 cherry-pick 合入 17 个 commit，详见 v0.17.7 ~ v0.17.11
 - 含对阵图展开状态持久化、SSE 共享缓存、MongoDB 索引/连接池优化等

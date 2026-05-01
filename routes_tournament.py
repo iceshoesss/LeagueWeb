@@ -208,6 +208,20 @@ def build_bracket_data(status="active"):
     if status == "archived":
         if _bracket_archived_cache is not None and (now - _bracket_archived_cache_ts) < BRACKET_CACHE_TTL:
             return _bracket_archived_cache
+        # 归档赛事读取预计算的 bracketData（归档时一次性写入）
+        db = get_db()
+        archived = list(db.tournaments.find(
+            {"status": "archived", "bracketData": {"$exists": True}},
+            {"bracketData": 1}
+        ))
+        if archived:
+            result = []
+            for t in archived:
+                result.extend(t["bracketData"])
+            result_data = {"tournaments": result, "status": "archived"}
+            _bracket_archived_cache = result_data
+            _bracket_archived_cache_ts = now
+            return result_data
     else:
         if _bracket_cache is not None and (now - _bracket_cache_ts) < BRACKET_CACHE_TTL:
             return _bracket_cache
@@ -502,6 +516,10 @@ def api_bracket_history_single(tournament_name):
     meta = db.tournaments.find_one({"name": tournament_name, "status": "archived"})
     if not meta:
         return jsonify({"error": "赛事不存在或未归档"}), 404
+
+    # 优先读取预计算的 bracketData
+    if "bracketData" in meta:
+        return jsonify({"tournaments": meta["bracketData"], "status": "archived"})
 
     groups = list(db.tournament_groups.find({"tournamentName": tournament_name}).sort([("round", 1), ("groupIndex", 1)]))
     if not groups:
@@ -916,6 +934,19 @@ def api_tournament_archive(tournament_name):
     if result.modified_count == 0:
         return jsonify({"error": "赛事不存在或已归档"}), 404
 
+    # 预计算 bracket 数据，存到 tournament 文档（归档后不再变化）
+    bracket_data = build_bracket_data(status="active")  # 刚归档，缓存里还是 active 数据
+    tournament_bracket = None
+    for t in bracket_data.get("tournaments", []):
+        if t.get("name") == tournament_name:
+            tournament_bracket = t
+            break
+    if tournament_bracket:
+        db.tournaments.update_one(
+            {"name": tournament_name},
+            {"$set": {"bracketData": [tournament_bracket]}},
+        )
+
     log.info(f"[tournament] 管理员 {admin_tag} 归档赛事: {tournament_name}")
     invalidate_bracket_cache()
     evt_bracket.set()
@@ -932,7 +963,7 @@ def api_tournament_unarchive(tournament_name):
     db = get_db()
     result = db.tournaments.update_one(
         {"name": tournament_name, "status": "archived"},
-        {"$set": {"status": "active", "archivedAt": None}},
+        {"$set": {"status": "active", "archivedAt": None}, "$unset": {"bracketData": ""}},
     )
     if result.modified_count == 0:
         return jsonify({"error": "赛事不存在或未归档"}), 404
