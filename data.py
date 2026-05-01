@@ -115,15 +115,11 @@ def get_completed_matches(limit=10):
 
 
 def get_active_games():
-    """获取进行中的对局（endedAt 为 null 或字段不存在，且未超时）"""
+    """获取进行中的对局（endedAt 为 null，且未超时）"""
     db = get_db()
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    query = {
-        "$and": [
-            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
-            {"startedAt": {"$gte": cutoff_str}}
-        ]
-    }
+    # endedAt: null 已包含"字段不存在"的情况，无需 $or + $exists
+    query = {"endedAt": None, "startedAt": {"$gte": cutoff_str}}
     games = list(db.league_matches.find(query).sort("startedAt", -1))
     for g in games:
         g["_id"] = str(g["_id"])
