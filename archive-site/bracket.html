@@ -244,15 +244,14 @@ function renderBracket(t, container) {
   svg.innerHTML = paths;
 }
 
-/* ── 卡片 HTML ── */
+/* ── 卡片 HTML（归档站：全部按 done 渲染）── */
 function renderCard(g, x, y, isFinal) {
-  const labels = { done: '已结束', waiting: '等待中', active: '进行中' };
-  let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
+  let h = `<div class="group-card done${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
   const boInfo = (g.boN && g.boN > 1) ? `<span class="bo-info">BO${g.boN} ${g.gamesPlayed || 0}/${g.boN}</span>` : '';
-  h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge ${g.status}">${labels[g.status] || g.status}</span></div></div>`;
+  h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge done">已结束</span></div></div>`;
 
   (g.players || []).forEach((p, i) => {
-    const cls = g.status === 'done' && i < 4 ? 'q' : g.status === 'done' && p.eliminated ? 'el' : '';
+    const cls = i < 4 ? 'q' : p.eliminated ? 'el' : '';
     const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
     const posText = p.empty ? '' : (i + 1);
     const img = (!p.empty && p.heroCardId)
