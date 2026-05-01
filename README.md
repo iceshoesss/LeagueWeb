@@ -196,6 +196,7 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **修复 event.clear() 导致实时更新延迟**: 改用 generation 计数器判断数据变化，对阵图秒级更新
 - **tournament_groups 添加 (round, groupIndex) 索引**: 修复 build_bracket_data() 全表扫描（COLLSCAN → IXSCAN）
 - **简化 endedAt 查询**: 去掉冗余的 `$or + $exists`，修复 MongoDB plan cache 选低效计划（planning 21 秒→毫秒级）
+- **连接池安全网**: 添加 `waitQueueTimeoutMS=3s`，连接池满时快速失败而非无限排队
 
 ### v0.17.7 (2026-04-30) — 支持 ICP 备案号显示
 - 新增 `ICP_NUMBER` 环境变量，设置后 footer 显示备案号链接
