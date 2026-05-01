@@ -426,7 +426,16 @@ def build_bracket_data():
 @tournament_bp.route("/bracket")
 def bracket_page():
     data = build_bracket_data()
-    return render_template("bracket.html", data_json=json.dumps(data, ensure_ascii=False))
+    data_json = json.dumps(data, ensure_ascii=False, sort_keys=True)
+    etag = '"' + hashlib.md5(data_json.encode()).hexdigest() + '"'
+    if request.headers.get("If-None-Match") == etag:
+        return "", 304
+    resp = render_template("bracket.html", data_json=data_json)
+    from flask import make_response
+    resp = make_response(resp)
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "public, max-age=5"
+    return resp
 
 
 @tournament_bp.route("/verify-shuffle")
@@ -443,7 +452,17 @@ def enroll_page():
 
 @tournament_bp.route("/api/bracket")
 def api_bracket():
-    return jsonify(build_bracket_data())
+    data = build_bracket_data()
+    data_json = json.dumps(data, ensure_ascii=False, sort_keys=True)
+    etag = '"' + hashlib.md5(data_json.encode()).hexdigest() + '"'
+    if request.headers.get("If-None-Match") == etag:
+        return "", 304
+    from flask import make_response
+    resp = make_response(data_json)
+    resp.headers["Content-Type"] = "application/json"
+    resp.headers["ETag"] = etag
+    resp.headers["Cache-Control"] = "public, max-age=5"
+    return resp
 
 
 @tournament_bp.route("/api/tournament/create", methods=["POST"])
