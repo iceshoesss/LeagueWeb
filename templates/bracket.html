@@ -4,8 +4,22 @@
 
 {% block head %}
 <style>
-  .bracket-scroll { overflow-x: auto; padding-bottom: 12px; }
+  .bracket-scroll { overflow-x: hidden; padding-bottom: 12px; }
   .bracket-area { position: relative; margin: 0 auto; }
+
+  /* 固定在视口底部的浮动滚动条 */
+  .floating-scrollbar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 14px; z-index: 100;
+    background: #0f0f1a; border-top: 1px solid #2a2a4a;
+    overflow-x: auto; overflow-y: hidden;
+    display: none;
+  }
+  .floating-scrollbar::-webkit-scrollbar { height: 10px; }
+  .floating-scrollbar::-webkit-scrollbar-track { background: #1a1a2e; }
+  .floating-scrollbar::-webkit-scrollbar-thumb { background: #3a3a5a; border-radius: 5px; }
+  .floating-scrollbar::-webkit-scrollbar-thumb:hover { background: #4e505a; }
+  .floating-scrollbar-inner { height: 1px; }
 
   .svg-layer {
     position: absolute; top: 0; left: 0;
@@ -260,6 +274,17 @@ function render(tIdx) {
   svgEl.setAttribute('height', areaH);
   svgEl.setAttribute('viewBox', `0 0 ${areaW} ${areaH}`);
 
+  // ── 同步浮动滚动条 ──
+  const { scrollEl, floatBar } = t;
+  const scrollViewportW = scrollEl.clientWidth;
+  if (areaW > scrollViewportW) {
+    floatBar.style.display = 'block';
+    floatBar.querySelector('.floating-scrollbar-inner').style.width = areaW + 'px';
+    floatBar.scrollLeft = scrollEl.scrollLeft;
+  } else {
+    floatBar.style.display = 'none';
+  }
+
   // ── 生成 HTML ── */
   let html = '';
 
@@ -430,8 +455,9 @@ function buildFlat(rounds) {
 const container = document.getElementById('brackets-container');
 
 function initBrackets(data) {
-  // 清空旧 DOM 和状态
+  // 清空旧 DOM 和浮动滚动条
   container.innerHTML = '';
+  tournaments.forEach(t => { if (t.floatBar) t.floatBar.remove(); });
   tournaments.length = 0;
 
   data.tournaments.forEach((t, tIdx) => {
@@ -475,6 +501,21 @@ function initBracketTournament(t, tIdx) {
     scroll.appendChild(area);
     container.appendChild(scroll);
 
+    // 浮动滚动条（视口底部，始终可见）
+    const floatBar = document.createElement('div');
+    floatBar.className = 'floating-scrollbar';
+    floatBar.innerHTML = '<div class="floating-scrollbar-inner"></div>';
+    document.body.appendChild(floatBar);
+
+    // 同步滚动：浮动条 → 画布
+    floatBar.addEventListener('scroll', function() {
+      scroll.scrollLeft = floatBar.scrollLeft;
+    });
+    // 同步滚动：画布 → 浮动条（备用，如用户触控画布区域）
+    scroll.addEventListener('scroll', function() {
+      floatBar.scrollLeft = scroll.scrollLeft;
+    });
+
     // 自动折叠已完成的轮次（从第 0 轮开始连续完成才折叠）
     // 最后 3 轮（四分之一决赛、半决赛、决赛）始终显示，不折叠
     // 用户手动展开过的轮次不重新折叠
@@ -494,6 +535,8 @@ function initBracketTournament(t, tIdx) {
       collapsed: autoCollapsed,
       areaEl: area,
       svgEl: svg,
+      scrollEl: scroll,
+      floatBar: floatBar,
     };
 
     render(tIdx);
