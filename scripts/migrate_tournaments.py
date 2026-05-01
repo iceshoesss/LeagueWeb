@@ -8,6 +8,8 @@
 
 import os
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pymongo import MongoClient
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://mongo:27017")
