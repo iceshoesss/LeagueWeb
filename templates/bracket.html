@@ -158,6 +158,23 @@ const tournaments = [];
 /* 用户手动展开的轮次（SSE 重渲染时不被自动折叠覆盖） */
 const userExpanded = {};  // tIdx -> Set of ri
 
+/* sessionStorage 读写（跨页面导航保留展开状态） */
+function loadExpanded(tIdx) {
+  try {
+    const raw = sessionStorage.getItem('bracket-expanded-' + tIdx);
+    if (raw) return new Set(JSON.parse(raw));
+  } catch(e) {}
+  return new Set();
+}
+function saveExpanded(tIdx) {
+  const s = userExpanded[tIdx];
+  if (s && s.size > 0) {
+    sessionStorage.setItem('bracket-expanded-' + tIdx, JSON.stringify([...s]));
+  } else {
+    sessionStorage.removeItem('bracket-expanded-' + tIdx);
+  }
+}
+
 /* ══════════════════════════════════════════
    布局计算（每次渲染重新算，支持折叠后重分布）
    ══════════════════════════════════════════ */
@@ -437,6 +454,7 @@ function toggleRound(tIdx, ri) {
     // 记录用户手动展开，SSE 重渲染时不会自动折叠
     if (!userExpanded[tIdx]) userExpanded[tIdx] = new Set();
     userExpanded[tIdx].add(ri);
+    saveExpanded(tIdx);
   } else {
     // 折叠：左边所有轮次必须已折叠（从左到右折叠）
     if (!t.rounds[ri].groups.every(g => g.status === 'done')) return;
@@ -446,6 +464,7 @@ function toggleRound(tIdx, ri) {
     t.collapsed.add(ri);
     // 用户手动折叠，清除展开标记
     if (userExpanded[tIdx]) userExpanded[tIdx].delete(ri);
+    saveExpanded(tIdx);
   }
   render(tIdx);
 }
@@ -528,7 +547,8 @@ function initBracketTournament(t, tIdx) {
     // 自动折叠已完成的轮次（从第 0 轮开始连续完成才折叠）
     // 最后 3 轮（四分之一决赛、半决赛、决赛）始终显示，不折叠
     // 用户手动展开过的轮次不重新折叠
-    const prevExpanded = userExpanded[tIdx] || new Set();
+    // 优先从 sessionStorage 恢复（返回页面时保留状态）
+    const prevExpanded = userExpanded[tIdx] || loadExpanded(tIdx);
     const autoCollapsed = new Set();
     for (let ri = 0; ri < t.rounds.length - 3; ri++) {
       if (t.rounds[ri].groups.every(g => g.status === 'done') && !prevExpanded.has(ri)) {
