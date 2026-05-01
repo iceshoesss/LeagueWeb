@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>酒馆战棋联赛 — 历史赛事</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f1a; color: #d1d5db; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+  .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 24px; font-weight: 700; color: #e2b714; margin-bottom: 8px; }
+  .subtitle { font-size: 14px; color: #8b8b9e; margin-bottom: 32px; }
+  .tournament-list { display: flex; flex-direction: column; gap: 12px; }
+  .tournament-card {
+    background: #16213e; border: 1px solid rgba(226,183,20,0.3); border-radius: 12px;
+    padding: 20px 24px; text-decoration: none; color: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tournament-card:hover { border-color: rgba(226,183,20,0.6); box-shadow: 0 0 16px rgba(226,183,20,0.08); }
+  .tournament-card .name { font-size: 18px; font-weight: 600; color: #e2b714; }
+  .tournament-card .meta { font-size: 13px; color: #8b8b9e; margin-top: 4px; }
+  .tournament-card .arrow { font-size: 20px; color: #8b8b9e; }
+  .empty { text-align: center; padding: 80px 20px; color: #8b8b9e; }
+  .empty .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty .title { font-size: 18px; font-weight: 600; color: #d1d5db; margin-bottom: 8px; }
+  footer { text-align: center; margin-top: 60px; font-size: 12px; color: #4e505a; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📜 历史赛事</h1>
+  <p class="subtitle">炉石传说酒馆战棋联赛归档赛事</p>
+  <div id="list" class="tournament-list"></div>
+  <div id="empty" class="empty" style="display:none">
+    <div class="icon">📭</div>
+    <div class="title">暂无历史赛事</div>
+    <div>归档的赛事会显示在这里</div>
+  </div>
+</div>
+<footer>酒馆战棋联赛归档站 · Powered by Cloudflare Pages</footer>
+<script>
+fetch('data/index.json')
+  .then(r => r.json())
+  .then(data => {
+    const list = document.getElementById('list');
+    const empty = document.getElementById('empty');
+    if (!data.tournaments || data.tournaments.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+    data.tournaments.forEach(t => {
+      const a = document.createElement('a');
+      a.className = 'tournament-card';
+      a.href = 'bracket.html?tournament=' + encodeURIComponent(t.filename);
+      let groupCount = 0;
+      if (t.rounds) t.rounds.forEach(r => groupCount += (r.groupCount || 0));
+      const meta = [
+        t.rounds ? t.rounds.length + ' 轮' : '',
+        groupCount ? groupCount + ' 组' : '',
+        t.archivedAt || ''
+      ].filter(Boolean).join(' · ');
+      a.innerHTML = `<div><div class="name">${t.name}</div><div class="meta">${meta}</div></div><span class="arrow">→</span>`;
+      list.appendChild(a);
+    });
+  })
+  .catch(() => { document.getElementById('empty').style.display = ''; });
+</script>
+</body>
+</html>

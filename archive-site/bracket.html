@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对阵图 — 酒馆战棋联赛</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f1a; color: #d1d5db; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 24px; border-bottom: 1px solid #2a2a4a;
+  }
+  .topbar .title { font-size: 18px; font-weight: 700; color: #e2b714; }
+  .topbar a { font-size: 13px; color: #8b8b9e; text-decoration: none; padding: 6px 12px; border: 1px solid #2a2a4a; border-radius: 6px; transition: all 0.2s; }
+  .topbar a:hover { color: #e2b714; border-color: rgba(226,183,20,0.4); }
+
+  .legend { display: flex; justify-content: center; gap: 20px; padding: 12px 0; font-size: 12px; color: #8b8b9e; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* ── 对阵图 ── */
+  .bracket-scroll { overflow-x: auto; padding-bottom: 12px; }
+  .bracket-area { position: relative; margin: 0 auto; }
+  .svg-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 0; }
+  .svg-layer path { stroke: rgba(42,42,74,0.6); stroke-width: 2; fill: none; }
+  .svg-layer path.on { stroke: #e2b714; stroke-width: 2.5; filter: drop-shadow(0 0 3px rgba(226,183,20,0.15)); }
+
+  .round-title {
+    position: absolute; font-size: 12px; font-weight: 700; color: #8b8b9e;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    background: #1a1a2e; border: 1px solid #2a2a4a;
+    border-radius: 5px; padding: 4px 14px; white-space: nowrap;
+    z-index: 2; transform: translateX(-50%);
+  }
+  .round-title.gold { color: #e2b714; border-color: rgba(226,183,20,0.4); }
+
+  .group-card {
+    position: absolute; z-index: 1;
+    background: #16213e; border: 1px solid rgba(226,183,20,0.3);
+    border-radius: 0.75rem; overflow: hidden;
+    transition: border-color 0.2s, opacity 0.3s;
+  }
+  .group-card:hover { border-color: rgba(226,183,20,0.6); }
+  .group-card.done { border-color: rgba(42,42,74,0.5); }
+  .group-card.final {
+    border-color: rgba(226,183,20,0.5);
+    background: linear-gradient(160deg, #1e1a0e, #16213e);
+    box-shadow: 0 0 18px rgba(226,183,20,0.06);
+  }
+
+  .g-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 12px; background: rgba(0,0,0,0.15);
+    border-bottom: 1px solid #2a2a4a; font-size: 12px; font-weight: 600;
+  }
+  .g-head .name { color: #e2b714; }
+  .g-head .right { display: flex; align-items: center; gap: 6px; }
+  .g-head .bo-info { font-size: 10px; color: #8b8b9e; font-weight: 500; }
+
+  .badge { font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 700; }
+  .badge.done { background: rgba(139,139,158,0.1); color: #8b8b9e; }
+  .badge.waiting { background: rgba(226,183,20,0.1); color: #c9a84c; }
+
+  .p-row {
+    display: flex; align-items: center;
+    padding: 0 12px; height: 48px; font-size: 13.5px; color: #d1d5db;
+    border-bottom: 1px solid rgba(42,42,74,0.4);
+  }
+  .p-row:last-child { border-bottom: none; }
+  .p-row .pos { width: 20px; font-weight: 700; font-size: 11px; color: #8b8b9e; text-align: center; flex-shrink: 0; }
+  .p-row .pos.g { color: #ffd700; }
+  .p-row .pos.s { color: #c0c0c0; }
+  .p-row .pos.b { color: #cd7f32; }
+  .p-row .avatar { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: rgba(0,0,0,0.3); margin-right: 5px; }
+  .p-row .avatar img { width: 150%; height: 150%; object-fit: cover; }
+  .p-row .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-row .nm.empty { color: #8b8b9e; font-style: italic; }
+  .p-row .pts { font-size: 11px; font-weight: 700; color: #e2b714; margin-left: 4px; flex-shrink: 0; }
+  .p-row.q .pos { color: #34d399; }
+  .p-row.q .nm { color: #34d399; }
+  .p-row.el .nm { color: #8b8b9e; }
+  .p-row.el .avatar img { filter: grayscale(1); opacity: 0.4; }
+
+  /* ── Grid 平铺 ── */
+  .grid-layout {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+    padding: 12px; justify-content: center; max-width: 1500px; margin: 0 auto;
+  }
+  .grid-layout .group-card { position: static !important; width: 100% !important; }
+
+  .loading { text-align: center; padding: 80px 20px; color: #8b8b9e; }
+  .error { text-align: center; padding: 80px 20px; color: #ef4444; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="title" id="page-title">对阵图</span>
+  <a href="index.html">← 返回赛事列表</a>
+</div>
+<div class="legend">
+  <span><i style="background:#34d399"></i> 晋级</span>
+  <span><i style="background:#4e505a"></i> 淘汰</span>
+  <span><i style="background:#9a7420"></i> 等待中</span>
+</div>
+<div id="container"></div>
+
+<script>
+const HEADER_H = 38, ROW_H = 48, CARD_W = 280;
+const CARD_H = HEADER_H + 8 * ROW_H;
+const COL_GAP = 70, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
+
+/* ── 读取 URL 参数 ── */
+const params = new URLSearchParams(location.search);
+const tournamentFile = params.get('tournament');
+
+if (!tournamentFile) {
+  document.getElementById('container').innerHTML = '<div class="error">缺少 tournament 参数</div>';
+} else {
+  fetch('data/' + tournamentFile + '.json')
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(data => {
+      document.getElementById('page-title').textContent = data.tournaments?.[0]?.name || '对阵图';
+      document.title = (data.tournaments?.[0]?.name || '对阵图') + ' — 酒馆战棋联赛';
+      renderAll(data);
+    })
+    .catch(e => {
+      document.getElementById('container').innerHTML = '<div class="error">加载失败: ' + e.message + '</div>';
+    });
+}
+
+/* ── 渲染入口 ── */
+function renderAll(data) {
+  const container = document.getElementById('container');
+  if (!data.tournaments || data.tournaments.length === 0) {
+    container.innerHTML = '<div class="loading">暂无数据</div>';
+    return;
+  }
+  data.tournaments.forEach(t => {
+    if (t.layout === 'grid') {
+      renderGrid(t, container);
+    } else {
+      renderBracket(t, container);
+    }
+  });
+}
+
+/* ── Grid 平铺模式 ── */
+function renderGrid(t, container) {
+  const wrap = document.createElement('div');
+  t.rounds.forEach(round => {
+    const grid = document.createElement('div');
+    grid.className = 'grid-layout';
+    round.groups.forEach(g => {
+      grid.insertAdjacentHTML('beforeend', renderCard(g, 0, 0, false));
+    });
+    wrap.appendChild(grid);
+  });
+  container.appendChild(wrap);
+}
+
+/* ── Bracket 对阵图模式 ── */
+function renderBracket(t, container) {
+  const flat = t.rounds.map(r => r.groups.map(g => ({ ...g })));
+  const nR = t.rounds.length;
+  const r1Count = t.rounds[0].groups.length;
+  const minH = PAD_TOP + r1Count * CARD_H + Math.max(r1Count - 1, 0) * 20 + PAD_BOT;
+  const areaH = Math.max(minH, 600);
+
+  const scroll = document.createElement('div');
+  scroll.className = 'bracket-scroll';
+  const area = document.createElement('div');
+  area.className = 'bracket-area';
+  area.style.height = areaH + 'px';
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('svg-layer');
+  area.appendChild(svg);
+  scroll.appendChild(area);
+  container.appendChild(scroll);
+
+  /* 布局 */
+  const r1Gap = r1Count > 1 ? (areaH - PAD_TOP - PAD_BOT - r1Count * CARD_H) / (r1Count - 1) : 0;
+  const pos = [];
+  for (let ri = 0; ri < nR; ri++) {
+    if (ri === 0) {
+      pos[ri] = flat[ri].map((_, i) => PAD_TOP + i * (CARD_H + r1Gap) + CARD_H / 2);
+    } else {
+      pos[ri] = flat[ri].map((_, gi) => {
+        const srcs = flat[ri - 1]
+          .map((g, i) => ({ gi: i, nrg: g.nextRoundGroupId }))
+          .filter(s => s.nrg === gi + 1);
+        if (srcs.length >= 2) {
+          const ys = srcs.map(s => pos[ri - 1][s.gi]).sort((a, b) => a - b);
+          return (ys[0] + ys[ys.length - 1]) / 2;
+        } else if (srcs.length === 1) {
+          return pos[ri - 1][srcs[0].gi];
+        }
+        return PAD_TOP + gi * (CARD_H + r1Gap) + CARD_H / 2;
+      });
+    }
+    flat[ri].forEach((g, gi) => {
+      g.cy = pos[ri][gi];
+      g.top = pos[ri][gi] - CARD_H / 2;
+    });
+  }
+
+  /* 列 x */
+  const colXs = [];
+  let x = PAD_LEFT;
+  for (let ri = 0; ri < nR; ri++) { colXs[ri] = x; x += CARD_W + COL_GAP; }
+  const areaW = x + 50;
+  area.style.width = areaW + 'px';
+  svg.setAttribute('width', areaW);
+  svg.setAttribute('height', areaH);
+  svg.setAttribute('viewBox', `0 0 ${areaW} ${areaH}`);
+
+  /* 渲染卡片 */
+  let html = '';
+  for (let ri = 0; ri < nR; ri++) {
+    const round = t.rounds[ri];
+    const cx = colXs[ri];
+    const isLast = ri === nR - 1;
+    html += `<div class="round-title${isLast ? ' gold' : ''}" style="left:${cx + CARD_W / 2}px;top:12px">${round.label}</div>`;
+    flat[ri].forEach(g => { html += renderCard(g, cx, g.top, isLast); });
+  }
+  area.innerHTML = html;
+  area.prepend(svg);
+
+  /* 连线 */
+  let paths = '';
+  for (let ri = 0; ri < nR - 1; ri++) {
+    const srcX = colXs[ri] + CARD_W;
+    const dstX = colXs[ri + 1];
+    flat[ri].forEach((src, si) => {
+      const nrg = src.nextRoundGroupId;
+      if (!nrg || !flat[ri + 1][nrg - 1]) return;
+      const dst = flat[ri + 1][nrg - 1];
+      const mx = (srcX + dstX) / 2;
+      paths += `<path class="on" d="M${srcX},${src.cy} H${mx} V${dst.cy} H${dstX}"/>`;
+    });
+  }
+  svg.innerHTML = paths;
+}
+
+/* ── 卡片 HTML ── */
+function renderCard(g, x, y, isFinal) {
+  const labels = { done: '已结束', waiting: '等待中', active: '进行中' };
+  let h = `<div class="group-card ${g.status}${isFinal ? ' final' : ''}" style="left:${x}px;top:${y}px;width:${CARD_W}px">`;
+  const boInfo = (g.boN && g.boN > 1) ? `<span class="bo-info">BO${g.boN} ${g.gamesPlayed || 0}/${g.boN}</span>` : '';
+  h += `<div class="g-head"><span class="name">${g.label}</span><div class="right">${boInfo}<span class="badge ${g.status}">${labels[g.status] || g.status}</span></div></div>`;
+
+  (g.players || []).forEach((p, i) => {
+    const cls = g.status === 'done' && i < 4 ? 'q' : g.status === 'done' && p.eliminated ? 'el' : '';
+    const pc = i === 0 ? 'g' : i === 1 ? 's' : i === 2 ? 'b' : '';
+    const posText = p.empty ? '' : (i + 1);
+    const img = (!p.empty && p.heroCardId)
+      ? `<div class="avatar"><img src="https://art.hearthstonejson.com/v1/256x/${p.heroCardId}.jpg" alt="" onerror="this.closest('div').style.display='none'"></div>`
+      : '';
+    h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
+    const nmText = p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '');
+    h += `<span class="nm${p.empty ? ' empty' : ''}">${nmText}</span>`;
+    const pts = p.points;
+    if (pts != null && pts > 0) h += `<span class="pts">${pts}</span>`;
+    h += `</div>`;
+  });
+  return h + `</div>`;
+}
+</script>
+</body>
+</html>

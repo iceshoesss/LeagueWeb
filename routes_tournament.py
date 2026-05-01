@@ -4,8 +4,10 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import struct
+import subprocess
 from datetime import datetime, timedelta, UTC
 from bson import ObjectId
 from flask import Blueprint, jsonify, request, session, render_template
@@ -918,6 +920,116 @@ def api_tournaments():
     return jsonify(result)
 
 
+def _sanitize_filename(name):
+    """将赛事名转为安全文件名"""
+    return re.sub(r'[^\w\u4e00-\u9fff\-]', '_', name).strip('_')
+
+
+def _export_archive_static(tournament_name, bracket_data):
+    """归档时导出对阵图 JSON 到 archive-site/data/ 并 git push"""
+    archive_dir = os.path.join(os.path.dirname(__file__), 'archive-site', 'data')
+    if not os.path.isdir(archive_dir):
+        log.warning("[archive-export] archive-site/data 目录不存在，跳过静态导出")
+        return
+
+    filename = _sanitize_filename(tournament_name)
+
+    # 写赛事 JSON
+    filepath = os.path.join(archive_dir, filename + '.json')
+    export_data = {"tournaments": [bracket_data]}
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(export_data, f, ensure_ascii=False, indent=2)
+    log.info(f"[archive-export] 写入 {filepath}")
+
+    # 更新 index.json
+    index_path = os.path.join(archive_dir, 'index.json')
+    index_data = {"tournaments": []}
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                index_data = json.load(f)
+        except Exception:
+            pass
+
+    # 去重：如果已有同名赛事则更新
+    tournaments = index_data.get("tournaments", [])
+    tournaments = [t for t in tournaments if t.get("filename") != filename]
+
+    round_meta = []
+    for r in bracket_data.get("rounds", []):
+        round_meta.append({
+            "label": r.get("label", ""),
+            "groupCount": len(r.get("groups", []))
+        })
+
+    tournaments.append({
+        "name": tournament_name,
+        "filename": filename,
+        "rounds": round_meta,
+        "archivedAt": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    })
+    index_data["tournaments"] = tournaments
+
+    with open(index_path, 'w', encoding='utf-8') as f:
+        json.dump(index_data, f, ensure_ascii=False, indent=2)
+    log.info(f"[archive-export] 更新 index.json")
+
+    # git commit & push（后台执行，不阻塞响应）
+    try:
+        repo_dir = os.path.dirname(__file__)
+        subprocess.run(['git', 'add', 'archive-site/'], cwd=repo_dir, timeout=10, check=False)
+        subprocess.run(
+            ['git', 'commit', '-m', f'archive: 归档赛事 {tournament_name}'],
+            cwd=repo_dir, timeout=10, check=False
+        )
+        subprocess.run(['git', 'push'], cwd=repo_dir, timeout=30, check=False)
+        log.info(f"[archive-export] git push 完成")
+    except Exception as e:
+        log.warning(f"[archive-export] git push 失败（不影响归档）: {e}")
+
+
+def _remove_archive_static(tournament_name):
+    """取消归档时清理静态文件"""
+    archive_dir = os.path.join(os.path.dirname(__file__), 'archive-site', 'data')
+    if not os.path.isdir(archive_dir):
+        return
+
+    filename = _sanitize_filename(tournament_name)
+
+    # 删除赛事 JSON
+    filepath = os.path.join(archive_dir, filename + '.json')
+    if os.path.exists(filepath):
+        os.remove(filepath)
+        log.info(f"[archive-export] 删除 {filepath}")
+
+    # 更新 index.json
+    index_path = os.path.join(archive_dir, 'index.json')
+    if os.path.exists(index_path):
+        try:
+            with open(index_path, 'r', encoding='utf-8') as f:
+                index_data = json.load(f)
+            index_data["tournaments"] = [
+                t for t in index_data.get("tournaments", [])
+                if t.get("filename") != filename
+            ]
+            with open(index_path, 'w', encoding='utf-8') as f:
+                json.dump(index_data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            log.warning(f"[archive-export] 更新 index.json 失败: {e}")
+
+    # git commit & push
+    try:
+        repo_dir = os.path.dirname(__file__)
+        subprocess.run(['git', 'add', 'archive-site/'], cwd=repo_dir, timeout=10, check=False)
+        subprocess.run(
+            ['git', 'commit', '-m', f'archive: 取消归档 {tournament_name}'],
+            cwd=repo_dir, timeout=10, check=False
+        )
+        subprocess.run(['git', 'push'], cwd=repo_dir, timeout=30, check=False)
+    except Exception as e:
+        log.warning(f"[archive-export] git push 失败: {e}")
+
+
 @tournament_bp.route("/api/tournament/<path:tournament_name>/archive", methods=["POST"])
 def api_tournament_archive(tournament_name):
     """归档赛事"""
@@ -946,6 +1058,8 @@ def api_tournament_archive(tournament_name):
             {"name": tournament_name},
             {"$set": {"bracketData": [tournament_bracket]}},
         )
+        # 导出静态 JSON（归档站）
+        _export_archive_static(tournament_name, tournament_bracket)
 
     log.info(f"[tournament] 管理员 {admin_tag} 归档赛事: {tournament_name}")
     invalidate_bracket_cache()
@@ -969,6 +1083,8 @@ def api_tournament_unarchive(tournament_name):
         return jsonify({"error": "赛事不存在或未归档"}), 404
 
     log.info(f"[tournament] 管理员 {admin_tag} 取消归档: {tournament_name}")
+    # 清理静态归档文件
+    _remove_archive_static(tournament_name)
     invalidate_bracket_cache()
     evt_bracket.set()
     return jsonify({"ok": True, "name": tournament_name, "status": "active"})
