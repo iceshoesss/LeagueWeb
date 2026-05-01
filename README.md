@@ -190,6 +190,29 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.9 (2026-05-02) — 对阵图交互修复 + SSE/MongoDB 优化
+**对阵图交互**
+- 手动展开的轮次不再被 SSE 重渲染自动折叠回去
+- 展开状态用 sessionStorage 持久化，跳转 player 页后返回仍保持展开
+- 折叠后画布高度按可见轮最大组数动态计算，消除大片空白
+- 横向滚动条固定在视口底部，不再被内容推走
+
+**SSE 性能优化**
+- SSE 共享缓存：event 触发时仅 1 个 greenlet 查 MongoDB，其余读缓存
+- 修复 event.clear() 导致对阵图无法实时更新，改用 generation 计数器
+- 移除 base.html 导航栏重复的 active-games SSE 连接
+
+**MongoDB 优化**
+- 连接池添加 waitQueueTimeoutMS=3s，慢查询占满连接时快速失败
+- tournament_groups 添加 (round, groupIndex) 索引，修复全表扫描
+- 简化 endedAt 查询，去掉冗余的 $or + $exists
+
+**其他**
+- 支持 ICP_NUMBER 环境变量显示备案号
+- Docker 镜像名改为小写 + check-league 补全英雄数据
+- docker-compose 添加内存限制（web 512M / mongo 512M）
+- 新增种子选手分配脚本
+
 ### v0.18.4 (2026-04-30) — GitHub Action 自动构建
 - 新增 GitHub Action 自动构建 Docker 镜像（ghcr.io/iceshoesss/league-web）
 - 仅 WEB_VERSION 变更时触发构建，避免无关改动重复构建
