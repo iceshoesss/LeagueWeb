@@ -60,7 +60,7 @@ def cleanup_stale_games():
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
-            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"endedAt": None},
             {"startedAt": {"$lt": cutoff_str}},
             {"status": {"$exists": False}},
         ]
@@ -99,7 +99,7 @@ def cleanup_partial_matches():
     cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
     query = {
         "$and": [
-            {"$or": [{"endedAt": None}, {"endedAt": {"$exists": False}}]},
+            {"endedAt": None},
             {"startedAt": {"$lt": cutoff_str}},
             {"status": {"$exists": False}},
         ]
