@@ -43,6 +43,7 @@ def get_db():
             minPoolSize=5,
             serverSelectionTimeoutMS=5000,
             connectTimeoutMS=5000,
+            waitQueueTimeoutMS=3000,
         )
         _db = _client[DB_NAME]
         _ensure_indexes(_db)
