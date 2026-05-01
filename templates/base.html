@@ -128,25 +128,13 @@
     };
     window.addEventListener('beforeunload', window.__sse_cleanup);
 
-    // ── 导航栏实时更新：进行中对局数 ──
-    (function() {
-        const el = document.querySelector('[data-nav-active-count]');
-        if (!el) return;
-        let es = null;
-        function connect() {
-            es = new EventSource('/api/events/active-games');
-            window.__sse_list.push(es);
-            es.onmessage = function(e) {
-                try {
-                    const games = JSON.parse(e.data);
-                    const n = Array.isArray(games) ? games.length : 0;
-                    el.textContent = '● ' + n + ' 场对局进行中';
-                } catch(err) {}
-            };
-            es.onerror = function() { es.close(); };
-        }
-        connect();
-    })();
+    // ── 导航栏角标：由各页面自身的 active-games SSE 通过 updateNavCount() 更新 ──
+    // 不再单独建 SSE 连接，避免与页面 SSE 重复订阅
+    window.updateNavCount = window.updateNavCount || function(count) {
+        document.querySelectorAll('[data-nav-active-count]').forEach(function(el) {
+            el.textContent = '● ' + count + ' 场对局进行中';
+        });
+    };
 
     </script>
 
