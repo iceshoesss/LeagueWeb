@@ -23,6 +23,10 @@ services:
     depends_on:
       mongo:
         condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     restart: unless-stopped
 
   mongo:
@@ -31,6 +35,10 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    deploy:
+      resources:
+        limits:
+          memory: 512M
     restart: unless-stopped
 
 volumes:
