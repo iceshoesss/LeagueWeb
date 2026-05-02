@@ -169,13 +169,15 @@ if events:
                 print(f"  📦 type={msg_type}, seq={seq}", end="")
                 if msg_type == "delta":
                     patches = data.get("patches", [])
-                    print(f"  ✅ Delta 生效！{len(patches)} 个 patch")
+                    size = len(json.dumps(data, ensure_ascii=False))
+                    print(f"  ✅ Delta 生效！{len(patches)} 个 patch, {size:,} bytes")
                     for p in patches[:3]:
                         print(f"    - {p.get('tournament')} R{p.get('round')}G{p.get('groupIndex')}")
                 elif msg_type == "full":
                     d = data.get("data", {})
                     ts = sum(len(r.get("groups", [])) for t in d.get("tournaments", []) for r in t.get("rounds", []))
-                    print(f"  （全量，{ts} 组）")
+                    size = len(json.dumps(data, ensure_ascii=False))
+                    print(f"  （全量，{ts} 组, {size:,} bytes）")
                 sys.stdout.flush()
             print(f"\n  监听结束（{time.time()-start:.0f} 秒）")
     else:
