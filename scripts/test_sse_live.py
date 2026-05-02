@@ -65,8 +65,8 @@ print("=" * 60)
 
 # 0. 检查服务是否在线
 try:
-    info = fetch_json("/api/info")
-    print(f"✅ 服务在线，版本: {info.get('web_version', '?')}")
+    info = fetch_json("/api/players")
+    print(f"✅ 服务在线，排行榜 {len(info)} 人")
 except Exception as e:
     print(f"❌ 无法连接: {e}")
     sys.exit(1)
