@@ -28,7 +28,8 @@
                     4,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨平生",
@@ -45,7 +46,8 @@
                     2,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨亦思念",
@@ -62,7 +64,8 @@
                     1,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 20
                 },
                 {
                   "name": "有局丨尹志平",
@@ -79,7 +82,8 @@
                     5,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 6
                 },
                 {
                   "name": "有局丨笑笑",
@@ -96,7 +100,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨对手",
@@ -113,7 +118,8 @@
                     7,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "千里冰封泽",
@@ -130,7 +136,8 @@
                     8,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "有局丨戎马",
@@ -147,7 +154,8 @@
                     6,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 }
               ],
               "nextRoundGroupId": 1
@@ -173,7 +181,8 @@
                     5,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "苍龙之颉",
@@ -190,7 +199,8 @@
                     7,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "Superding",
@@ -207,7 +217,8 @@
                     2,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "北凉丨云长长",
@@ -224,7 +235,8 @@
                     1,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "有局丨荀彧苹果",
@@ -241,7 +253,8 @@
                     8,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨柯南",
@@ -258,7 +271,8 @@
                     3,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "借雪烧酒",
@@ -275,7 +289,8 @@
                     6,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "圣霄天冥玄河㒄尊",
@@ -292,7 +307,8 @@
                     4,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 }
               ],
               "nextRoundGroupId": 1
@@ -318,7 +334,8 @@
                     7,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 7
                 },
                 {
                   "name": "有局丨摆摆摆摆",
@@ -335,7 +352,8 @@
                     5,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "荀彧丨邮兵",
@@ -352,7 +370,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "荀彧丨九筱",
@@ -369,7 +388,8 @@
                     2,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "彩虹丨芒果",
@@ -386,7 +406,8 @@
                     8,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 9
                 },
                 {
                   "name": "有局丨小银宝",
@@ -403,7 +424,8 @@
                     1,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 23
                 },
                 {
                   "name": "有局丨唯爱清野",
@@ -420,7 +442,8 @@
                     4,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "洛洛",
@@ -437,7 +460,8 @@
                     6,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 }
               ],
               "nextRoundGroupId": 2
@@ -463,7 +487,8 @@
                     2,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "NikoXP",
@@ -480,7 +505,8 @@
                     1,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨果壳丨清澈",
@@ -497,7 +523,8 @@
                     3,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨快转运",
@@ -514,7 +541,8 @@
                     8,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨锦鲤无敌",
@@ -531,7 +559,8 @@
                     5,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨元元",
@@ -548,7 +577,8 @@
                     4,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 10
                 },
                 {
                   "name": "记得带束花",
@@ -565,7 +595,8 @@
                     7,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 7
                 },
                 {
                   "name": "安小九",
@@ -582,7 +613,8 @@
                     6,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 }
               ],
               "nextRoundGroupId": 2
@@ -608,7 +640,8 @@
                     8,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨小小冰魂",
@@ -625,7 +658,8 @@
                     4,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "北凉丨沐恩",
@@ -642,7 +676,8 @@
                     7,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 7
                 },
                 {
                   "name": "potato986",
@@ -659,7 +694,8 @@
                     6,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 5
                 },
                 {
                   "name": "有局丨世界末日",
@@ -676,7 +712,8 @@
                     3,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 19
                 },
                 {
                   "name": "有局丨潮吧",
@@ -693,7 +730,8 @@
                     1,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 23
                 },
                 {
                   "name": "有局丨鱼板面",
@@ -710,7 +748,8 @@
                     5,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 },
                 {
                   "name": "有局丨孤寂岭",
@@ -727,7 +766,8 @@
                     2,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 }
               ],
               "nextRoundGroupId": 3
@@ -753,7 +793,8 @@
                     3,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "有局丨武理棋圣",
@@ -770,7 +811,8 @@
                     5,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "荀彧丨吵吵",
@@ -787,7 +829,8 @@
                     8,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 8
                 },
                 {
                   "name": "ZeusCongouba",
@@ -804,7 +847,8 @@
                     4,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "letting",
@@ -821,7 +865,8 @@
                     1,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "有局丨沉浮",
@@ -838,7 +883,8 @@
                     7,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 10
                 },
                 {
                   "name": "风的二次救赎",
@@ -855,7 +901,8 @@
                     6,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨鱼板面",
@@ -872,7 +919,8 @@
                     2,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 19
                 }
               ],
               "nextRoundGroupId": 3
@@ -898,7 +946,8 @@
                     7,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 4
                 },
                 {
                   "name": "有局丨无敌小粟",
@@ -915,7 +964,8 @@
                     2,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 23
                 },
                 {
                   "name": "有局丨手边、初秋",
@@ -932,7 +982,8 @@
                     3,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "有局丨唯世酱",
@@ -949,7 +1000,8 @@
                     6,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨心情不太对",
@@ -966,7 +1018,8 @@
                     8,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 7
                 },
                 {
                   "name": "镜花水月",
@@ -983,7 +1036,8 @@
                     5,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "有局丨松鼠鱼",
@@ -1000,7 +1054,8 @@
                     1,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "轩哥",
@@ -1017,7 +1072,8 @@
                     4,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 }
               ],
               "nextRoundGroupId": 4
@@ -1043,7 +1099,8 @@
                     6,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "恐惧之裤",
@@ -1060,7 +1117,8 @@
                     4,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "有局丨饭配嘻",
@@ -1077,7 +1135,8 @@
                     2,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "羽哥陪你浪",
@@ -1094,7 +1153,8 @@
                     5,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "有局丨孤独患者",
@@ -1111,7 +1171,8 @@
                     3,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 21
                 },
                 {
                   "name": "有局丨鹳雀楼",
@@ -1128,7 +1189,8 @@
                     7,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 4
                 },
                 {
                   "name": "抖音丨有局丨圣光",
@@ -1145,7 +1207,8 @@
                     1,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "抚平",
@@ -1162,7 +1225,8 @@
                     8,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 6
                 }
               ],
               "nextRoundGroupId": 4
@@ -1193,7 +1257,8 @@
                     3,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 19
                 },
                 {
                   "name": "有局丨宿命呦",
@@ -1210,7 +1275,8 @@
                     2,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨亦思念",
@@ -1227,7 +1293,8 @@
                     6,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "鲤鱼王丨庄庄",
@@ -1244,7 +1311,8 @@
                     1,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨平生",
@@ -1261,7 +1329,8 @@
                     4,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "苍龙之颉",
@@ -1278,7 +1347,8 @@
                     8,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "北凉丨云长长",
@@ -1295,7 +1365,8 @@
                     5,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "有局丨笑笑",
@@ -1312,7 +1383,8 @@
                     7,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 9
                 }
               ],
               "nextRoundGroupId": 1
@@ -1338,7 +1410,8 @@
                     4,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨果壳丨清澈",
@@ -1355,7 +1428,8 @@
                     5,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨摆摆摆摆",
@@ -1372,7 +1446,8 @@
                     2,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "NikoXP",
@@ -1389,7 +1464,8 @@
                     8,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "荀彧丨九筱",
@@ -1406,7 +1482,8 @@
                     1,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "洛洛",
@@ -1423,7 +1500,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "求你不要再伏笔了",
@@ -1440,7 +1518,8 @@
                     7,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "安小九",
@@ -1457,7 +1536,8 @@
                     6,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 9
                 }
               ],
               "nextRoundGroupId": 1
@@ -1483,7 +1563,8 @@
                     5,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 20
                 },
                 {
                   "name": "有局丨武理棋圣",
@@ -1500,7 +1581,8 @@
                     1,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "风的二次救赎",
@@ -1517,7 +1599,8 @@
                     4,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "letting",
@@ -1534,7 +1617,8 @@
                     2,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨鱼板面",
@@ -1551,7 +1635,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨小小冰魂",
@@ -1568,7 +1653,8 @@
                     6,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 },
                 {
                   "name": "有局丨世界末日",
@@ -1585,7 +1671,8 @@
                     7,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 8
                 },
                 {
                   "name": "有局丨潮吧",
@@ -1602,7 +1689,8 @@
                     8,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 7
                 }
               ],
               "nextRoundGroupId": 2
@@ -1628,7 +1716,8 @@
                     5,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 17
                 },
                 {
                   "name": "有局丨饭配嘻",
@@ -1645,7 +1734,8 @@
                     6,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "抖音丨有局丨圣光",
@@ -1662,7 +1752,8 @@
                     1,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "有局丨手边、初秋",
@@ -1679,7 +1770,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨孤独患者",
@@ -1696,7 +1788,8 @@
                     2,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 14
                 },
                 {
                   "name": "有局丨无敌小粟",
@@ -1713,7 +1806,8 @@
                     4,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 },
                 {
                   "name": "羽哥陪你浪",
@@ -1730,7 +1824,8 @@
                     7,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 },
                 {
                   "name": "有局丨松鼠鱼",
@@ -1747,7 +1842,8 @@
                     8,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 8
                 }
               ],
               "nextRoundGroupId": 2
@@ -1778,7 +1874,8 @@
                     1,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 23
                 },
                 {
                   "name": "有局丨亦思念",
@@ -1795,7 +1892,8 @@
                     2,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 22
                 },
                 {
                   "name": "有局丨柯南",
@@ -1812,7 +1910,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "有局丨摆摆摆摆",
@@ -1829,7 +1928,8 @@
                     7,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 },
                 {
                   "name": "有局丨果壳丨清澈",
@@ -1846,7 +1946,8 @@
                     4,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "NikoXP",
@@ -1863,7 +1964,8 @@
                     8,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 11
                 },
                 {
                   "name": "有局丨小银宝",
@@ -1880,7 +1982,8 @@
                     5,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 10
                 },
                 {
                   "name": "鲤鱼王丨庄庄",
@@ -1897,7 +2000,8 @@
                     6,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 5
                 }
               ],
               "nextRoundGroupId": 1
@@ -1923,7 +2027,8 @@
                     1,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 21
                 },
                 {
                   "name": "有局丨武理棋圣",
@@ -1940,7 +2045,8 @@
                     2,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "风的二次救赎",
@@ -1957,7 +2063,8 @@
                     3,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "抖音丨有局丨圣光",
@@ -1974,7 +2081,8 @@
                     5,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 16
                 },
                 {
                   "name": "告辞丨基格沃斯",
@@ -1991,7 +2099,8 @@
                     6,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "轩哥",
@@ -2008,7 +2117,8 @@
                     7,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "有局丨饭配嘻",
@@ -2025,7 +2135,8 @@
                     4,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "letting",
@@ -2042,7 +2153,8 @@
                     8,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 6
                 }
               ],
               "nextRoundGroupId": 1
@@ -2075,7 +2187,8 @@
                     3,
                     6
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 22
                 },
                 {
                   "name": "风的二次救赎",
@@ -2094,7 +2207,8 @@
                     5,
                     2
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 21
                 },
                 {
                   "name": "有局丨柯南",
@@ -2113,7 +2227,8 @@
                     2,
                     3
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 20
                 },
                 {
                   "name": "有局丨武理棋圣",
@@ -2132,7 +2247,8 @@
                     4,
                     7
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 20
                 },
                 {
                   "name": "有局丨摆摆摆摆",
@@ -2151,7 +2267,8 @@
                     6,
                     5
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 19
                 },
                 {
                   "name": "有局丨宿命呦",
@@ -2170,7 +2287,8 @@
                     7,
                     1
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 18
                 },
                 {
                   "name": "有局丨亦思念",
@@ -2189,7 +2307,8 @@
                     1,
                     8
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 15
                 },
                 {
                   "name": "抖音丨有局丨圣光",
@@ -2208,7 +2327,8 @@
                     8,
                     4
                   ],
-                  "empty": false
+                  "empty": false,
+                  "points": 13
                 }
               ]
             }
