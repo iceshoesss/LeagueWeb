@@ -260,7 +260,7 @@ function renderCard(g, x, y, isFinal) {
     h += `<div class="p-row ${cls}"><span class="pos ${pc}">${posText}</span>${img}`;
     const nmText = p.empty ? '待定' : (p.displayName || p.battleTag || p.name || '');
     h += `<span class="nm${p.empty ? ' empty' : ''}">${nmText}</span>`;
-    const pts = p.points;
+    const pts = p.points != null ? p.points : p.totalPoints;
     if (pts != null && pts > 0) h += `<span class="pts">${pts}</span>`;
     h += `</div>`;
   });
