@@ -299,17 +299,23 @@ def _sse_generate_bracket(initial_seq, poll_interval=10, max_lifetime=120):
     last_heartbeat = time.time()
     start_time = time.time()
     last_gen = 0
-    last_full_sync = 0  # 上次推送全量的时间
+    last_full_sync = 0
+    first_run = True  # 首次迭代立即推数据，不等事件
 
     while True:
         try:
             if time.time() - start_time > max_lifetime:
                 break
 
-            gen = _cache_bracket.wait(timeout=poll_interval)
+            if first_run:
+                first_run = False
+                # 首次连接：立即获取数据，不等事件
+                gen = _cache_bracket.generation
+            else:
+                gen = _cache_bracket.wait(timeout=poll_interval)
 
             # ── 获取最新数据（共享缓存，仅首个 greenlet 查库）──
-            if gen != last_gen:
+            if gen != last_gen and _cache_bracket.data is not None:
                 last_gen = gen
                 new_data = _cache_bracket.data
             else:
