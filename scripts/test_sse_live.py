@@ -9,7 +9,16 @@
 import json
 import sys
 import time
-import urllib.request
+
+# 强制 stdout 立即刷新（SSE 测试需要实时看到输出）
+sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
+
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    import urllib.request
+    HAS_REQUESTS = False
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5000"
 BASE = BASE.rstrip("/")
@@ -17,30 +26,52 @@ BASE = BASE.rstrip("/")
 
 def fetch_json(path):
     url = f"{BASE}{path}"
-    req = urllib.request.Request(url)
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read())
+    if HAS_REQUESTS:
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        return r.json()
+    else:
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read())
 
 
 def read_sse(path, max_events=5, timeout=30):
     """读取 SSE 端点，返回 [(event_id, data), ...]"""
     url = f"{BASE}{path}"
     events = []
-    req = urllib.request.Request(url)
-    req.add_header("Accept", "text/event-stream")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            buf = ""
+
+    if HAS_REQUESTS:
+        with requests.get(url, stream=True, timeout=timeout,
+                          headers={"Accept": "text/event-stream"}) as resp:
             current_id = None
-            start = time.time()
-            while time.time() - start < timeout:
-                chunk = resp.read(4096)
-                if not chunk:
+            for line in resp.iter_lines(decode_unicode=True):
+                if not line:
+                    continue
+                if line.startswith("id:"):
+                    current_id = line[3:].strip()
+                elif line.startswith("data:"):
+                    data_str = line[5:].strip()
+                    try:
+                        data = json.loads(data_str)
+                        events.append((current_id, data))
+                        print(f"  📦 收到: type={data.get('type', '?') if isinstance(data, dict) else 'list'}")
+                        sys.stdout.flush()
+                    except json.JSONDecodeError:
+                        pass
+                if len(events) >= max_events:
                     break
-                buf += chunk.decode("utf-8", errors="replace")
-                while "\n" in buf:
-                    line, buf = buf.split("\n", 1)
-                    line = line.rstrip("\r")
+    else:
+        req = urllib.request.Request(url)
+        req.add_header("Accept", "text/event-stream")
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                current_id = None
+                while True:
+                    line = resp.readline()
+                    if not line:
+                        break
+                    line = line.decode("utf-8", errors="replace").rstrip("\r\n")
                     if line.startswith("id:"):
                         current_id = line[3:].strip()
                     elif line.startswith("data:"):
@@ -48,13 +79,16 @@ def read_sse(path, max_events=5, timeout=30):
                         try:
                             data = json.loads(data_str)
                             events.append((current_id, data))
+                            print(f"  📦 收到: type={data.get('type', '?') if isinstance(data, dict) else 'list'}")
+                            sys.stdout.flush()
                         except json.JSONDecodeError:
                             pass
-                    # 心跳行 ": heartbeat" 忽略
-                if len(events) >= max_events:
-                    break
-    except Exception as e:
-        print(f"  ⚠️ SSE 连接异常: {e}")
+                    if len(events) >= max_events:
+                        break
+        except Exception as e:
+            print(f"  ⚠️ SSE 连接异常: {e}")
+            sys.stdout.flush()
+
     return events
 
 
@@ -62,6 +96,7 @@ def read_sse(path, max_events=5, timeout=30):
 
 print(f"🎯 目标: {BASE}")
 print("=" * 60)
+sys.stdout.flush()
 
 # 0. 检查服务是否在线
 try:
