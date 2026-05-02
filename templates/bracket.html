@@ -562,12 +562,14 @@ function initBracketTournament(t, tIdx) {
 initBrackets(DATA);
 
 /* ══════════════════════════════════════════
-   SSE 实时更新
+   SSE 实时更新（支持 delta 增量推送）
    ══════════════════════════════════════════ */
 let bracketSse = null;
-let lastBracketHash = '';
+let lastBracketSeq = 0;  // 当前已同步的 seq
 
-// 与服务端 sort_keys=True 一致的确定性序列化
+// 本地 bracket state（首次页面渲染后由 DATA 初始化）
+let localBracketData = null;
+
 function stableStringify(obj) {
   return JSON.stringify(obj, function(key, value) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -580,6 +582,44 @@ function stableStringify(obj) {
   });
 }
 
+/* ── 应用 delta patches 到本地 state ── */
+function applyBracketPatches(patches) {
+  if (!localBracketData || !localBracketData.tournaments) return false;
+  let changed = false;
+  patches.forEach(function(patch) {
+    var tName = patch.tournament;
+    var rIdx = patch.round;
+    var gIdx = patch.groupIndex;
+    var gData = patch.groupData;
+
+    // 找到对应 tournament
+    for (var ti = 0; ti < localBracketData.tournaments.length; ti++) {
+      var t = localBracketData.tournaments[ti];
+      if (t.name !== tName) continue;
+      // 找到对应 round
+      for (var ri = 0; ri < t.rounds.length; ri++) {
+        var r = t.rounds[ri];
+        if (r.round !== rIdx) continue;
+        // 找到对应 group
+        for (var gi = 0; gi < r.groups.length; gi++) {
+          if (r.groups[gi].groupIndex !== gIdx) continue;
+          if (gData === null) {
+            // 删除
+            r.groups.splice(gi, 1);
+          } else {
+            r.groups[gi] = gData;
+          }
+          changed = true;
+          break;
+        }
+        break;
+      }
+      break;
+    }
+  });
+  return changed;
+}
+
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
   bracketSse = new EventSource('/api/events/bracket');
@@ -587,22 +627,38 @@ function connectBracketSse() {
 
   bracketSse.onmessage = function(e) {
     if (!e.data) return;
-    if (e.data !== lastBracketHash) {
-      lastBracketHash = e.data;
-      try {
-        initBrackets(JSON.parse(e.data));
-      } catch(err) { console.error('[bracket-sse] parse error:', err); }
+    try {
+      var msg = JSON.parse(e.data);
+
+      if (msg.type === 'full') {
+        // ── 全量更新 ──
+        lastBracketSeq = msg.seq;
+        localBracketData = msg.data;
+        initBrackets(msg.data);
+
+      } else if (msg.type === 'delta') {
+        // ── 增量更新 ──
+        lastBracketSeq = msg.seq;
+        if (msg.patches && msg.patches.length > 0) {
+          var changed = applyBracketPatches(msg.patches);
+          if (changed && localBracketData) {
+            initBrackets(localBracketData);
+          }
+        }
+      }
+    } catch(err) {
+      console.error('[bracket-sse] parse error:', err);
     }
   };
 
   bracketSse.onerror = function() {
     bracketSse.close();
-    // EventSource 自动重连
+    // EventSource 自动重连，会带 Last-Event-ID
   };
 }
 
-// 首次连接：用与服务端一致的排序方式初始化指纹
-lastBracketHash = stableStringify(DATA);
+// 首次连接：初始化本地 state
+localBracketData = DATA;
 connectBracketSse();
 
 // 切 tab 时断开/重连，省资源
@@ -610,7 +666,6 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (bracketSse) { bracketSse.close(); bracketSse = null; }
   } else {
-    lastBracketData = null;  // 切回来强制刷新
     connectBracketSse();
   }
 });

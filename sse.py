@@ -216,8 +216,178 @@ def sse_problem_matches():
 
 @sse_bp.route("/api/events/bracket")
 def sse_bracket():
-    def fetch():
-        from routes_tournament import build_bracket_data
-        return build_bracket_data()
-    return Response(_sse_generate(fetch, _cache_bracket), mimetype="text/event-stream",
+    from flask import request
+    last_id = request.headers.get("Last-Event-ID", "0")
+    try:
+        last_seq = int(last_id)
+    except (ValueError, TypeError):
+        last_seq = 0
+    return Response(_sse_generate_bracket(last_seq), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+# ── Bracket SSE：全量首推 + 后续 delta ──
+_bracket_prev_data = None    # 上次全量数据
+_bracket_seq = 0             # 递增序号
+_bracket_deltas = []         # 环形缓冲 [{seq, patches}]
+_BRACKET_DELTA_BUF = 50      # 保留最近 50 条 delta
+_bracket_prev_fingerprint = None  # 防重复推送
+
+
+def _group_key(tname, round_idx, group_index):
+    """组的唯一标识"""
+    return f"{tname}|{round_idx}|{group_index}"
+
+
+def _extract_groups(data):
+    """从 build_bracket_data() 输出提取 {key: group} 的扁平映射"""
+    groups = {}
+    for t in data.get("tournaments", []):
+        tname = t.get("name", "")
+        for r in t.get("rounds", []):
+            ridx = r.get("round", 0)
+            for g in r.get("groups", []):
+                key = _group_key(tname, ridx, g.get("groupIndex", 0))
+                groups[key] = g
+    return groups
+
+
+def _compute_delta(prev_data, new_data):
+    """对比两次全量数据，返回变化的 group 列表（patches）"""
+    if prev_data is None:
+        return None  # 首次，需要全量
+
+    prev_groups = _extract_groups(prev_data)
+    new_groups = _extract_groups(new_data)
+
+    patches = []
+    # 检查新增和修改
+    for key, ng in new_groups.items():
+        og = prev_groups.get(key)
+        if og is None or json.dumps(og, sort_keys=True, default=str) != json.dumps(ng, sort_keys=True, default=str):
+            # 解析 key 获取元信息
+            parts = key.split("|")
+            patches.append({
+                "tournament": parts[0],
+                "round": int(parts[1]),
+                "groupIndex": int(parts[2]),
+                "groupData": ng
+            })
+    # 检查删除（某组消失了，比如赛事被删除）
+    for key in prev_groups:
+        if key not in new_groups:
+            parts = key.split("|")
+            patches.append({
+                "tournament": parts[0],
+                "round": int(parts[1]),
+                "groupIndex": int(parts[2]),
+                "groupData": None  # null 表示删除
+            })
+
+    return patches if patches else None
+
+
+def _sse_generate_bracket(initial_seq, poll_interval=10, max_lifetime=120):
+    """Bracket 专用 SSE 生成器：首推全量 + 后续 delta。
+
+    initial_seq: 客户端 Last-Event-ID，用于判断是否需要补发 delta。
+    """
+    global _bracket_prev_data, _bracket_seq, _bracket_prev_fingerprint
+
+    from routes_tournament import build_bracket_data
+
+    last_heartbeat = time.time()
+    start_time = time.time()
+    last_gen = 0
+    last_full_sync = 0  # 上次推送全量的时间
+
+    while True:
+        try:
+            if time.time() - start_time > max_lifetime:
+                break
+
+            gen = _cache_bracket.wait(timeout=poll_interval)
+
+            # ── 获取最新数据（共享缓存，仅首个 greenlet 查库）──
+            if gen != last_gen:
+                last_gen = gen
+                new_data = _cache_bracket.data
+            else:
+                _cache_bracket.event.clear()
+                if _cache_bracket._lock.acquire(blocking=False):
+                    try:
+                        new_data = build_bracket_data()
+                        _cache_bracket.update(new_data)
+                        last_gen = _cache_bracket.generation
+                    finally:
+                        _cache_bracket._lock.release()
+                else:
+                    for _ in range(20):
+                        gsleep(0.1)
+                        if _cache_bracket.generation != gen:
+                            break
+                    if _cache_bracket.generation != gen:
+                        last_gen = _cache_bracket.generation
+                        new_data = _cache_bracket.data
+                    else:
+                        new_data = build_bracket_data()
+                        _cache_bracket.update(new_data)
+                        last_gen = _cache_bracket.generation
+
+            # ── 计算 delta ──
+            patches = _compute_delta(_bracket_prev_data, new_data)
+
+            if patches:
+                _bracket_seq += 1
+                delta_entry = {"seq": _bracket_seq, "patches": patches}
+                _bracket_deltas.append(delta_entry)
+                # 环形缓冲
+                if len(_bracket_deltas) > _BRACKET_DELTA_BUF:
+                    del _bracket_deltas[:len(_bracket_deltas) - _BRACKET_DELTA_BUF]
+
+            # ── 判断推全量还是 delta ──
+            now = time.time()
+            need_full = (
+                initial_seq == 0                          # 首次连接
+                or _bracket_prev_data is None             # 服务端还没缓存
+                or (now - last_full_sync) > 30            # 每 30 秒兜底全量
+                or initial_seq < _bracket_seq - _BRACKET_DELTA_BUF  # seq 过旧
+            )
+
+            if need_full:
+                # ── 推全量 ──
+                payload = {"type": "full", "seq": _bracket_seq, "data": new_data}
+                fingerprint = json.dumps(new_data, sort_keys=True, default=str)
+                if fingerprint != _bracket_prev_fingerprint:
+                    _bracket_prev_fingerprint = fingerprint
+                    _bracket_prev_data = new_data
+                    last_full_sync = now
+                    yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                    initial_seq = _bracket_seq  # 已同步，后续走 delta
+            elif patches:
+                # ── 推 delta ──
+                payload = {"type": "delta", "seq": _bracket_seq, "patches": patches}
+                _bracket_prev_data = new_data
+                _bracket_prev_fingerprint = json.dumps(new_data, sort_keys=True, default=str)
+                last_full_sync = now
+                yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            elif initial_seq < _bracket_seq:
+                # ── 客户端落后但没有新 patches（比如兜底轮询触发但数据没变）──
+                # 补发客户端缺失的 delta
+                missed = [d for d in _bracket_deltas if d["seq"] > initial_seq]
+                if missed:
+                    for d in missed:
+                        yield f"id: {d['seq']}\ndata: {json.dumps({'type': 'delta', 'seq': d['seq'], 'patches': d['patches']}, ensure_ascii=False)}\n\n"
+                    initial_seq = _bracket_seq
+                # else: 数据没变，不推
+
+            # ── 心跳 ──
+            if time.time() - last_heartbeat > 30:
+                yield ": heartbeat\n\n"
+                last_heartbeat = time.time()
+
+        except GeneratorExit:
+            break
+        except Exception as e:
+            log.error(f"[SSE-bracket] error: {e}")
+            gsleep(poll_interval)
