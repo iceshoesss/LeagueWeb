@@ -173,14 +173,14 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 
 ## 版本号
 
-当前版本：`v0.17.7`（定义在 `app.py` → `WEB_VERSION`）
+当前版本：`v0.17.15`（定义在 `app.py` → `WEB_VERSION`）
 
 > 积分赛（main）和淘汰赛（feat/knockout）版本号互不关联，各自递增。
 
 | 分支 | 系统 | 当前版本 |
 |------|------|----------|
 | `main` | 积分赛 | v0.5.2 |
-| `feat/knockout` | 淘汰赛 | v0.17.7 |
+| `feat/knockout` | 淘汰赛 | v0.17.15 |
 
 修改版本号只需改 `app.py` 中的 `WEB_VERSION = "x.y.z"`，页面底部自动显示。
 
@@ -190,6 +190,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.17.15 (2026-05-03) — 修复 SSE gevent Hub 冲突
+- **根因修复**：撤回 v0.17.14 的简单轮询回退，改为彻底解决 Hub 冲突
+- **去掉 CacheEntry**：删除所有 SSE 端点的共享 `CacheEntry` + `GEvent`/`GSemaphore`，消除跨 greenlet 共享可变状态
+- **函数级 TTL 缓存**：新增 `_ttl_cache` 装饰器，fetch 函数结果缓存 5 秒，N 个连接同一周期只查一次 MongoDB
+- **独立轮询**：每个 SSE 连接独立 `gsleep()` + 调 fetch 函数，不依赖共享事件对象
+- **兼容旧接口**：`evt_active_games.set()` 等调用映射到 `ChangeStamp.notify()`，外部模块无需改动
+
 ### v0.17.14 (2026-05-02) — SSE bracket 首连即时推送
 - 修复首次连接 SSE bracket 端点需等待 10 秒才收到数据的问题
 - 首次迭代跳过事件等待，立即推送全量数据
