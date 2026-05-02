@@ -1,0 +1,714 @@
+{
+  "tournaments": [
+    {
+      "name": "联赛杯第一届",
+      "filename": "联赛杯第一届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二届",
+      "filename": "联赛杯第二届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三届",
+      "filename": "联赛杯第三届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第四届",
+      "filename": "联赛杯第四届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第五届",
+      "filename": "联赛杯第五届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第六届",
+      "filename": "联赛杯第六届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第七届",
+      "filename": "联赛杯第七届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第八届",
+      "filename": "联赛杯第八届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第九届",
+      "filename": "联赛杯第九届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十届",
+      "filename": "联赛杯第十届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十一届",
+      "filename": "联赛杯第十一届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        },
+        {
+          "label": "棋王杯",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十三届",
+      "filename": "联赛杯第十三届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十二届",
+      "filename": "联赛杯第十二届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十四届",
+      "filename": "联赛杯第十四届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十五届",
+      "filename": "联赛杯第十五届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十六届",
+      "filename": "联赛杯第十六届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十七届",
+      "filename": "联赛杯第十七届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十八届",
+      "filename": "联赛杯第十八届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第十九届",
+      "filename": "联赛杯第十九届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十届",
+      "filename": "联赛杯第二十届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十一届",
+      "filename": "联赛杯第二十一届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十二届",
+      "filename": "联赛杯第二十二届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十三届",
+      "filename": "联赛杯第二十三届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十四届",
+      "filename": "联赛杯第二十四届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十五届",
+      "filename": "联赛杯第二十五届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十六届",
+      "filename": "联赛杯第二十六届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 6
+        },
+        {
+          "label": "32强",
+          "groupCount": 3
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十七届",
+      "filename": "联赛杯第二十七届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 6
+        },
+        {
+          "label": "32强",
+          "groupCount": 3
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十八届",
+      "filename": "联赛杯第二十八届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第二十九届",
+      "filename": "联赛杯第二十九届",
+      "rounds": [
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十届",
+      "filename": "联赛杯第三十届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十一届",
+      "filename": "联赛杯第三十一届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十二届",
+      "filename": "联赛杯第三十二届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十三届",
+      "filename": "联赛杯第三十三届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十四届",
+      "filename": "联赛杯第三十四届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    },
+    {
+      "name": "联赛杯第三十五届",
+      "filename": "联赛杯第三十五届",
+      "rounds": [
+        {
+          "label": "64强",
+          "groupCount": 8
+        },
+        {
+          "label": "32强",
+          "groupCount": 4
+        },
+        {
+          "label": "16强",
+          "groupCount": 2
+        },
+        {
+          "label": "决赛",
+          "groupCount": 1
+        }
+      ]
+    }
+  ]
+}
