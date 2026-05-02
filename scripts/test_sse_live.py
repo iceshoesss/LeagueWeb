@@ -139,31 +139,48 @@ else:
     else:
         print(f"  数据: {str(data)[:200]}")
 
-# 2. 暂停，让用户触发数据变更，测试 delta
+# 2. 持续监听同一个连接，等待 delta
 if events:
     last_id = events[0][0]
-    print(f"\n⏸️  现在去修改一条赛事数据（比如编辑分组/改 BO 数），然后按回车继续...")
+    print(f"\n⏸️  现在去修改一条赛事数据（比如补录一组），然后按回车开始监听...")
+    print(f"   监听 30 秒，看同一个连接能否收到 delta。")
     sys.stdout.flush()
     input()
 
-    print(f"\n📡 测试 /api/events/bracket（期望收到 delta）")
+    print(f"\n📡 持续监听 /api/events/bracket（30 秒，等 delta）")
     sys.stdout.flush()
-    events2 = read_sse("/api/events/bracket", max_events=1, timeout=15)
-    if events2:
-        eid2, data2 = events2[0]
-        print(f"  收到事件: id={eid2}")
-        if isinstance(data2, dict):
-            msg_type = data2.get("type")
-            print(f"  type={msg_type}, seq={data2.get('seq')}")
-            if msg_type == "delta":
-                patches = data2.get("patches", [])
-                print(f"  ✅ Delta 推送生效！{len(patches)} 个 patch")
-                for p in patches[:3]:
-                    print(f"    - {p.get('tournament')} R{p.get('round')}G{p.get('groupIndex')}")
-            elif msg_type == "full":
-                print(f"  ℹ️ 收到全量（可能 seq 过旧触发了全量补发，也算正常）")
+
+    if HAS_REQUESTS:
+        import requests as req_lib
+        with req_lib.get(f"{BASE}/api/events/bracket", stream=True, timeout=35,
+                         headers={"Accept": "text/event-stream"}) as resp:
+            start = time.time()
+            for line in resp.iter_lines(decode_unicode=True):
+                if time.time() - start > 35:
+                    break
+                if not line or not line.startswith("data:"):
+                    continue
+                try:
+                    data = json.loads(line[5:].strip())
+                except json.JSONDecodeError:
+                    continue
+                msg_type = data.get("type", "?")
+                seq = data.get("seq", "?")
+                print(f"  📦 type={msg_type}, seq={seq}", end="")
+                if msg_type == "delta":
+                    patches = data.get("patches", [])
+                    print(f"  ✅ Delta 生效！{len(patches)} 个 patch")
+                    for p in patches[:3]:
+                        print(f"    - {p.get('tournament')} R{p.get('round')}G{p.get('groupIndex')}")
+                elif msg_type == "full":
+                    d = data.get("data", {})
+                    ts = sum(len(r.get("groups", [])) for t in d.get("tournaments", []) for r in t.get("rounds", []))
+                    print(f"  （全量，{ts} 组）")
+                sys.stdout.flush()
+            print(f"\n  监听结束（{time.time()-start:.0f} 秒）")
     else:
-        print(f"  ⚠️ 未收到数据")
+        print("  ⚠️ 需要 requests 库才能持续监听")
+        sys.stdout.flush()
 
 # 3. 测试其他 SSE 端点
 for endpoint in ["/api/events/active-games", "/api/events/matches"]:
