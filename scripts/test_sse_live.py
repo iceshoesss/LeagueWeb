@@ -139,17 +139,34 @@ else:
     else:
         print(f"  数据: {str(data)[:200]}")
 
-# 2. 测试 bracket SSE：带 Last-Event-ID 重连
+# 2. 等待用户触发数据变更，测试 delta
 if events:
     last_id = events[0][0]
     if last_id and last_id != "0":
-        print(f"\n📡 测试 /api/events/bracket（Last-Event-ID={last_id}）")
-        events2 = read_sse(f"/api/events/bracket", max_events=1, timeout=15)
+        print(f"\n⏸️  现在去修改一条赛事数据（比如编辑分组/改 BO 数），然后按回车继续...")
+        sys.stdout.flush()
+        input()
+
+        print(f"\n📡 测试 /api/events/bracket（Last-Event-ID={last_id}，期望收到 delta）")
+        sys.stdout.flush()
+        events2 = read_sse("/api/events/bracket", max_events=1, timeout=15)
         if events2:
             eid2, data2 = events2[0]
             print(f"  收到事件: id={eid2}")
             if isinstance(data2, dict):
-                print(f"  type={data2.get('type')}, seq={data2.get('seq')}")
+                msg_type = data2.get("type")
+                print(f"  type={msg_type}, seq={data2.get('seq')}")
+                if msg_type == "delta":
+                    patches = data2.get("patches", [])
+                    print(f"  ✅ Delta 推送生效！{len(patches)} 个 patch")
+                    for p in patches[:3]:
+                        print(f"    - {p.get('tournament')} R{p.get('round')}G{p.get('groupIndex')}")
+                elif msg_type == "full":
+                    print(f"  ⚠️ 收到全量（可能数据没变或 seq 过旧）")
+    else:
+        print(f"\n⏸️  首次连接 seq=0，无法测 delta 补发。")
+        print(f"   需要先有赛事数据变更产生 delta。")
+        sys.stdout.flush()
 
 # 3. 测试其他 SSE 端点
 for endpoint in ["/api/events/active-games", "/api/events/matches"]:
