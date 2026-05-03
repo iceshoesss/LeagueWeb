@@ -853,9 +853,11 @@ def _lookup_account_id(db, battle_tag):
 
 
 @admin_bp.route("/api/admin/data-fix/migrate-account", methods=["POST"])
-@_admin_required
 def datafix_migrate_account():
     """账号迁移：将旧账号的比赛记录关联到新账号"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     data = request.get_json() or {}
     old_tag = (data.get("old_tag") or "").strip()
@@ -933,9 +935,11 @@ def datafix_migrate_account():
 
 
 @admin_bp.route("/api/admin/data-fix/migrate-filler", methods=["POST"])
-@_admin_required
 def datafix_migrate_filler():
     """补位替换：将补位玩家最近 N 局替换为替补账号"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     data = request.get_json() or {}
     tag = (data.get("tag") or "").strip()
@@ -1040,9 +1044,11 @@ def datafix_migrate_filler():
 
 
 @admin_bp.route("/api/admin/data-fix/recalc-rankings", methods=["POST"])
-@_admin_required
 def datafix_recalc_rankings():
     """重算所有 tournament_groups 的 rankings 缓存"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     from data import recalc_group_rankings
 
@@ -1056,9 +1062,11 @@ def datafix_recalc_rankings():
 
 
 @admin_bp.route("/api/admin/data-fix/set-rule", methods=["POST"])
-@_admin_required
 def datafix_set_rule():
     """修改赛事晋级规则"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     data = request.get_json() or {}
     tournament_name = (data.get("tournament_name") or "").strip()
@@ -1076,9 +1084,11 @@ def datafix_set_rule():
 
 
 @admin_bp.route("/api/admin/data-fix/redistribute-seeds", methods=["POST"])
-@_admin_required
 def datafix_redistribute_seeds():
     """重分配淘汰赛分组种子（保证每组 1 个种子）"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     data = request.get_json() or {}
     tournament_name = (data.get("tournament_name") or "").strip()
@@ -1155,9 +1165,11 @@ def datafix_redistribute_seeds():
 
 
 @admin_bp.route("/api/admin/data-fix/swap-player", methods=["POST"])
-@_admin_required
 def datafix_swap_player():
     """替换错误晋级的玩家"""
+    admin_tag = _admin_required()
+    if not admin_tag:
+        return jsonify({"error": "需要管理员权限"}), 403
     db = get_db()
     data = request.get_json() or {}
     group_id = (data.get("group_id") or "").strip()
