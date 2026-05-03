@@ -8,46 +8,28 @@
           "label": "64强",
           "groups": [
             {
-              "label": "A1",
+              "label": "1组",
               "groupIndex": 1,
               "boN": 3,
               "gamesPlayed": 3,
               "players": [
                 {
-                  "name": "胡桃吼吼",
-                  "displayName": "胡桃吼吼",
-                  "battleTag": "胡桃吼吼",
-                  "totalPoints": 17,
+                  "name": "风的二次救赎",
+                  "displayName": "风的二次救赎",
+                  "battleTag": "风的二次救赎",
+                  "totalPoints": 22,
                   "games": [
-                    3,
                     7,
-                    7
-                  ],
-                  "placements": [
-                    6,
-                    2,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 17
-                },
-                {
-                  "name": "CR7",
-                  "displayName": "CR7",
-                  "battleTag": "CR7",
-                  "totalPoints": 10,
-                  "games": [
-                    4,
-                    3,
-                    3
-                  ],
-                  "placements": [
-                    5,
-                    6,
+                    9,
                     6
                   ],
+                  "placements": [
+                    2,
+                    1,
+                    3
+                  ],
                   "empty": false,
-                  "points": 10
+                  "points": 22
                 },
                 {
                   "name": "有局丨快转运",
@@ -68,58 +50,22 @@
                   "points": 20
                 },
                 {
-                  "name": "风的二次救赎",
-                  "displayName": "风的二次救赎",
-                  "battleTag": "风的二次救赎",
-                  "totalPoints": 22,
+                  "name": "胡桃吼吼",
+                  "displayName": "胡桃吼吼",
+                  "battleTag": "胡桃吼吼",
+                  "totalPoints": 17,
                   "games": [
-                    7,
-                    9,
-                    6
-                  ],
-                  "placements": [
-                    2,
-                    1,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 22
-                },
-                {
-                  "name": "荀彧丨大脑",
-                  "displayName": "荀彧丨大脑",
-                  "battleTag": "荀彧丨大脑",
-                  "totalPoints": 7,
-                  "games": [
-                    5,
-                    1,
-                    1
-                  ],
-                  "placements": [
-                    4,
-                    8,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 7
-                },
-                {
-                  "name": "Vernon",
-                  "displayName": "Vernon",
-                  "battleTag": "Vernon",
-                  "totalPoints": 12,
-                  "games": [
-                    2,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    7,
                     3,
-                    5
+                    7,
+                    7
+                  ],
+                  "placements": [
+                    6,
+                    2,
+                    2
                   ],
                   "empty": false,
-                  "points": 12
+                  "points": 17
                 },
                 {
                   "name": "可乐喀",
@@ -140,6 +86,42 @@
                   "points": 15
                 },
                 {
+                  "name": "Vernon",
+                  "displayName": "Vernon",
+                  "battleTag": "Vernon",
+                  "totalPoints": 12,
+                  "games": [
+                    2,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    7,
+                    3,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
+                  "name": "CR7",
+                  "displayName": "CR7",
+                  "battleTag": "CR7",
+                  "totalPoints": 10,
+                  "games": [
+                    4,
+                    3,
+                    3
+                  ],
+                  "placements": [
+                    5,
+                    6,
+                    6
+                  ],
+                  "empty": false,
+                  "points": 10
+                },
+                {
                   "name": "奕星丶神之一手",
                   "displayName": "奕星丶神之一手",
                   "battleTag": "奕星丶神之一手",
@@ -156,52 +138,34 @@
                   ],
                   "empty": false,
                   "points": 8
+                },
+                {
+                  "name": "荀彧丨大脑",
+                  "displayName": "荀彧丨大脑",
+                  "battleTag": "荀彧丨大脑",
+                  "totalPoints": 7,
+                  "games": [
+                    5,
+                    1,
+                    1
+                  ],
+                  "placements": [
+                    4,
+                    8,
+                    8
+                  ],
+                  "empty": false,
+                  "points": 7
                 }
               ],
               "nextRoundGroupId": 1
             },
             {
-              "label": "B1",
+              "label": "2组",
               "groupIndex": 2,
               "boN": 3,
               "gamesPlayed": 3,
               "players": [
-                {
-                  "name": "天一丨111",
-                  "displayName": "天一丨111",
-                  "battleTag": "天一丨111",
-                  "totalPoints": 18,
-                  "games": [
-                    3,
-                    6,
-                    9
-                  ],
-                  "placements": [
-                    6,
-                    3,
-                    1
-                  ],
-                  "empty": false,
-                  "points": 18
-                },
-                {
-                  "name": "雷云",
-                  "displayName": "雷云",
-                  "battleTag": "雷云",
-                  "totalPoints": 10,
-                  "games": [
-                    1,
-                    7,
-                    2
-                  ],
-                  "placements": [
-                    8,
-                    2,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 10
-                },
                 {
                   "name": "北凉丨南梁棋圣",
                   "displayName": "北凉丨南梁棋圣",
@@ -221,40 +185,22 @@
                   "points": 19
                 },
                 {
-                  "name": "虎牙丶终离殇",
-                  "displayName": "虎牙丶终离殇",
-                  "battleTag": "虎牙丶终离殇",
-                  "totalPoints": 12,
+                  "name": "天一丨111",
+                  "displayName": "天一丨111",
+                  "battleTag": "天一丨111",
+                  "totalPoints": 18,
                   "games": [
-                    6,
-                    3,
-                    3
-                  ],
-                  "placements": [
                     3,
                     6,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
-                  "name": "抖音丨有局丨冰魂",
-                  "displayName": "抖音丨有局丨冰魂",
-                  "battleTag": "抖音丨有局丨冰魂",
-                  "totalPoints": 17,
-                  "games": [
-                    4,
-                    9,
-                    4
+                    9
                   ],
                   "placements": [
-                    5,
-                    1,
-                    5
+                    6,
+                    3,
+                    1
                   ],
                   "empty": false,
-                  "points": 17
+                  "points": 18
                 },
                 {
                   "name": "荀彧丨啊吧啊吧",
@@ -275,6 +221,24 @@
                   "points": 18
                 },
                 {
+                  "name": "抖音丨有局丨冰魂",
+                  "displayName": "抖音丨有局丨冰魂",
+                  "battleTag": "抖音丨有局丨冰魂",
+                  "totalPoints": 17,
+                  "games": [
+                    4,
+                    9,
+                    4
+                  ],
+                  "placements": [
+                    5,
+                    1,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 17
+                },
+                {
                   "name": "凌晨丨躞蹀之翼",
                   "displayName": "凌晨丨躞蹀之翼",
                   "battleTag": "凌晨丨躞蹀之翼",
@@ -291,6 +255,42 @@
                   ],
                   "empty": false,
                   "points": 13
+                },
+                {
+                  "name": "虎牙丶终离殇",
+                  "displayName": "虎牙丶终离殇",
+                  "battleTag": "虎牙丶终离殇",
+                  "totalPoints": 12,
+                  "games": [
+                    6,
+                    3,
+                    3
+                  ],
+                  "placements": [
+                    3,
+                    6,
+                    6
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
+                  "name": "雷云",
+                  "displayName": "雷云",
+                  "battleTag": "雷云",
+                  "totalPoints": 10,
+                  "games": [
+                    1,
+                    7,
+                    2
+                  ],
+                  "placements": [
+                    8,
+                    2,
+                    7
+                  ],
+                  "empty": false,
+                  "points": 10
                 },
                 {
                   "name": "圣霄天冥玄河㒄尊",
@@ -314,7 +314,7 @@
               "nextRoundGroupId": 1
             },
             {
-              "label": "C1",
+              "label": "3组",
               "groupIndex": 3,
               "boN": 3,
               "gamesPlayed": 3,
@@ -336,42 +336,6 @@
                   ],
                   "empty": false,
                   "points": 18
-                },
-                {
-                  "name": "抖音炉助理洛洛",
-                  "displayName": "抖音炉助理洛洛",
-                  "battleTag": "抖音炉助理洛洛",
-                  "totalPoints": 7,
-                  "games": [
-                    2,
-                    3,
-                    2
-                  ],
-                  "placements": [
-                    7,
-                    6,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 7
-                },
-                {
-                  "name": "荀彧丨陈超",
-                  "displayName": "荀彧丨陈超",
-                  "battleTag": "荀彧丨陈超",
-                  "totalPoints": 15,
-                  "games": [
-                    1,
-                    7,
-                    7
-                  ],
-                  "placements": [
-                    8,
-                    2,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 15
                 },
                 {
                   "name": "北凉丨迟迟",
@@ -410,6 +374,24 @@
                   "points": 16
                 },
                 {
+                  "name": "荀彧丨陈超",
+                  "displayName": "荀彧丨陈超",
+                  "battleTag": "荀彧丨陈超",
+                  "totalPoints": 15,
+                  "games": [
+                    1,
+                    7,
+                    7
+                  ],
+                  "placements": [
+                    8,
+                    2,
+                    2
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
                   "name": "小薯条",
                   "displayName": "小薯条",
                   "battleTag": "小薯条",
@@ -426,6 +408,24 @@
                   ],
                   "empty": false,
                   "points": 14
+                },
+                {
+                  "name": "有局丨松鼠鱼",
+                  "displayName": "有局丨松鼠鱼",
+                  "battleTag": "有局丨松鼠鱼",
+                  "totalPoints": 12,
+                  "games": [
+                    4,
+                    4,
+                    4
+                  ],
+                  "placements": [
+                    5,
+                    5,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 12
                 },
                 {
                   "name": "书生温程",
@@ -446,85 +446,49 @@
                   "points": 11
                 },
                 {
-                  "name": "有局丨松鼠鱼",
-                  "displayName": "有局丨松鼠鱼",
-                  "battleTag": "有局丨松鼠鱼",
-                  "totalPoints": 12,
+                  "name": "抖音炉助理洛洛",
+                  "displayName": "抖音炉助理洛洛",
+                  "battleTag": "抖音炉助理洛洛",
+                  "totalPoints": 7,
                   "games": [
-                    4,
-                    4,
-                    4
+                    2,
+                    3,
+                    2
                   ],
                   "placements": [
-                    5,
-                    5,
-                    5
+                    7,
+                    6,
+                    7
                   ],
                   "empty": false,
-                  "points": 12
+                  "points": 7
                 }
               ],
               "nextRoundGroupId": 2
             },
             {
-              "label": "D1",
+              "label": "4组",
               "groupIndex": 4,
               "boN": 3,
               "gamesPlayed": 3,
               "players": [
                 {
-                  "name": "荀彧丨大杨宝",
-                  "displayName": "荀彧丨大杨宝",
-                  "battleTag": "荀彧丨大杨宝",
-                  "totalPoints": 18,
+                  "name": "北凉丨土拨鼠",
+                  "displayName": "北凉丨土拨鼠",
+                  "battleTag": "北凉丨土拨鼠",
+                  "totalPoints": 20,
                   "games": [
-                    4,
-                    7,
-                    7
-                  ],
-                  "placements": [
-                    5,
-                    2,
+                    9,
+                    9,
                     2
                   ],
-                  "empty": false,
-                  "points": 18
-                },
-                {
-                  "name": "有局丨戎马",
-                  "displayName": "有局丨戎马",
-                  "battleTag": "有局丨戎马",
-                  "totalPoints": 5,
-                  "games": [
-                    2,
-                    2,
-                    1
-                  ],
                   "placements": [
-                    7,
-                    7,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 5
-                },
-                {
-                  "name": "有局丨潮吧",
-                  "displayName": "有局丨潮吧",
-                  "battleTag": "有局丨潮吧",
-                  "totalPoints": 9,
-                  "games": [
-                    5,
                     1,
-                    3
-                  ],
-                  "placements": [
-                    4,
-                    8,
-                    6
+                    1,
+                    7
                   ],
                   "empty": false,
-                  "points": 9
+                  "points": 20
                 },
                 {
                   "name": "AlphaGo",
@@ -545,6 +509,42 @@
                   "points": 19
                 },
                 {
+                  "name": "荀彧丨大杨宝",
+                  "displayName": "荀彧丨大杨宝",
+                  "battleTag": "荀彧丨大杨宝",
+                  "totalPoints": 18,
+                  "games": [
+                    4,
+                    7,
+                    7
+                  ],
+                  "placements": [
+                    5,
+                    2,
+                    2
+                  ],
+                  "empty": false,
+                  "points": 18
+                },
+                {
+                  "name": "谢谢",
+                  "displayName": "谢谢",
+                  "battleTag": "谢谢",
+                  "totalPoints": 14,
+                  "games": [
+                    6,
+                    4,
+                    4
+                  ],
+                  "placements": [
+                    3,
+                    5,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
                   "name": "彩虹丨熵金",
                   "displayName": "彩虹丨熵金",
                   "battleTag": "彩虹丨熵金",
@@ -561,24 +561,6 @@
                   ],
                   "empty": false,
                   "points": 13
-                },
-                {
-                  "name": "北凉丨土拨鼠",
-                  "displayName": "北凉丨土拨鼠",
-                  "battleTag": "北凉丨土拨鼠",
-                  "totalPoints": 20,
-                  "games": [
-                    9,
-                    9,
-                    2
-                  ],
-                  "placements": [
-                    1,
-                    1,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 20
                 },
                 {
                   "name": "荀彧丨邮兵",
@@ -599,32 +581,122 @@
                   "points": 13
                 },
                 {
-                  "name": "谢谢",
-                  "displayName": "谢谢",
-                  "battleTag": "谢谢",
-                  "totalPoints": 14,
+                  "name": "有局丨潮吧",
+                  "displayName": "有局丨潮吧",
+                  "battleTag": "有局丨潮吧",
+                  "totalPoints": 9,
                   "games": [
-                    6,
-                    4,
-                    4
+                    5,
+                    1,
+                    3
                   ],
                   "placements": [
-                    3,
-                    5,
-                    5
+                    4,
+                    8,
+                    6
                   ],
                   "empty": false,
-                  "points": 14
+                  "points": 9
+                },
+                {
+                  "name": "有局丨戎马",
+                  "displayName": "有局丨戎马",
+                  "battleTag": "有局丨戎马",
+                  "totalPoints": 5,
+                  "games": [
+                    2,
+                    2,
+                    1
+                  ],
+                  "placements": [
+                    7,
+                    7,
+                    8
+                  ],
+                  "empty": false,
+                  "points": 5
                 }
               ],
               "nextRoundGroupId": 2
             },
             {
-              "label": "E1",
+              "label": "5组",
               "groupIndex": 5,
               "boN": 3,
               "gamesPlayed": 3,
               "players": [
+                {
+                  "name": "有局丨孤寂岭",
+                  "displayName": "有局丨孤寂岭",
+                  "battleTag": "有局丨孤寂岭",
+                  "totalPoints": 21,
+                  "games": [
+                    7,
+                    7,
+                    7
+                  ],
+                  "placements": [
+                    2,
+                    2,
+                    2
+                  ],
+                  "empty": false,
+                  "points": 21
+                },
+                {
+                  "name": "北凉丨藿藿",
+                  "displayName": "北凉丨藿藿",
+                  "battleTag": "北凉丨藿藿",
+                  "totalPoints": 19,
+                  "games": [
+                    9,
+                    1,
+                    9
+                  ],
+                  "placements": [
+                    1,
+                    8,
+                    1
+                  ],
+                  "empty": false,
+                  "points": 19
+                },
+                {
+                  "name": "YCz",
+                  "displayName": "YCz",
+                  "battleTag": "YCz",
+                  "totalPoints": 18,
+                  "games": [
+                    4,
+                    9,
+                    5
+                  ],
+                  "placements": [
+                    5,
+                    1,
+                    4
+                  ],
+                  "empty": false,
+                  "points": 18
+                },
+                {
+                  "name": "有局丨轩哥",
+                  "displayName": "有局丨轩哥",
+                  "battleTag": "有局丨轩哥",
+                  "totalPoints": 13,
+                  "games": [
+                    1,
+                    6,
+                    6
+                  ],
+                  "placements": [
+                    8,
+                    3,
+                    3
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
                 {
                   "name": "有局丨对手",
                   "displayName": "有局丨对手",
@@ -639,6 +711,24 @@
                     3,
                     5,
                     8
+                  ],
+                  "empty": false,
+                  "points": 11
+                },
+                {
+                  "name": "佩恩一",
+                  "displayName": "佩恩一",
+                  "battleTag": "佩恩一",
+                  "totalPoints": 11,
+                  "games": [
+                    2,
+                    5,
+                    4
+                  ],
+                  "placements": [
+                    7,
+                    4,
+                    5
                   ],
                   "empty": false,
                   "points": 11
@@ -662,42 +752,6 @@
                   "points": 10
                 },
                 {
-                  "name": "佩恩一",
-                  "displayName": "佩恩一",
-                  "battleTag": "佩恩一",
-                  "totalPoints": 11,
-                  "games": [
-                    2,
-                    5,
-                    4
-                  ],
-                  "placements": [
-                    7,
-                    4,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 11
-                },
-                {
-                  "name": "北凉丨藿藿",
-                  "displayName": "北凉丨藿藿",
-                  "battleTag": "北凉丨藿藿",
-                  "totalPoints": 19,
-                  "games": [
-                    9,
-                    1,
-                    9
-                  ],
-                  "placements": [
-                    1,
-                    8,
-                    1
-                  ],
-                  "empty": false,
-                  "points": 19
-                },
-                {
                   "name": "虎牙丶黑心大福",
                   "displayName": "虎牙丶黑心大福",
                   "battleTag": "虎牙丶黑心大福",
@@ -714,66 +768,12 @@
                   ],
                   "empty": false,
                   "points": 8
-                },
-                {
-                  "name": "有局丨轩哥",
-                  "displayName": "有局丨轩哥",
-                  "battleTag": "有局丨轩哥",
-                  "totalPoints": 13,
-                  "games": [
-                    1,
-                    6,
-                    6
-                  ],
-                  "placements": [
-                    8,
-                    3,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
-                  "name": "有局丨孤寂岭",
-                  "displayName": "有局丨孤寂岭",
-                  "battleTag": "有局丨孤寂岭",
-                  "totalPoints": 21,
-                  "games": [
-                    7,
-                    7,
-                    7
-                  ],
-                  "placements": [
-                    2,
-                    2,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 21
-                },
-                {
-                  "name": "YCz",
-                  "displayName": "YCz",
-                  "battleTag": "YCz",
-                  "totalPoints": 18,
-                  "games": [
-                    4,
-                    9,
-                    5
-                  ],
-                  "placements": [
-                    5,
-                    1,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 18
                 }
               ],
               "nextRoundGroupId": 3
             },
             {
-              "label": "F1",
+              "label": "6组",
               "groupIndex": 6,
               "boN": 3,
               "gamesPlayed": 3,
@@ -815,6 +815,24 @@
                   "points": 17
                 },
                 {
+                  "name": "jjjzzz",
+                  "displayName": "jjjzzz",
+                  "battleTag": "jjjzzz",
+                  "totalPoints": 16,
+                  "games": [
+                    7,
+                    2,
+                    7
+                  ],
+                  "placements": [
+                    2,
+                    7,
+                    2
+                  ],
+                  "empty": false,
+                  "points": 16
+                },
+                {
                   "name": "有局丨手边丶初秋",
                   "displayName": "有局丨手边丶初秋",
                   "battleTag": "有局丨手边丶初秋",
@@ -851,40 +869,22 @@
                   "points": 14
                 },
                 {
-                  "name": "舍霸",
-                  "displayName": "舍霸",
-                  "battleTag": "舍霸",
-                  "totalPoints": 4,
+                  "name": "荀彧丨牛牛喝水",
+                  "displayName": "荀彧丨牛牛喝水",
+                  "battleTag": "荀彧丨牛牛喝水",
+                  "totalPoints": 11,
                   "games": [
-                    2,
                     1,
-                    1
+                    7,
+                    3
                   ],
                   "placements": [
-                    7,
                     8,
-                    8
+                    2,
+                    6
                   ],
                   "empty": false,
-                  "points": 4
-                },
-                {
-                  "name": "jjjzzz",
-                  "displayName": "jjjzzz",
-                  "battleTag": "jjjzzz",
-                  "totalPoints": 16,
-                  "games": [
-                    7,
-                    2,
-                    7
-                  ],
-                  "placements": [
-                    2,
-                    7,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 16
+                  "points": 11
                 },
                 {
                   "name": "有局丨何足道",
@@ -905,22 +905,22 @@
                   "points": 10
                 },
                 {
-                  "name": "荀彧丨牛牛喝水",
-                  "displayName": "荀彧丨牛牛喝水",
-                  "battleTag": "荀彧丨牛牛喝水",
-                  "totalPoints": 11,
+                  "name": "舍霸",
+                  "displayName": "舍霸",
+                  "battleTag": "舍霸",
+                  "totalPoints": 4,
                   "games": [
+                    2,
                     1,
-                    7,
-                    3
+                    1
                   ],
                   "placements": [
+                    7,
                     8,
-                    2,
-                    6
+                    8
                   ],
                   "empty": false,
-                  "points": 11
+                  "points": 4
                 }
               ],
               "nextRoundGroupId": 3
@@ -931,7 +931,7 @@
           "label": "32强",
           "groups": [
             {
-              "label": "A1",
+              "label": "1组",
               "groupIndex": 1,
               "boN": 3,
               "gamesPlayed": 3,
@@ -1084,7 +1084,7 @@
               "nextRoundGroupId": 1
             },
             {
-              "label": "B1",
+              "label": "2组",
               "groupIndex": 2,
               "boN": 3,
               "gamesPlayed": 3,
@@ -1237,7 +1237,7 @@
               "nextRoundGroupId": 1
             },
             {
-              "label": "C1",
+              "label": "3组",
               "groupIndex": 3,
               "boN": 3,
               "gamesPlayed": 3,
@@ -1395,7 +1395,7 @@
           "label": "16强",
           "groups": [
             {
-              "label": "A1",
+              "label": "1组",
               "groupIndex": 1,
               "boN": 3,
               "gamesPlayed": 3,
@@ -1532,7 +1532,7 @@
               "nextRoundGroupId": 1
             },
             {
-              "label": "B1",
+              "label": "2组",
               "groupIndex": 2,
               "boN": 3,
               "gamesPlayed": 3,
@@ -1674,7 +1674,7 @@
           "label": "决赛",
           "groups": [
             {
-              "label": "A1",
+              "label": "决赛",
               "groupIndex": 1,
               "boN": 4,
               "gamesPlayed": 4,
