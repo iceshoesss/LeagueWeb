@@ -844,6 +844,30 @@ def api_admin_edit_placement(game_uuid):
 
 # ── 数据修复 API ─────────────────────────────────────
 
+@admin_bp.route("/api/admin/search-players")
+@_admin_required
+def search_players():
+    """模糊搜索选手（用于数据修复自动补全）"""
+    db = get_db()
+    q = (request.args.get("q") or "").strip()
+    if not q or len(q) < 1:
+        return jsonify([])
+
+    import re
+    escaped = re.escape(q)
+    regex = {"$regex": escaped, "$options": "i"}
+    results = list(db.league_players.find(
+        {"$or": [{"battleTag": regex}, {"displayName": regex}]},
+        {"battleTag": 1, "displayName": 1, "accountIdLo": 1}
+    ).limit(10))
+
+    return jsonify([{
+        "battleTag": r.get("battleTag", ""),
+        "displayName": r.get("displayName", ""),
+        "accountIdLo": str(r.get("accountIdLo", "")),
+    } for r in results])
+
+
 def _lookup_account_id(db, battle_tag):
     """从 league_players 查 accountIdLo"""
     lp = db.league_players.find_one({"battleTag": battle_tag})

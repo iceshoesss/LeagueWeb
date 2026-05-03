@@ -2028,6 +2028,59 @@ switchTab = function(tab) {
 
 // ── 数据修复 ────────────────────────────────────────
 
+// 自动补全组件
+function setupAutocomplete(inputId, onSelect) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const wrapper = input.parentElement;
+    wrapper.style.position = 'relative';
+
+    const list = document.createElement('div');
+    list.className = 'hidden absolute z-50 left-0 right-0 mt-1 bg-hearth-card border border-hearth-border rounded-lg shadow-lg max-h-40 overflow-y-auto';
+    list.style.top = '100%';
+    wrapper.appendChild(list);
+
+    let debounce = null;
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const q = input.value.trim();
+        if (q.length < 1) { list.classList.add('hidden'); return; }
+        debounce = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/admin/search-players?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if (!data.length) { list.classList.add('hidden'); return; }
+                list.innerHTML = data.map(p => `
+                    <div class="px-3 py-2 text-sm cursor-pointer hover:bg-hearth-gold/10 transition flex justify-between items-center"
+                         data-tag="${p.battleTag}" data-lo="${p.accountIdLo}">
+                        <span class="text-gray-200">${p.displayName}</span>
+                        <span class="text-hearth-dim text-xs">${p.battleTag}</span>
+                    </div>
+                `).join('');
+                list.classList.remove('hidden');
+                list.querySelectorAll('div[data-tag]').forEach(el => {
+                    el.addEventListener('click', () => {
+                        input.value = el.dataset.tag;
+                        list.classList.add('hidden');
+                        if (onSelect) onSelect(el.dataset.tag, el.dataset.lo);
+                    });
+                });
+            } catch (e) { list.classList.add('hidden'); }
+        }, 200);
+    });
+
+    // 点击外部关闭
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) list.classList.add('hidden');
+    });
+}
+
+// 初始化所有自动补全
+setupAutocomplete('df-old-tag');
+setupAutocomplete('df-new-tag');
+setupAutocomplete('df-filler-tag');
+
 function dfShowResult(elId, data, applied) {
     const el = document.getElementById(elId);
     el.classList.remove('hidden');
