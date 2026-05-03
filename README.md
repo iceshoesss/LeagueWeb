@@ -190,15 +190,6 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
-### v0.18.11 (2026-05-03) — 内存泄漏修复
-- **SSE 生成器断连修复**: 客户端断开时 `BrokenPipeError`/`ConnectionResetError` 被 `except Exception` 吞掉导致 greenlet 堆积，改为立即 break 释放
-- **速率限制清理**: `_rate_limit_store` 长期不活跃条目随机抽样清理，防止字典无限增长
-- **webhook 线程池**: `send_webhook` 从每次开新线程改为 `ThreadPoolExecutor(max_workers=2)`，防止线程堆积
-- **context processor 优化**: API/SSE 请求跳过 `inject_counts` 的 MongoDB 查询
-- **SSE CacheEntry 清理**: 移除未使用的 `_cond` 属性
-- **后台 GC**: cleanup 线程每次循环后调用 `gc.collect()` 回收循环引用
-- **gunicorn worker 自动重启**: `max_requests=2000` + `max_requests_jitter=500` 作为安全网
-
 ### v0.18.10 (2026-05-02) — 归档赛事预计算，零聚合查询
 - 归档赛事的 bracket 数据在归档时一次性预计算并存储到 `tournaments.bracketData`
 - 查看归档赛事页面从全量查询 + 内存过滤改为直接读取预计算数据

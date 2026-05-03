@@ -31,17 +31,20 @@ class CacheEntry:
     event.set() 后所有 greenlet 醒来，第一个拿到锁的查库并缓存结果，
     后续 greenlet 检查 generation 发现已更新，直接用缓存。
     """
-    __slots__ = ('data', 'generation', 'event', '_lock')
+    __slots__ = ('data', 'generation', 'event', '_lock', '_cond')
 
     def __init__(self, event):
         self.data = None
         self.generation = 0
         self.event = event
         self._lock = GSemaphore(1)
+        self._cond = GEvent()
 
     def update(self, data):
         self.data = data
         self.generation += 1
+        self._cond.set()
+        self._cond.clear()
 
     def wait(self, timeout):
         """等待事件触发，返回当前 generation。不清除 event，所有 greenlet 都能看到。"""
@@ -132,9 +135,6 @@ def _sse_generate(fetch_fn, cache, poll_interval=10, max_lifetime=120):
                 yield ": heartbeat\n\n"
                 last_heartbeat = time.time()
         except GeneratorExit:
-            break
-        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
-            # 客户端断开连接，立即退出 greenlet 释放内存
             break
         except Exception as e:
             log.error(f"[SSE] error: {e}")

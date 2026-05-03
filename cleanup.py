@@ -3,9 +3,9 @@
 import json
 import logging
 import os
+import threading
 import time
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, UTC
 
 from db import get_db, GAME_TIMEOUT_MINUTES, QUEUE_TIMEOUT_MINUTES, WAITING_QUEUE_TIMEOUT_MINUTES
@@ -19,34 +19,26 @@ ENROLL_DEADLINE = os.environ.get("ENROLL_DEADLINE", "")
 
 _last_queue_cleanup_ts = 0
 
-# 有界线程池，防止 webhook 端点慢时线程堆积
-_webhook_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="webhook")
-
 
 def send_webhook(payload):
     """发送通知到 QQ 机器人 webhook（失败不阻塞主流程）"""
     if not WEBHOOK_URL:
         return
     try:
-        _webhook_pool.submit(_do_post_webhook, payload)
+        def _do_post():
+            req = urllib.request.Request(
+                WEBHOOK_URL,
+                data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            try:
+                urllib.request.urlopen(req, timeout=5)
+            except Exception as e:
+                log.warning(f"webhook 发送失败: {e}")
+        threading.Thread(target=_do_post, daemon=True).start()
     except Exception as e:
-        log.warning(f"webhook 提交失败: {e}")
-
-
-def _do_post_webhook(payload):
-    try:
-        req = urllib.request.Request(
-            WEBHOOK_URL,
-            data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        try:
-            urllib.request.urlopen(req, timeout=5)
-        except Exception as e:
-            log.warning(f"webhook 发送失败: {e}")
-    except Exception as e:
-        log.warning(f"webhook 构造失败: {e}")
+        log.warning(f"webhook 启动失败: {e}")
 
 
 def cleanup_expired_bind_codes():

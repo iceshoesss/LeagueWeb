@@ -21,7 +21,6 @@ PLUGIN_TOKEN_MAX_AGE = 7 * 24 * 3600  # 7 天
 _rate_limit_store = {}
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 10
-_RATE_LIMIT_CLEANUP_CHANCE = 50  # 每 N 次检查随机清理一次（1/50 概率）
 
 _token_serializer = None
 
@@ -88,15 +87,6 @@ def check_rate_limit(player_id):
         return False
     timestamps.append(now)
     _rate_limit_store[player_id] = timestamps
-
-    # 随机抽样清理长期不活跃的条目（避免每次都清理的开销）
-    import random
-    if random.randint(1, RATE_LIMIT_CLEANUP_CHANCE) == 1:
-        stale_keys = [k for k, v in _rate_limit_store.items()
-                      if not v or v[-1] < window_start]
-        for k in stale_keys:
-            del _rate_limit_store[k]
-
     return True
 
 
