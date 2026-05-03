@@ -190,6 +190,13 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.13 (2026-05-03) — bracket SSE delta 优化（从 0.17.x 合入）
+- **服务端 base + delta 缓冲**: 1 个 base 快照 + 50 条 delta 环形缓冲（~800KB），替代 50 个全量快照（~15MB）
+- **客户端 last_seq 生效**: sessionStorage 存储 `bracket-last-seq`，刷新时走 delta 而非全量
+- **前端 delta 协议支持**: bracket.html 重写 SSE handler，识别 `type: full/delta`，`applyBracketPatches` 增量合并
+- **去掉 30 秒兜底全量**: 只在首次连接或 seq 溢出缓冲区时全量
+- **修复**: 之前 knockout 分支的前端不识别 delta 格式，SSE delta 从未生效，现已修复
+
 ### v0.18.12 (2026-05-03) — 从 hotfix/0.17.x 合入 SSE 重构 + 内存泄漏修复
 - 从 `hotfix/0.17.x` 分支合入 v0.17.12 ~ v0.17.16 的全部改动
 - SSE 架构从 `CacheEntry` + `GEvent` 重构为 `_ttl_cache` + `ChangeStamp`（独立轮询，消除 gevent Hub 冲突）

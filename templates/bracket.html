@@ -617,9 +617,10 @@ async function switchBracketView(view) {
       if (!data.tournaments || data.tournaments.length === 0) {
         container.innerHTML = '';
       } else {
+        localBracketData = data;
         initBrackets(data);
       }
-      lastBracketHash = stableStringify(data);
+      lastBracketSeq = 0;
       connectBracketSse();
     } catch (e) {
       console.error('switchBracketView active error:', e);
@@ -645,48 +646,101 @@ async function switchBracketView(view) {
 }
 
 /* ══════════════════════════════════════════
-   SSE 实时更新（仅 active 视图）
+   SSE 实时更新（仅 active 视图，支持 delta）
    ══════════════════════════════════════════ */
 let bracketSse = null;
-let lastBracketHash = '';
+let lastBracketSeq = 0;       // 当前已同步的 seq
+let localBracketData = null;  // 本地维护的全量 bracket 数据
 
-// 与服务端 sort_keys=True 一致的确定性序列化
-function stableStringify(obj) {
-  return JSON.stringify(obj, function(key, value) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return Object.keys(value).sort().reduce(function(sorted, k) {
-        sorted[k] = value[k];
-        return sorted;
-      }, {});
+// 将 patches 应用到本地 bracket 数据，返回是否有变化
+function applyBracketPatches(patches) {
+  if (!localBracketData || !localBracketData.tournaments) return false;
+  var changed = false;
+  patches.forEach(function(p) {
+    var t = localBracketData.tournaments.find(function(t) { return t.name === p.tournament; });
+    if (!t) {
+      // 新增赛事
+      if (p.groupData) {
+        localBracketData.tournaments.push({name: p.tournament, rounds: [{groups: [p.groupData]}]});
+        changed = true;
+      }
+      return;
     }
-    return value;
+    // 找到 round 和 group
+    var round = t.rounds.find(function(r) {
+      return r.groups && r.groups.some(function(g) { return g.groupIndex === p.groupIndex; });
+    });
+    if (!round && p.groupData) {
+      // 新增 round
+      var newRound = {groups: [p.groupData]};
+      t.rounds.push(newRound);
+      t.rounds.sort(function(a, b) {
+        var aMin = Math.min.apply(null, a.groups.map(function(g) { return g.groupIndex || 0; }));
+        var bMin = Math.min.apply(null, b.groups.map(function(g) { return g.groupIndex || 0; }));
+        return aMin - bMin;
+      });
+      changed = true;
+      return;
+    }
+    if (round) {
+      var gi = round.groups.findIndex(function(g) { return g.groupIndex === p.groupIndex; });
+      if (p.groupData === null) {
+        // 删除
+        round.groups.splice(gi, 1);
+        changed = true;
+      } else if (gi >= 0) {
+        // 更新
+        round.groups[gi] = p.groupData;
+        changed = true;
+      }
+    }
   });
+  return changed;
 }
 
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
-  bracketSse = new EventSource('/api/events/bracket');
+  var savedSeq = sessionStorage.getItem('bracket-last-seq') || '0';
+  bracketSse = new EventSource('/api/events/bracket?last_seq=' + savedSeq);
   window.__sse_list && window.__sse_list.push(bracketSse);
 
   bracketSse.onmessage = function(e) {
     if (!e.data) return;
     if (currentView !== 'active') return;  // 历史视图不处理 SSE
-    if (e.data !== lastBracketHash) {
-      lastBracketHash = e.data;
-      try {
-        initBrackets(JSON.parse(e.data));
-      } catch(err) { console.error('[bracket-sse] parse error:', err); }
+    try {
+      var msg = JSON.parse(e.data);
+
+      if (msg.type === 'full') {
+        // ── 全量更新 ──
+        lastBracketSeq = msg.seq;
+        sessionStorage.setItem('bracket-last-seq', msg.seq);
+        localBracketData = msg.data;
+        initBrackets(msg.data);
+
+      } else if (msg.type === 'delta') {
+        // ── 增量更新 ──
+        lastBracketSeq = msg.seq;
+        sessionStorage.setItem('bracket-last-seq', msg.seq);
+        if (msg.patches && msg.patches.length > 0) {
+          var changed = applyBracketPatches(msg.patches);
+          if (changed && localBracketData) {
+            initBrackets(localBracketData);
+          }
+        }
+      }
+    } catch(err) {
+      console.error('[bracket-sse] parse error:', err);
     }
   };
 
   bracketSse.onerror = function() {
     bracketSse.close();
-    // EventSource 自动重连
+    // EventSource 自动重连，会带 Last-Event-ID
   };
 }
 
-// 首次连接：用与服务端一致的排序方式初始化指纹
-lastBracketHash = stableStringify(DATA);
+// 首次连接：初始化本地 state
+localBracketData = DATA;
 connectBracketSse();
 
 // 切 tab 时断开/重连，省资源
@@ -694,7 +748,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (bracketSse) { bracketSse.close(); bracketSse = null; }
   } else if (currentView === 'active') {
-    lastBracketHash = '';
+    lastBracketSeq = 0;
     connectBracketSse();
   }
 });
