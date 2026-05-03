@@ -2028,6 +2028,75 @@ switchTab = function(tab) {
 
 // ── 数据修复 ────────────────────────────────────────
 
+// 模糊搜索自动补全（复用 /api/admin/players-all，客户端过滤）
+let _dfAllPlayers = null;
+let _dfLoadingPromise = null;
+
+async function dfLoadPlayers() {
+    if (_dfAllPlayers) return _dfAllPlayers;
+    if (_dfLoadingPromise) return _dfLoadingPromise;
+    _dfLoadingPromise = fetch('/api/admin/players-all')
+        .then(r => r.json())
+        .then(data => { _dfAllPlayers = data; return data; })
+        .catch(() => { _dfAllPlayers = []; return []; });
+    return _dfLoadingPromise;
+}
+
+function setupDfAutocomplete(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const wrapper = input.parentElement;
+    wrapper.style.position = 'relative';
+
+    const list = document.createElement('div');
+    list.className = 'hidden absolute z-50 left-0 right-0 mt-1 bg-[#1a1a2e] border border-hearth-border rounded-lg shadow-lg max-h-48 overflow-y-auto';
+    list.style.top = '100%';
+    wrapper.appendChild(list);
+
+    function renderDropdown(q) {
+        if (!q || !_dfAllPlayers || !_dfAllPlayers.length) { list.classList.add('hidden'); return; }
+        const lower = q.toLowerCase();
+        const matches = _dfAllPlayers.filter(p =>
+            p.battleTag.toLowerCase().includes(lower) ||
+            (p.displayName && p.displayName.toLowerCase().includes(lower))
+        ).slice(0, 20);
+        if (!matches.length) { list.classList.add('hidden'); return; }
+        list.innerHTML = matches.map(p => {
+            const tag = p.battleTag.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const dn = (p.displayName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `<div class="px-3 py-2 text-xs cursor-pointer hover:bg-hearth-gold/20 transition flex justify-between items-center" data-tag="${tag}">
+                <span class="text-gray-200">${dn}</span>
+                <span class="text-hearth-dim ml-2">${tag}</span>
+            </div>`;
+        }).join('');
+        list.classList.remove('hidden');
+        list.querySelectorAll('div[data-tag]').forEach(el => {
+            el.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = el.dataset.tag;
+                list.classList.add('hidden');
+            });
+        });
+    }
+
+    let debounce = null;
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        debounce = setTimeout(() => renderDropdown(input.value.trim()), 150);
+    });
+    input.addEventListener('focus', () => {
+        dfLoadPlayers().then(() => renderDropdown(input.value.trim()));
+    });
+    document.addEventListener('click', (e) => {
+        if (!wrapper.contains(e.target)) list.classList.add('hidden');
+    });
+}
+
+setupDfAutocomplete('df-old-tag');
+setupDfAutocomplete('df-new-tag');
+setupDfAutocomplete('df-filler-tag');
+
 function dfShowResult(elId, data, applied) {
     const el = document.getElementById(elId);
     el.classList.remove('hidden');
