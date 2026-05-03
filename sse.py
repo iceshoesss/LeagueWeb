@@ -173,6 +173,9 @@ def _sse_generate(fetch_fn, poll_interval=10, max_lifetime=120):
             gsleep(poll_interval)
         except GeneratorExit:
             break
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
+            # 客户端断开连接，立即退出 greenlet 释放内存
+            break
         except Exception as e:
             log.error(f"[SSE] error: {e}")
             gsleep(poll_interval)
@@ -341,6 +344,8 @@ def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
             gsleep(poll_interval)
 
         except GeneratorExit:
+            break
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
             break
         except Exception as e:
             log.error(f"[SSE-bracket] error: {e}")
