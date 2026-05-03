@@ -25,3 +25,8 @@ loglevel = "info"
 
 # 优雅重启
 graceful_timeout = 30
+
+# 每处理 2000 个请求后自动重启 worker，回收内存
+max_requests = 2000
+# 随机偏移，防止 4 个 worker 同时重启
+max_requests_jitter = 500
