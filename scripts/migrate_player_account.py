@@ -11,13 +11,13 @@
   python scripts/migrate_player_account.py --apply      # 实际执行写入
 
   python scripts/migrate_player_account.py \
-    --old-lo "11111111" --new-lo "99999999" \
-    --new-tag "新名字#5678" --new-display "新名字"
+    --old-tag "旧名字#1234" --new-tag "新名字#5678"
 
 参数说明：
-  --old-lo       旧账号的 accountIdLo（必填）
-  --new-lo       新账号的 accountIdLo（必填）
-  --new-tag      新账号的 BattleTag（可选，不传则只改 accountIdLo）
+  --old-tag      旧账号的 BattleTag（必填，自动查 accountIdLo）
+  --old-lo       旧账号的 accountIdLo（可选，不传则从 league_players 查）
+  --new-tag      新账号的 BattleTag（必填）
+  --new-lo       新账号的 accountIdLo（可选，不传则从 league_players 查）
   --new-display  新账号的显示名（可选，默认取 new-tag # 前部分）
   --apply        实际执行写入（默认 dry-run）
 """
@@ -32,21 +32,24 @@ DRY_RUN = "--apply" not in sys.argv
 
 
 def parse_args():
-    args = {"old_lo": None, "new_lo": None, "new_tag": None, "new_display": None}
+    args = {"old_tag": None, "old_lo": None, "new_tag": None, "new_lo": None, "new_display": None}
     argv = sys.argv[1:]
     i = 0
     while i < len(argv):
         if argv[i] == "--apply":
             i += 1
             continue
-        if argv[i] == "--old-lo" and i + 1 < len(argv):
-            args["old_lo"] = argv[i + 1].strip()
+        if argv[i] == "--old-tag" and i + 1 < len(argv):
+            args["old_tag"] = argv[i + 1].strip()
             i += 2
-        elif argv[i] == "--new-lo" and i + 1 < len(argv):
-            args["new_lo"] = argv[i + 1].strip()
+        elif argv[i] == "--old-lo" and i + 1 < len(argv):
+            args["old_lo"] = argv[i + 1].strip()
             i += 2
         elif argv[i] == "--new-tag" and i + 1 < len(argv):
             args["new_tag"] = argv[i + 1].strip()
+            i += 2
+        elif argv[i] == "--new-lo" and i + 1 < len(argv):
+            args["new_lo"] = argv[i + 1].strip()
             i += 2
         elif argv[i] == "--new-display" and i + 1 < len(argv):
             args["new_display"] = argv[i + 1].strip()
@@ -57,27 +60,52 @@ def parse_args():
     return args
 
 
+def lookup_account_id(db, battle_tag, label):
+    """从 league_players 查 accountIdLo"""
+    lp = db.league_players.find_one({"battleTag": battle_tag})
+    if lp and lp.get("accountIdLo"):
+        lo = str(lp["accountIdLo"])
+        print(f"  {label} accountIdLo: {lo}（从 league_players 自动查到）")
+        return lo
+    print(f"  ⚠️  league_players 中未找到 {battle_tag}，无法自动查 accountIdLo")
+    return None
+
+
 def _id(doc):
     return str(doc.get("_id", "?"))
 
 
 def main():
     args = parse_args()
+    old_tag = args["old_tag"]
     old_lo = args["old_lo"]
-    new_lo = args["new_lo"]
     new_tag = args["new_tag"]
+    new_lo = args["new_lo"]
     new_display = args["new_display"]
 
-    if not old_lo or not new_lo:
-        print("用法: python scripts/migrate_player_account.py --old-lo <旧Lo> --new-lo <新Lo> [--new-tag <新Tag>] [--new-display <显示名>]")
+    if not old_tag or not new_tag:
+        print("用法: python scripts/migrate_player_account.py --old-tag <旧Tag> --new-tag <新Tag> [--old-lo <旧Lo>] [--new-lo <新Lo>]")
         sys.exit(1)
-
-    if new_tag and not new_display:
-        new_display = new_tag.split("#")[0] if "#" in new_tag else new_tag
 
     from pymongo import MongoClient
     client = MongoClient(MONGO_URL)
     db = client[DB_NAME]
+
+    # 自动查 accountIdLo
+    if not old_lo:
+        old_lo = lookup_account_id(db, old_tag, "旧账号")
+    if not new_lo:
+        new_lo = lookup_account_id(db, new_tag, "新账号")
+
+    if not old_lo:
+        print("\n❌ 无法确定旧账号的 accountIdLo，请用 --old-lo 手动指定")
+        sys.exit(1)
+    if not new_lo:
+        print("\n❌ 无法确定新账号的 accountIdLo，请用 --new-lo 手动指定")
+        sys.exit(1)
+
+    if not new_display:
+        new_display = new_tag.split("#")[0] if "#" in new_tag else new_tag
 
     # accountIdLo 可能存储为 int 或 string
     old_lo_types = [old_lo]
@@ -89,21 +117,13 @@ def main():
     print(f"{'='*50}")
     print(f"  选手账号迁移 {'[DRY-RUN]' if DRY_RUN else '[APPLY]'}")
     print(f"{'='*50}")
-    print(f"  旧 accountIdLo: {old_lo}")
-    print(f"  新 accountIdLo: {new_lo}")
-    if new_tag:
-        print(f"  新 BattleTag:   {new_tag}")
+    print(f"  旧账号: {old_tag} (Lo: {old_lo})")
+    print(f"  新账号: {new_tag} (Lo: {new_lo})")
     if new_display:
-        print(f"  新显示名:       {new_display}")
+        print(f"  新显示名: {new_display}")
     print()
 
     # 1. league_matches: players 中匹配旧 Lo 的条目
-    set_fields = {"players.$.accountIdLo": new_lo}
-    if new_tag:
-        set_fields["players.$.battleTag"] = new_tag
-    if new_display:
-        set_fields["players.$.displayName"] = new_display
-
     for m in db.league_matches.find({"players.accountIdLo": {"$in": old_lo_types}}):
         mid = _id(m)
         for i, p in enumerate(m.get("players", [])):
