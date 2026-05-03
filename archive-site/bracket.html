@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title id="page-title">对阵图</title>
+<title>对阵图 — 酒馆战棋联赛</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0f0f1a; color: #d1d5db; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
@@ -107,9 +107,7 @@
 </div>
 <div id="container"></div>
 
-<script src="config.js"></script>
 <script>
-const SITE = window.__CONFIG__?.siteName || '酒馆战棋联赛';
 const HEADER_H = 38, ROW_H = 48, CARD_W = 280;
 const CARD_H = HEADER_H + 8 * ROW_H;
 const COL_GAP = 70, PAD_LEFT = 30, PAD_TOP = 50, PAD_BOT = 30;
@@ -125,7 +123,7 @@ if (!tournamentFile) {
     .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(data => {
       document.getElementById('page-title').textContent = data.tournaments?.[0]?.name || '对阵图';
-      document.title = (data.tournaments?.[0]?.name || '对阵图') + ' — ' + SITE;
+      document.title = (data.tournaments?.[0]?.name || '对阵图') + ' — 酒馆战棋联赛';
       renderAll(data);
     })
     .catch(e => {

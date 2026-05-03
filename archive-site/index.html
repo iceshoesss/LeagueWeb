@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title id="page-title">历史赛事</title>
+<title>酒馆战棋联赛 — 历史赛事</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0f0f1a; color: #d1d5db; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; }
@@ -39,12 +39,7 @@
   </div>
 </div>
 <footer>酒馆战棋联赛归档站 · Powered by Cloudflare Pages</footer>
-<script src="config.js"></script>
 <script>
-const SITE = window.__CONFIG__?.siteName || '酒馆战棋联赛';
-document.getElementById('page-title').textContent = SITE + ' — 历史赛事';
-document.querySelector('.subtitle').textContent = '炉石传说' + SITE + '归档赛事';
-document.querySelector('footer').textContent = SITE + '归档站 · Powered by Cloudflare Pages';
 fetch('data/index.json')
   .then(r => r.json())
   .then(data => {
