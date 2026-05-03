@@ -284,7 +284,6 @@ def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
     prev_fingerprint = None    # 本连接上次推送的指纹
     last_heartbeat = time.time()
     start_time = time.time()
-    last_full_sync = 0
 
     while True:
         try:
@@ -306,11 +305,9 @@ def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
                     del _bracket_deltas[:len(_bracket_deltas) - _BRACKET_DELTA_BUF]
 
             # ── 判断推全量还是 delta ──
-            now = time.time()
             need_full = (
                 prev_data is None                          # 本连接首次推送
-                or (now - last_full_sync) > 30             # 每 30 秒兜底全量
-                or initial_seq < _bracket_seq - _BRACKET_DELTA_BUF  # seq 过旧
+                or initial_seq < _bracket_seq - _BRACKET_DELTA_BUF  # seq 过旧，缓冲区外
             )
 
             if need_full:
@@ -319,14 +316,12 @@ def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
                     yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                     prev_data = new_data
                     prev_fingerprint = fingerprint
-                    last_full_sync = now
                     initial_seq = _bracket_seq
             elif patches:
                 payload = {"type": "delta", "seq": _bracket_seq, "patches": patches}
                 yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
                 prev_data = new_data
                 prev_fingerprint = fingerprint
-                last_full_sync = now
             elif initial_seq < _bracket_seq:
                 # 补发缺失的 delta
                 missed = [d for d in _bracket_deltas if d["seq"] > initial_seq]
@@ -355,9 +350,10 @@ def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
 @sse_bp.route("/api/events/bracket")
 def sse_bracket():
     from flask import request
-    last_id = request.headers.get("Last-Event-ID", "0")
+    # 优先从 URL 参数读（客户端刷新时带 last_seq），fallback 到 Last-Event-ID（EventSource 自动重连）
+    raw = request.args.get("last_seq") or request.headers.get("Last-Event-ID", "0")
     try:
-        last_seq = int(last_id)
+        last_seq = int(raw)
     except (ValueError, TypeError):
         last_seq = 0
     return Response(_sse_generate_bracket(last_seq), mimetype="text/event-stream",

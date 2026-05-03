@@ -622,7 +622,8 @@ function applyBracketPatches(patches) {
 
 function connectBracketSse() {
   if (bracketSse) bracketSse.close();
-  bracketSse = new EventSource('/api/events/bracket');
+  var savedSeq = sessionStorage.getItem('bracket-last-seq') || '0';
+  bracketSse = new EventSource('/api/events/bracket?last_seq=' + savedSeq);
   window.__sse_list && window.__sse_list.push(bracketSse);
 
   bracketSse.onmessage = function(e) {
@@ -633,12 +634,14 @@ function connectBracketSse() {
       if (msg.type === 'full') {
         // ── 全量更新 ──
         lastBracketSeq = msg.seq;
+        sessionStorage.setItem('bracket-last-seq', msg.seq);
         localBracketData = msg.data;
         initBrackets(msg.data);
 
       } else if (msg.type === 'delta') {
         // ── 增量更新 ──
         lastBracketSeq = msg.seq;
+        sessionStorage.setItem('bracket-last-seq', msg.seq);
         if (msg.patches && msg.patches.length > 0) {
           var changed = applyBracketPatches(msg.patches);
           if (changed && localBracketData) {
