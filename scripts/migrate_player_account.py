@@ -36,7 +36,7 @@ def parse_args():
     argv = sys.argv[1:]
     i = 0
     while i < len(argv):
-        if argv[i] == "--apply":
+        if argv[i] in ("--apply", "--dry-run"):
             i += 1
             continue
         if argv[i] == "--old-tag" and i + 1 < len(argv):
