@@ -840,3 +840,388 @@ def api_admin_edit_placement(game_uuid):
     evt_problem_matches.set()
     evt_bracket.set()
     return jsonify({"ok": True})
+
+
+# ── 数据修复 API ─────────────────────────────────────
+
+def _lookup_account_id(db, battle_tag):
+    """从 league_players 查 accountIdLo"""
+    lp = db.league_players.find_one({"battleTag": battle_tag})
+    if lp and lp.get("accountIdLo"):
+        return str(lp["accountIdLo"])
+    return None
+
+
+@admin_bp.route("/api/admin/data-fix/migrate-account", methods=["POST"])
+@_admin_required
+def datafix_migrate_account():
+    """账号迁移：将旧账号的比赛记录关联到新账号"""
+    db = get_db()
+    data = request.get_json() or {}
+    old_tag = (data.get("old_tag") or "").strip()
+    new_tag = (data.get("new_tag") or "").strip()
+    old_lo = (data.get("old_lo") or "").strip()
+    new_lo = (data.get("new_lo") or "").strip()
+    apply = data.get("apply", False)
+
+    if not old_tag or not new_tag:
+        return jsonify({"error": "旧账号和新账号 BattleTag 不能为空"}), 400
+
+    if not old_lo:
+        old_lo = _lookup_account_id(db, old_tag)
+    if not new_lo:
+        new_lo = _lookup_account_id(db, new_tag)
+
+    if not old_lo:
+        return jsonify({"error": f"未找到旧账号 {old_tag} 的 accountIdLo"}), 404
+    if not new_lo:
+        return jsonify({"error": f"未找到新账号 {new_tag} 的 accountIdLo，需先用插件打一局"}), 404
+
+    new_display = new_tag.split("#")[0] if "#" in new_tag else new_tag
+    old_lo_types = [old_lo, int(old_lo)] if old_lo.isdigit() else [old_lo]
+
+    changes = []
+
+    # league_matches
+    for m in db.league_matches.find({"players.accountIdLo": {"$in": old_lo_types}}):
+        for i, p in enumerate(m.get("players", [])):
+            lo_val = p.get("accountIdLo")
+            if str(lo_val) == old_lo or lo_val == old_lo:
+                old_name = p.get("displayName") or p.get("battleTag") or "?"
+                changes.append({
+                    "collection": "league_matches",
+                    "docId": str(m["_id"]),
+                    "index": i,
+                    "oldName": old_name,
+                    "gameUuid": m.get("gameUuid"),
+                })
+                if apply:
+                    db.league_matches.update_one({"_id": m["_id"]}, {"$set": {
+                        f"players.{i}.accountIdLo": new_lo,
+                        f"players.{i}.battleTag": new_tag,
+                        f"players.{i}.displayName": new_display,
+                    }})
+
+    # tournament_groups
+    for g in db.tournament_groups.find({"players.accountIdLo": {"$in": old_lo_types}}):
+        for i, p in enumerate(g.get("players", [])):
+            lo_val = p.get("accountIdLo")
+            if str(lo_val) == old_lo or lo_val == old_lo:
+                old_name = p.get("displayName") or p.get("battleTag") or "?"
+                changes.append({
+                    "collection": "tournament_groups",
+                    "docId": str(g["_id"]),
+                    "index": i,
+                    "oldName": old_name,
+                    "tournamentName": g.get("tournamentName", ""),
+                })
+                if apply:
+                    db.tournament_groups.update_one({"_id": g["_id"]}, {"$set": {
+                        f"players.{i}.accountIdLo": new_lo,
+                        f"players.{i}.battleTag": new_tag,
+                        f"players.{i}.displayName": new_display,
+                    }})
+
+    return jsonify({
+        "ok": True,
+        "applied": apply,
+        "old_tag": old_tag, "old_lo": old_lo,
+        "new_tag": new_tag, "new_lo": new_lo,
+        "changes": changes,
+        "count": len(changes),
+    })
+
+
+@admin_bp.route("/api/admin/data-fix/migrate-filler", methods=["POST"])
+@_admin_required
+def datafix_migrate_filler():
+    """补位替换：将补位玩家最近 N 局替换为替补账号"""
+    db = get_db()
+    data = request.get_json() or {}
+    tag = (data.get("tag") or "").strip()
+    lo = (data.get("lo") or "").strip()
+    count = data.get("count")
+    sub_tag = (data.get("sub_tag") or "无耻之替补#1234").strip()
+    sub_lo = (data.get("sub_lo") or "").strip()
+    apply = data.get("apply", False)
+
+    if not tag:
+        return jsonify({"error": "补位玩家 BattleTag 不能为空"}), 400
+    if not count or count <= 0:
+        return jsonify({"error": "替换局数必须为正整数"}), 400
+
+    if not lo:
+        lo = _lookup_account_id(db, tag)
+    if not sub_lo:
+        sub_lo = _lookup_account_id(db, sub_tag)
+
+    if not lo:
+        return jsonify({"error": f"未找到 {tag} 的 accountIdLo"}), 404
+    if not sub_lo:
+        return jsonify({"error": f"替补账号 {sub_tag} 未注册，需先用插件打一局"}), 404
+
+    sub_display = sub_tag.split("#")[0] if "#" in sub_tag else sub_tag
+    lo_types = [lo, int(lo)] if lo.isdigit() else [lo]
+
+    # 查该玩家所有已结束联赛对局，按时间倒序
+    matches = list(db.league_matches.find(
+        {"players.accountIdLo": {"$in": lo_types}, "endedAt": {"$ne": None}},
+        {"gameUuid": 1, "endedAt": 1, "startedAt": 1, "players": 1, "tournamentGroupId": 1}
+    ).sort("endedAt", -1))
+
+    if not matches:
+        return jsonify({"error": f"未找到 {tag} 的联赛对局记录"}), 404
+
+    if count > len(matches):
+        count = len(matches)
+
+    target_matches = matches[:count]
+    changes = []
+
+    for m in target_matches:
+        for i, p in enumerate(m.get("players", [])):
+            lo_val = p.get("accountIdLo")
+            if str(lo_val) == lo or lo_val == lo:
+                old_name = p.get("displayName") or p.get("battleTag") or "?"
+                changes.append({
+                    "collection": "league_matches",
+                    "docId": str(m["_id"]),
+                    "index": i,
+                    "oldName": old_name,
+                    "gameUuid": m.get("gameUuid"),
+                    "endedAt": m.get("endedAt"),
+                    "placement": p.get("placement"),
+                    "points": p.get("points"),
+                })
+                if apply:
+                    db.league_matches.update_one({"_id": m["_id"]}, {"$set": {
+                        f"players.{i}.accountIdLo": sub_lo,
+                        f"players.{i}.battleTag": sub_tag,
+                        f"players.{i}.displayName": sub_display,
+                    }})
+
+    # 关联的 tournament_groups
+    tg_ids = set()
+    for m in target_matches:
+        if m.get("tournamentGroupId"):
+            tg_ids.add(m["tournamentGroupId"])
+
+    for tg_id in tg_ids:
+        g = db.tournament_groups.find_one({"_id": tg_id})
+        if not g:
+            continue
+        for i, p in enumerate(g.get("players", [])):
+            lo_val = p.get("accountIdLo")
+            if str(lo_val) == lo or lo_val == lo:
+                old_name = p.get("displayName") or p.get("battleTag") or "?"
+                changes.append({
+                    "collection": "tournament_groups",
+                    "docId": str(g["_id"]),
+                    "index": i,
+                    "oldName": old_name,
+                    "tournamentName": g.get("tournamentName", ""),
+                })
+                if apply:
+                    db.tournament_groups.update_one({"_id": g["_id"]}, {"$set": {
+                        f"players.{i}.accountIdLo": sub_lo,
+                        f"players.{i}.battleTag": sub_tag,
+                        f"players.{i}.displayName": sub_display,
+                    }})
+
+    return jsonify({
+        "ok": True,
+        "applied": apply,
+        "tag": tag, "lo": lo,
+        "sub_tag": sub_tag, "sub_lo": sub_lo,
+        "totalMatches": len(matches),
+        "changes": changes,
+        "count": len(changes),
+    })
+
+
+@admin_bp.route("/api/admin/data-fix/recalc-rankings", methods=["POST"])
+@_admin_required
+def datafix_recalc_rankings():
+    """重算所有 tournament_groups 的 rankings 缓存"""
+    db = get_db()
+    from data import recalc_group_rankings
+
+    groups = list(db.tournament_groups.find({}, {"_id": 1, "tournamentName": 1, "round": 1, "groupIndex": 1}))
+    updated = 0
+    for g in groups:
+        recalc_group_rankings(db, g["_id"])
+        updated += 1
+
+    return jsonify({"ok": True, "updated": updated})
+
+
+@admin_bp.route("/api/admin/data-fix/set-rule", methods=["POST"])
+@_admin_required
+def datafix_set_rule():
+    """修改赛事晋级规则"""
+    db = get_db()
+    data = request.get_json() or {}
+    tournament_name = (data.get("tournament_name") or "").strip()
+    rule = (data.get("rule") or "").strip()
+
+    if not tournament_name or rule not in ("golden", "chicken"):
+        return jsonify({"error": "参数无效，rule 须为 golden 或 chicken"}), 400
+
+    result = db.tournament_groups.update_many(
+        {"tournamentName": tournament_name},
+        {"$set": {"advancementRule": rule}}
+    )
+
+    return jsonify({"ok": True, "matched": result.matched_count, "modified": result.modified_count, "rule": rule})
+
+
+@admin_bp.route("/api/admin/data-fix/redistribute-seeds", methods=["POST"])
+@_admin_required
+def datafix_redistribute_seeds():
+    """重分配淘汰赛分组种子（保证每组 1 个种子）"""
+    db = get_db()
+    data = request.get_json() or {}
+    tournament_name = (data.get("tournament_name") or "").strip()
+
+    if not tournament_name:
+        return jsonify({"error": "赛事名称不能为空"}), 400
+
+    groups = list(db.tournament_groups.find({
+        "tournamentName": tournament_name,
+        "status": "waiting",
+        "gamesPlayed": 0,
+    }).sort("groupIndex", 1))
+
+    if not groups:
+        return jsonify({"error": f"未找到赛事 {tournament_name} 的未开始分组"}), 404
+
+    # 收集所有种子和非种子
+    seeds = []
+    non_seeds = []
+    for g in groups:
+        for p in g.get("players", []):
+            if p.get("empty"):
+                continue
+            lo = str(p.get("accountIdLo", ""))
+            if not lo:
+                continue
+            lp = db.league_players.find_one({"battleTag": p.get("battleTag", "")})
+            is_seed = lp.get("isSeed", False) if lp else False
+            entry = {"battleTag": p.get("battleTag", ""), "accountIdLo": lo,
+                     "displayName": p.get("displayName", ""), "isSeed": is_seed}
+            if is_seed:
+                seeds.append(entry)
+            else:
+                non_seeds.append(entry)
+
+    if not seeds:
+        return jsonify({"error": "没有种子选手，无法分配"}), 400
+
+    import random
+    random.shuffle(seeds)
+    random.shuffle(non_seeds)
+
+    all_players = seeds + non_seeds
+    num_groups = len(groups)
+    group_size = 8
+
+    # 分配
+    new_groups = [[] for _ in range(num_groups)]
+    for idx, p in enumerate(all_players):
+        new_groups[idx % num_groups].append(p)
+
+    # 补空位
+    for i in range(num_groups):
+        while len(new_groups[i]) < group_size:
+            new_groups[i].append({"battleTag": None, "accountIdLo": None,
+                                  "displayName": "待定", "empty": True})
+
+    # 写入
+    for i, g in enumerate(groups):
+        db.tournament_groups.update_one(
+            {"_id": g["_id"]},
+            {"$set": {"players": new_groups[i]}}
+        )
+
+    log.info(f"[redistribute-seeds] 管理员 {session.get('battleTag')} 重分配 {tournament_name}: {len(seeds)}种子 {len(non_seeds)}非种子 → {num_groups}组")
+
+    return jsonify({
+        "ok": True,
+        "tournament": tournament_name,
+        "seeds": len(seeds),
+        "nonSeeds": len(non_seeds),
+        "groups": num_groups,
+    })
+
+
+@admin_bp.route("/api/admin/data-fix/swap-player", methods=["POST"])
+@_admin_required
+def datafix_swap_player():
+    """替换错误晋级的玩家"""
+    db = get_db()
+    data = request.get_json() or {}
+    group_id = (data.get("group_id") or "").strip()
+    wrong_lo = (data.get("wrong_lo") or "").strip()
+    correct_lo = (data.get("correct_lo") or "").strip()
+
+    if not group_id or not wrong_lo or not correct_lo:
+        return jsonify({"error": "参数不完整"}), 400
+
+    from bson import ObjectId
+    group = db.tournament_groups.find_one({"_id": ObjectId(group_id) if len(group_id) == 24 else group_id})
+    if not group:
+        return jsonify({"error": "分组不存在"}), 404
+
+    players = group.get("players", [])
+
+    # 找正确的玩家数据（从上一轮组中）
+    correct_player = None
+    prev_round_groups = list(db.tournament_groups.find({
+        "tournamentName": group.get("tournamentName"),
+        "round": group.get("round", 1) - 1,
+    }))
+    for g in prev_round_groups:
+        for p in g.get("players", []):
+            if str(p.get("accountIdLo", "")) == correct_lo:
+                correct_player = {
+                    "battleTag": p.get("battleTag", ""),
+                    "accountIdLo": p.get("accountIdLo", ""),
+                    "displayName": p.get("displayName", ""),
+                    "heroCardId": p.get("heroCardId", ""),
+                    "heroName": p.get("heroName", ""),
+                    "empty": False,
+                }
+                break
+        if correct_player:
+            break
+
+    if not correct_player:
+        return jsonify({"error": f"上一轮中未找到 accountIdLo={correct_lo}"}), 404
+
+    # 找错误玩家位置
+    wrong_idx = None
+    for i, p in enumerate(players):
+        if str(p.get("accountIdLo", "")) == wrong_lo:
+            wrong_idx = i
+            break
+
+    if wrong_idx is None:
+        return jsonify({"error": f"当前组中未找到 accountIdLo={wrong_lo}"}), 404
+
+    old_name = players[wrong_idx].get("displayName") or players[wrong_idx].get("battleTag") or "?"
+    new_name = correct_player["displayName"] or correct_player["battleTag"] or "?"
+
+    db.tournament_groups.update_one(
+        {"_id": group["_id"]},
+        {"$set": {f"players.{wrong_idx}": correct_player}}
+    )
+
+    log.info(f"[swap-player] 管理员 {session.get('battleTag')} 替换 {group.get('tournamentName')} R{group.get('round')}G{group.get('groupIndex')}: {old_name} → {new_name}")
+
+    return jsonify({
+        "ok": True,
+        "oldName": old_name,
+        "newName": new_name,
+        "groupIndex": group.get("groupIndex"),
+        "round": group.get("round"),
+    })

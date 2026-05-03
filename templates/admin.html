@@ -15,6 +15,7 @@
         <button onclick="switchTab('players')" data-tab="players" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">选手管理</button>
         <button onclick="switchTab('queue')" data-tab="queue" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">队列管理</button>
         <button onclick="switchTab('tournament')" data-tab="tournament" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">赛事管理</button>
+        <button onclick="switchTab('datafix')" data-tab="datafix" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">数据修复</button>
         {% if is_super_admin %}
         <button onclick="switchTab('admins')" data-tab="admins" class="tab-btn px-4 py-2 text-sm font-medium rounded-t-lg transition">管理员</button>
         {% endif %}
@@ -318,6 +319,130 @@
                 <div class="text-center text-sm text-hearth-dim py-8">加载中...</div>
             </div>
         </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ -->
+    <!--  数据修复                                  -->
+    <!-- ═══════════════════════════════════════════ -->
+    <div id="tab-datafix" class="tab-panel hidden">
+
+        <!-- 账号迁移 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border">
+                <h3 class="text-sm font-bold text-hearth-gold">🔄 账号迁移</h3>
+                <p class="text-xs text-hearth-dim mt-1">将旧账号的比赛记录关联到新账号，使新账号页面展示旧账号历史数据</p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-hearth-dim">旧账号 BattleTag</label>
+                        <input id="df-old-tag" type="text" placeholder="旧名字#1234"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                    <div>
+                        <label class="text-xs text-hearth-dim">新账号 BattleTag</label>
+                        <input id="df-new-tag" type="text" placeholder="新名字#5678"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="dfMigrateAccount(false)" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">🔍 预览</button>
+                    <button onclick="dfMigrateAccount(true)" class="px-4 py-2 text-sm rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition">⚡ 执行</button>
+                </div>
+                <div id="df-migrate-result" class="hidden text-sm bg-black/20 rounded-lg p-3 max-h-48 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- 补位替换 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border">
+                <h3 class="text-sm font-bold text-hearth-gold">🪑 补位替换</h3>
+                <p class="text-xs text-hearth-dim mt-1">将补位玩家的最近 N 局替换为公用替补账号（无耻之替补#1234）</p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-xs text-hearth-dim">补位玩家 BattleTag</label>
+                        <input id="df-filler-tag" type="text" placeholder="补位玩家#1234"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                    <div>
+                        <label class="text-xs text-hearth-dim">替换最近 N 局</label>
+                        <input id="df-filler-count" type="number" min="1" placeholder="3"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                    <div>
+                        <label class="text-xs text-hearth-dim">替补账号（可选）</label>
+                        <input id="df-filler-sub" type="text" placeholder="默认: 无耻之替补#1234"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="dfMigrateFiller(false)" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">🔍 预览</button>
+                    <button onclick="dfMigrateFiller(true)" class="px-4 py-2 text-sm rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600/30 transition">⚡ 执行</button>
+                </div>
+                <div id="df-filler-result" class="hidden text-sm bg-black/20 rounded-lg p-3 max-h-48 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- 重算排名 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border">
+                <h3 class="text-sm font-bold text-hearth-gold">📊 重算排名</h3>
+                <p class="text-xs text-hearth-dim mt-1">从 league_matches 重新聚合所有淘汰赛组的 rankings 缓存</p>
+            </div>
+            <div class="p-5">
+                <button onclick="dfRecalcRankings()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">🔄 重算全部</button>
+                <span id="df-recalc-status" class="ml-3 text-sm text-hearth-dim"></span>
+            </div>
+        </div>
+
+        <!-- 修改晋级规则 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border">
+                <h3 class="text-sm font-bold text-hearth-gold">📏 修改晋级规则</h3>
+                <p class="text-xs text-hearth-dim mt-1">黄金赛规则：总分↓ → 最高单局↓ → 最后一局↓ &nbsp;|&nbsp; 吃鸡规则：总分↓ → 吃鸡次数↓ → 最后一局排名↑</p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-hearth-dim">赛事名称</label>
+                        <input id="df-rule-tournament" type="text" placeholder="2026 春季赛"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                    <div>
+                        <label class="text-xs text-hearth-dim">晋级规则</label>
+                        <select id="df-rule-value"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-hearth-gold/50">
+                            <option value="golden">黄金赛规则</option>
+                            <option value="chicken">吃鸡规则</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="dfSetRule()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">✅ 应用规则</button>
+                <span id="df-rule-status" class="ml-3 text-sm text-hearth-dim"></span>
+            </div>
+        </div>
+
+        <!-- 重分配种子 -->
+        <div class="bg-hearth-card rounded-xl gold-border overflow-hidden mb-3">
+            <div class="px-5 py-3 border-b border-hearth-border">
+                <h3 class="text-sm font-bold text-hearth-gold">🌱 重分配种子</h3>
+                <p class="text-xs text-hearth-dim mt-1">打散未开始的淘汰赛分组，保证每组恰好 1 个种子选手</p>
+            </div>
+            <div class="p-5 space-y-3">
+                <div class="flex items-end gap-3">
+                    <div class="flex-1">
+                        <label class="text-xs text-hearth-dim">赛事名称</label>
+                        <input id="df-seed-tournament" type="text" placeholder="2026 春季赛"
+                            class="w-full bg-black/30 border border-hearth-border rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-hearth-dim focus:outline-none focus:border-hearth-gold/50">
+                    </div>
+                    <button onclick="dfRedistributeSeeds()" class="px-4 py-2 text-sm rounded-lg bg-hearth-gold/10 text-hearth-gold hover:bg-hearth-gold/20 transition">🔀 重新分配</button>
+                </div>
+                <span id="df-seed-status" class="text-sm text-hearth-dim"></span>
+            </div>
+        </div>
+
     </div>
 
     {% if is_super_admin %}
@@ -1900,6 +2025,136 @@ switchTab = function(tab) {
     origSwitchTab2(tab);
     if (tab === 'tournament' && !tournamentLoaded) loadTournaments();
 };
+
+// ── 数据修复 ────────────────────────────────────────
+
+function dfShowResult(elId, data, applied) {
+    const el = document.getElementById(elId);
+    el.classList.remove('hidden');
+    if (data.error) {
+        el.innerHTML = `<span class="text-red-400">❌ ${data.error}</span>`;
+        return;
+    }
+    let html = '';
+    if (applied) {
+        html += `<div class="text-green-400 mb-2">✅ 已执行，共 ${data.count} 处变更</div>`;
+    } else {
+        html += `<div class="text-hearth-gold mb-2">🔍 预览，共 ${data.count} 处待变更</div>`;
+    }
+    if (data.changes && data.changes.length) {
+        html += '<div class="space-y-1">';
+        for (const c of data.changes) {
+            const label = c.collection === 'league_matches'
+                ? `对局 ${c.gameUuid || c.docId} 位置${c.index}`
+                : `${c.tournamentName || c.docId} 位置${c.index}`;
+            html += `<div class="text-hearth-dim">· ${label}: ${c.oldName} → 变更</div>`;
+        }
+        html += '</div>';
+    }
+    el.innerHTML = html;
+}
+
+async function dfMigrateAccount(apply) {
+    const oldTag = document.getElementById('df-old-tag').value.trim();
+    const newTag = document.getElementById('df-new-tag').value.trim();
+    if (!oldTag || !newTag) { alert('请填写旧账号和新账号 BattleTag'); return; }
+    if (apply && !await showConfirm(`确认将 ${oldTag} 的所有比赛记录迁移到 ${newTag}？`)) return;
+    try {
+        const res = await fetch('/api/admin/data-fix/migrate-account', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({old_tag: oldTag, new_tag: newTag, apply})
+        });
+        const data = await res.json();
+        dfShowResult('df-migrate-result', data, apply);
+        if (apply && data.ok) loadDashboard();
+    } catch (e) { alert('网络错误'); }
+}
+
+async function dfMigrateFiller(apply) {
+    const tag = document.getElementById('df-filler-tag').value.trim();
+    const count = parseInt(document.getElementById('df-filler-count').value);
+    const sub = document.getElementById('df-filler-sub').value.trim() || undefined;
+    if (!tag || !count) { alert('请填写补位玩家和替换局数'); return; }
+    if (apply && !await showConfirm(`确认将 ${tag} 最近 ${count} 局替换为替补账号？`)) return;
+    try {
+        const body = {tag, count, apply};
+        if (sub) body.sub_tag = sub;
+        const res = await fetch('/api/admin/data-fix/migrate-filler', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        dfShowResult('df-filler-result', data, apply);
+        if (apply && data.ok) loadDashboard();
+    } catch (e) { alert('网络错误'); }
+}
+
+async function dfRecalcRankings() {
+    const el = document.getElementById('df-recalc-status');
+    el.textContent = '计算中...';
+    el.className = 'ml-3 text-sm text-hearth-dim';
+    try {
+        const res = await fetch('/api/admin/data-fix/recalc-rankings', {method: 'POST'});
+        const data = await res.json();
+        if (data.ok) {
+            el.textContent = `✅ 已重算 ${data.updated} 组`;
+            el.className = 'ml-3 text-sm text-green-400';
+        } else {
+            el.textContent = `❌ ${data.error}`;
+            el.className = 'ml-3 text-sm text-red-400';
+        }
+    } catch (e) { el.textContent = '❌ 网络错误'; el.className = 'ml-3 text-sm text-red-400'; }
+}
+
+async function dfSetRule() {
+    const tournament = document.getElementById('df-rule-tournament').value.trim();
+    const rule = document.getElementById('df-rule-value').value;
+    const el = document.getElementById('df-rule-status');
+    if (!tournament) { alert('请填写赛事名称'); return; }
+    if (!await showConfirm(`确认将「${tournament}」晋级规则改为 ${rule === 'golden' ? '黄金赛规则' : '吃鸡规则'}？`)) return;
+    try {
+        const res = await fetch('/api/admin/data-fix/set-rule', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tournament_name: tournament, rule})
+        });
+        const data = await res.json();
+        if (data.ok) {
+            el.textContent = `✅ 已更新 ${data.modified} 组`;
+            el.className = 'ml-3 text-sm text-green-400';
+        } else {
+            el.textContent = `❌ ${data.error}`;
+            el.className = 'ml-3 text-sm text-red-400';
+        }
+    } catch (e) { el.textContent = '❌ 网络错误'; el.className = 'ml-3 text-sm text-red-400'; }
+}
+
+async function dfRedistributeSeeds() {
+    const tournament = document.getElementById('df-seed-tournament').value.trim();
+    const el = document.getElementById('df-seed-status');
+    if (!tournament) { alert('请填写赛事名称'); return; }
+    if (!await showConfirm(`确认重新分配「${tournament}」的种子？\n\n将打散所有未开始的分组，保证每组 1 个种子。`)) return;
+    el.textContent = '分配中...';
+    el.className = 'text-sm text-hearth-dim';
+    try {
+        const res = await fetch('/api/admin/data-fix/redistribute-seeds', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({tournament_name: tournament})
+        });
+        const data = await res.json();
+        if (data.ok) {
+            el.textContent = `✅ ${data.seeds} 种子 + ${data.nonSeeds} 非种子 → ${data.groups} 组`;
+            el.className = 'text-sm text-green-400';
+            loadTournaments();
+        } else {
+            el.textContent = `❌ ${data.error}`;
+            el.className = 'text-sm text-red-400';
+        }
+    } catch (e) { el.textContent = '❌ 网络错误'; el.className = 'text-sm text-red-400'; }
+}
 
 // 定时刷新总览（30s）
 setInterval(() => { if (currentTab === 'dashboard') loadDashboard(); }, 30000);
