@@ -198,13 +198,24 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **修复**: 之前 knockout 分支的前端不识别 delta 格式，SSE delta 从未生效，现已修复
 
 ### v0.18.12 (2026-05-03) — 从 hotfix/0.17.x 合入 SSE 重构 + 内存泄漏修复
-- 从 `hotfix/0.17.x` 分支合入 v0.17.12 ~ v0.17.16 的全部改动
+- 从 `hotfix/0.17.x` 分支合入 v0.17.12 ~ v0.17.18 的全部改动
 - SSE 架构从 `CacheEntry` + `GEvent` 重构为 `_ttl_cache` + `ChangeStamp`（独立轮询，消除 gevent Hub 冲突）
 - SSE 增量推送（delta），对阵图带宽降 98%
 - 对阵图 HTTP 缓存（ETag + Cache-Control 5s）
 - 内存泄漏修复：SSE 断连 / 速率限制清理 / webhook 线程池 / context processor 优化 / 后台 GC
 - gunicorn worker 自动重启安全网（max_requests=2000）
 - 新增 SSE 测试脚本（test_sse_delta.py / test_sse_live.py）
+
+### v0.17.18 (2026-05-03) — bracket SSE base 快照 + delta 缓冲（hotfix/0.17.x）
+- **服务端快照重构**: 1 个 base 快照 + 50 条 delta 环形缓冲（~800KB），替代 50 个全量快照（~15MB）
+- **客户端 last_seq 生效**: 客户端带 `?last_seq=X` 刷新时，服务端从 base replay 到 seq X 算 delta，只发 patches
+- **深拷贝防污染**: `_extract_groups` / `_apply_patches` 均深拷贝，防止 build_bracket_data 的 mutation 污染快照
+- **去掉 30 秒兜底全量**: 只在首次连接（无 last_seq）或 seq 溢出缓冲区时全量
+
+### v0.17.17 (2026-05-03) — bracket SSE delta 优化（hotfix/0.17.x）
+- **去掉 30 秒兜底全量**: 原逻辑每 30 秒强制推全量，实际无作用只增加带宽，已移除
+- **客户端 last_seq 持久化**: sessionStorage 存储 `bracket-last-seq`，刷新页面时通过 URL 参数传给服务端
+- **服务端读取优先级**: `?last_seq=` query param > `Last-Event-ID` header > 默认 0
 
 ### v0.17.16 (2026-05-03) — 内存泄漏修复（hotfix/0.17.x）
 - **SSE 生成器断连修复**: 客户端断开时 `BrokenPipeError`/`ConnectionResetError` 被 `except Exception` 吞掉导致 greenlet 堆积，改为立即 break 释放（`_sse_generate` + `_sse_generate_bracket`）
