@@ -190,6 +190,11 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.17.17 (2026-05-03) — bracket SSE delta 优化
+- **去掉 30 秒兜底全量**: 原逻辑每 30 秒强制推全量，实际无作用只增加带宽，已移除
+- **客户端 last_seq 持久化**: sessionStorage 存储 `bracket-last-seq`，刷新页面时通过 URL 参数传给服务端，命中缓冲区则只补发 delta 而非全量
+- **服务端读取优先级**: `?last_seq=` query param > `Last-Event-ID` header > 默认 0
+
 ### v0.17.16 (2026-05-03) — 内存泄漏修复
 - **SSE 生成器断连修复**: 客户端断开时 `BrokenPipeError`/`ConnectionResetError` 被 `except Exception` 吞掉导致 greenlet 堆积，改为立即 break 释放（`_sse_generate` + `_sse_generate_bracket`）
 - **速率限制清理**: `_rate_limit_store` 长期不活跃条目随机抽样清理，防止字典无限增长
