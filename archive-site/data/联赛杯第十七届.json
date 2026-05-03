@@ -374,24 +374,6 @@
                   "points": 16
                 },
                 {
-                  "name": "月光浅酌丨小妖孽",
-                  "displayName": "月光浅酌丨小妖孽",
-                  "battleTag": "月光浅酌丨小妖孽",
-                  "totalPoints": 14,
-                  "games": [
-                    5,
-                    2,
-                    7
-                  ],
-                  "placements": [
-                    4,
-                    7,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨唯爱清野",
                   "displayName": "有局丨唯爱清野",
                   "battleTag": "有局丨唯爱清野",
@@ -405,6 +387,24 @@
                     7,
                     6,
                     1
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "月光浅酌丨小妖孽",
+                  "displayName": "月光浅酌丨小妖孽",
+                  "battleTag": "月光浅酌丨小妖孽",
+                  "totalPoints": 14,
+                  "games": [
+                    5,
+                    2,
+                    7
+                  ],
+                  "placements": [
+                    4,
+                    7,
+                    2
                   ],
                   "empty": false,
                   "points": 14
@@ -770,7 +770,7 @@
                   "points": 9
                 }
               ],
-              "nextRoundGroupId": 4
+              "nextRoundGroupId": 3
             },
             {
               "label": "6组",
@@ -833,24 +833,6 @@
                   "points": 16
                 },
                 {
-                  "name": "北凉丨冰封泽",
-                  "displayName": "北凉丨冰封泽",
-                  "battleTag": "北凉丨冰封泽",
-                  "totalPoints": 14,
-                  "games": [
-                    7,
-                    3,
-                    4
-                  ],
-                  "placements": [
-                    2,
-                    6,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "荀彧丨啊吧啊吧",
                   "displayName": "荀彧丨啊吧啊吧",
                   "battleTag": "荀彧丨啊吧啊吧",
@@ -864,6 +846,24 @@
                     7,
                     1,
                     6
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "北凉丨冰封泽",
+                  "displayName": "北凉丨冰封泽",
+                  "battleTag": "北凉丨冰封泽",
+                  "totalPoints": 14,
+                  "games": [
+                    7,
+                    3,
+                    4
+                  ],
+                  "placements": [
+                    2,
+                    6,
+                    5
                   ],
                   "empty": false,
                   "points": 14
@@ -923,7 +923,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 4
+              "nextRoundGroupId": 3
             },
             {
               "label": "7组",
@@ -1076,7 +1076,7 @@
                   "points": 3
                 }
               ],
-              "nextRoundGroupId": 3
+              "nextRoundGroupId": 4
             },
             {
               "label": "8组",
@@ -1229,7 +1229,7 @@
                   "points": 6
                 }
               ],
-              "nextRoundGroupId": 3
+              "nextRoundGroupId": 4
             }
           ]
         },
@@ -1756,24 +1756,6 @@
                   "points": 15
                 },
                 {
-                  "name": "荀彧丨啊吧啊吧",
-                  "displayName": "荀彧丨啊吧啊吧",
-                  "battleTag": "荀彧丨啊吧啊吧",
-                  "totalPoints": 12,
-                  "games": [
-                    3,
-                    3,
-                    6
-                  ],
-                  "placements": [
-                    6,
-                    6,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
                   "name": "慕容千雪",
                   "displayName": "慕容千雪",
                   "battleTag": "慕容千雪",
@@ -1787,6 +1769,24 @@
                     8,
                     5,
                     2
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
+                  "name": "荀彧丨啊吧啊吧",
+                  "displayName": "荀彧丨啊吧啊吧",
+                  "battleTag": "荀彧丨啊吧啊吧",
+                  "totalPoints": 12,
+                  "games": [
+                    3,
+                    3,
+                    6
+                  ],
+                  "placements": [
+                    6,
+                    6,
+                    3
                   ],
                   "empty": false,
                   "points": 12

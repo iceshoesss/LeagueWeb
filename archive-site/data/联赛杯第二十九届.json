@@ -527,24 +527,6 @@
                   "points": 18
                 },
                 {
-                  "name": "多谋的白鲸",
-                  "displayName": "多谋的白鲸",
-                  "battleTag": "多谋的白鲸",
-                  "totalPoints": 12,
-                  "games": [
-                    5,
-                    5,
-                    2
-                  ],
-                  "placements": [
-                    4,
-                    4,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
                   "name": "有局丨快转运",
                   "displayName": "有局丨快转运",
                   "battleTag": "有局丨快转运",
@@ -558,6 +540,24 @@
                     8,
                     2,
                     5
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
+                  "name": "多谋的白鲸",
+                  "displayName": "多谋的白鲸",
+                  "battleTag": "多谋的白鲸",
+                  "totalPoints": 12,
+                  "games": [
+                    5,
+                    5,
+                    2
+                  ],
+                  "placements": [
+                    4,
+                    4,
+                    7
                   ],
                   "empty": false,
                   "points": 12

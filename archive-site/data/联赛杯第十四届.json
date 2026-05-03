@@ -68,6 +68,24 @@
                   "points": 16
                 },
                 {
+                  "name": "塞纳河畔的星空夜",
+                  "displayName": "塞纳河畔的星空夜",
+                  "battleTag": "塞纳河畔的星空夜",
+                  "totalPoints": 14,
+                  "games": [
+                    2,
+                    9,
+                    3
+                  ],
+                  "placements": [
+                    7,
+                    1,
+                    6
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
                   "name": "九点半刻到亚眠",
                   "displayName": "九点半刻到亚眠",
                   "battleTag": "九点半刻到亚眠",
@@ -99,24 +117,6 @@
                     6,
                     2,
                     5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
-                  "name": "塞纳河畔的星空夜",
-                  "displayName": "塞纳河畔的星空夜",
-                  "battleTag": "塞纳河畔的星空夜",
-                  "totalPoints": 14,
-                  "games": [
-                    2,
-                    9,
-                    3
-                  ],
-                  "placements": [
-                    7,
-                    1,
-                    6
                   ],
                   "empty": false,
                   "points": 14
@@ -221,24 +221,6 @@
                   "points": 16
                 },
                 {
-                  "name": "有局丨戎马",
-                  "displayName": "有局丨戎马",
-                  "battleTag": "有局丨戎马",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    4,
-                    6
-                  ],
-                  "placements": [
-                    4,
-                    5,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "Superding",
                   "displayName": "Superding",
                   "battleTag": "Superding",
@@ -252,6 +234,24 @@
                     8,
                     2,
                     2
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨戎马",
+                  "displayName": "有局丨戎马",
+                  "battleTag": "有局丨戎马",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    4,
+                    6
+                  ],
+                  "placements": [
+                    4,
+                    5,
+                    3
                   ],
                   "empty": false,
                   "points": 15
@@ -1450,6 +1450,24 @@
                   "points": 13
                 },
                 {
+                  "name": "有局丨潮巴",
+                  "displayName": "有局丨潮巴",
+                  "battleTag": "有局丨潮巴",
+                  "totalPoints": 13,
+                  "games": [
+                    7,
+                    3,
+                    3
+                  ],
+                  "placements": [
+                    2,
+                    6,
+                    6
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
                   "name": "有局丨摆摆摆摆",
                   "displayName": "有局丨摆摆摆摆",
                   "battleTag": "有局丨摆摆摆摆",
@@ -1481,24 +1499,6 @@
                     5,
                     5,
                     4
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
-                  "name": "有局丨潮巴",
-                  "displayName": "有局丨潮巴",
-                  "battleTag": "有局丨潮巴",
-                  "totalPoints": 13,
-                  "games": [
-                    7,
-                    3,
-                    3
-                  ],
-                  "placements": [
-                    2,
-                    6,
-                    6
                   ],
                   "empty": false,
                   "points": 13
@@ -1896,24 +1896,6 @@
                   "points": 20
                 },
                 {
-                  "name": "荀彧丨九筱",
-                  "displayName": "荀彧丨九筱",
-                  "battleTag": "荀彧丨九筱",
-                  "totalPoints": 17,
-                  "games": [
-                    6,
-                    6,
-                    5
-                  ],
-                  "placements": [
-                    3,
-                    3,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 17
-                },
-                {
                   "name": "有局丨便衣",
                   "displayName": "有局丨便衣",
                   "battleTag": "有局丨便衣",
@@ -1945,6 +1927,24 @@
                     1,
                     5,
                     5
+                  ],
+                  "empty": false,
+                  "points": 17
+                },
+                {
+                  "name": "荀彧丨九筱",
+                  "displayName": "荀彧丨九筱",
+                  "battleTag": "荀彧丨九筱",
+                  "totalPoints": 17,
+                  "games": [
+                    6,
+                    6,
+                    5
+                  ],
+                  "placements": [
+                    3,
+                    3,
+                    4
                   ],
                   "empty": false,
                   "points": 17

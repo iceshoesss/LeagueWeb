@@ -833,24 +833,6 @@
                   "points": 15
                 },
                 {
-                  "name": "彩虹丨雾子大王",
-                  "displayName": "彩虹丨雾子大王",
-                  "battleTag": "彩虹丨雾子大王",
-                  "totalPoints": 15,
-                  "games": [
-                    7,
-                    3,
-                    5
-                  ],
-                  "placements": [
-                    2,
-                    6,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "有局丨对手",
                   "displayName": "有局丨对手",
                   "battleTag": "有局丨对手",
@@ -864,6 +846,24 @@
                     7,
                     5,
                     1
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "彩虹丨雾子大王",
+                  "displayName": "彩虹丨雾子大王",
+                  "battleTag": "彩虹丨雾子大王",
+                  "totalPoints": 15,
+                  "games": [
+                    7,
+                    3,
+                    5
+                  ],
+                  "placements": [
+                    2,
+                    6,
+                    4
                   ],
                   "empty": false,
                   "points": 15
@@ -1139,24 +1139,6 @@
                   "points": 15
                 },
                 {
-                  "name": "奕星丶神之一手",
-                  "displayName": "奕星丶神之一手",
-                  "battleTag": "奕星丶神之一手",
-                  "totalPoints": 14,
-                  "games": [
-                    3,
-                    6,
-                    5
-                  ],
-                  "placements": [
-                    6,
-                    3,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "求你不要再伏笔了",
                   "displayName": "求你不要再伏笔了",
                   "battleTag": "求你不要再伏笔了",
@@ -1170,6 +1152,24 @@
                     1,
                     6,
                     7
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "奕星丶神之一手",
+                  "displayName": "奕星丶神之一手",
+                  "battleTag": "奕星丶神之一手",
+                  "totalPoints": 14,
+                  "games": [
+                    3,
+                    6,
+                    5
+                  ],
+                  "placements": [
+                    6,
+                    3,
+                    4
                   ],
                   "empty": false,
                   "points": 14

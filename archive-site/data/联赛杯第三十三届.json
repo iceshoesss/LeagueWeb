@@ -221,24 +221,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨唯爱清野",
-                  "displayName": "有局丨唯爱清野",
-                  "battleTag": "有局丨唯爱清野",
-                  "totalPoints": 14,
-                  "games": [
-                    4,
-                    7,
-                    3
-                  ],
-                  "placements": [
-                    5,
-                    2,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "北凉丨迟迟",
                   "displayName": "北凉丨迟迟",
                   "battleTag": "北凉丨迟迟",
@@ -252,6 +234,24 @@
                     8,
                     3,
                     2
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "有局丨唯爱清野",
+                  "displayName": "有局丨唯爱清野",
+                  "battleTag": "有局丨唯爱清野",
+                  "totalPoints": 14,
+                  "games": [
+                    4,
+                    7,
+                    3
+                  ],
+                  "placements": [
+                    5,
+                    2,
+                    6
                   ],
                   "empty": false,
                   "points": 14
@@ -1756,24 +1756,6 @@
                   "points": 15
                 },
                 {
-                  "name": "彩虹丨九方蠡",
-                  "displayName": "彩虹丨九方蠡",
-                  "battleTag": "彩虹丨九方蠡",
-                  "totalPoints": 14,
-                  "games": [
-                    6,
-                    7,
-                    1
-                  ],
-                  "placements": [
-                    3,
-                    2,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨对手",
                   "displayName": "有局丨对手",
                   "battleTag": "有局丨对手",
@@ -1787,6 +1769,24 @@
                     8,
                     1,
                     5
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "彩虹丨九方蠡",
+                  "displayName": "彩虹丨九方蠡",
+                  "battleTag": "彩虹丨九方蠡",
+                  "totalPoints": 14,
+                  "games": [
+                    6,
+                    7,
+                    1
+                  ],
+                  "placements": [
+                    3,
+                    2,
+                    8
                   ],
                   "empty": false,
                   "points": 14

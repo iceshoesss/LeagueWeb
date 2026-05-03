@@ -374,6 +374,24 @@
                   "points": 14
                 },
                 {
+                  "name": "荀彧丨吵吵",
+                  "displayName": "荀彧丨吵吵",
+                  "battleTag": "荀彧丨吵吵",
+                  "totalPoints": 14,
+                  "games": [
+                    9,
+                    1,
+                    4
+                  ],
+                  "placements": [
+                    1,
+                    8,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
                   "name": "抖音丨有局丨冰魂",
                   "displayName": "抖音丨有局丨冰魂",
                   "battleTag": "抖音丨有局丨冰魂",
@@ -405,24 +423,6 @@
                     3,
                     4,
                     6
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
-                  "name": "荀彧丨吵吵",
-                  "displayName": "荀彧丨吵吵",
-                  "battleTag": "荀彧丨吵吵",
-                  "totalPoints": 14,
-                  "games": [
-                    9,
-                    1,
-                    4
-                  ],
-                  "placements": [
-                    1,
-                    8,
-                    5
                   ],
                   "empty": false,
                   "points": 14
@@ -838,24 +838,6 @@
                   "points": 14
                 },
                 {
-                  "name": "有局丨便衣",
-                  "displayName": "有局丨便衣",
-                  "battleTag": "有局丨便衣",
-                  "totalPoints": 13,
-                  "games": [
-                    7,
-                    3,
-                    3
-                  ],
-                  "placements": [
-                    2,
-                    6,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "荀彧丨秋雨雪",
                   "displayName": "荀彧丨秋雨雪",
                   "battleTag": "荀彧丨秋雨雪",
@@ -869,6 +851,24 @@
                     4,
                     2,
                     8
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "有局丨便衣",
+                  "displayName": "有局丨便衣",
+                  "battleTag": "有局丨便衣",
+                  "totalPoints": 13,
+                  "games": [
+                    7,
+                    3,
+                    3
+                  ],
+                  "placements": [
+                    2,
+                    6,
+                    6
                   ],
                   "empty": false,
                   "points": 13

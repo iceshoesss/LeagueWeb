@@ -419,24 +419,6 @@
                   "points": 19
                 },
                 {
-                  "name": "有局丨借口",
-                  "displayName": "有局丨借口",
-                  "battleTag": "有局丨借口",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    4,
-                    3,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "八重妞妞",
                   "displayName": "八重妞妞",
                   "battleTag": "八重妞妞",
@@ -450,6 +432,24 @@
                     5,
                     5,
                     2
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨借口",
+                  "displayName": "有局丨借口",
+                  "battleTag": "有局丨借口",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    4,
+                    3,
+                    5
                   ],
                   "empty": false,
                   "points": 15
@@ -473,7 +473,7 @@
                   "points": 9
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "5组",

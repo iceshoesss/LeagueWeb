@@ -68,24 +68,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨皮皮卡丘",
-                  "displayName": "有局丨皮皮卡丘",
-                  "battleTag": "有局丨皮皮卡丘",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    4,
-                    3,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "有局丨绫地宁宁",
                   "displayName": "有局丨绫地宁宁",
                   "battleTag": "有局丨绫地宁宁",
@@ -99,6 +81,24 @@
                     3,
                     6,
                     3
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨皮皮卡丘",
+                  "displayName": "有局丨皮皮卡丘",
+                  "battleTag": "有局丨皮皮卡丘",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    4,
+                    3,
+                    5
                   ],
                   "empty": false,
                   "points": 15
@@ -158,7 +158,7 @@
                   "points": 5
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "2组",
@@ -311,7 +311,7 @@
                   "points": 3
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "3组",
@@ -464,7 +464,7 @@
                   "points": 6
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",
@@ -617,7 +617,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             }
           ]
         },
@@ -784,24 +784,6 @@
               "gamesPlayed": 3,
               "players": [
                 {
-                  "name": "有局丨绫地宁宁",
-                  "displayName": "有局丨绫地宁宁",
-                  "battleTag": "有局丨绫地宁宁",
-                  "totalPoints": 17,
-                  "games": [
-                    5,
-                    6,
-                    6
-                  ],
-                  "placements": [
-                    4,
-                    3,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 17
-                },
-                {
                   "name": "北凉丨111",
                   "displayName": "北凉丨111",
                   "battleTag": "北凉丨111",
@@ -815,6 +797,24 @@
                     1,
                     5,
                     5
+                  ],
+                  "empty": false,
+                  "points": 17
+                },
+                {
+                  "name": "有局丨绫地宁宁",
+                  "displayName": "有局丨绫地宁宁",
+                  "battleTag": "有局丨绫地宁宁",
+                  "totalPoints": 17,
+                  "games": [
+                    5,
+                    6,
+                    6
+                  ],
+                  "placements": [
+                    4,
+                    3,
+                    3
                   ],
                   "empty": false,
                   "points": 17
@@ -856,24 +856,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨饭配嘻",
-                  "displayName": "有局丨饭配嘻",
-                  "battleTag": "有局丨饭配嘻",
-                  "totalPoints": 13,
-                  "games": [
-                    3,
-                    7,
-                    3
-                  ],
-                  "placements": [
-                    6,
-                    2,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "北凉丨迟迟",
                   "displayName": "北凉丨迟迟",
                   "battleTag": "北凉丨迟迟",
@@ -887,6 +869,24 @@
                     2,
                     8,
                     4
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "有局丨饭配嘻",
+                  "displayName": "有局丨饭配嘻",
+                  "battleTag": "有局丨饭配嘻",
+                  "totalPoints": 13,
+                  "games": [
+                    3,
+                    7,
+                    3
+                  ],
+                  "placements": [
+                    6,
+                    2,
+                    6
                   ],
                   "empty": false,
                   "points": 13

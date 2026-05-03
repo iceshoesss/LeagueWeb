@@ -68,24 +68,6 @@
                   "points": 15
                 },
                 {
-                  "name": "奕星丶神之一手",
-                  "displayName": "奕星丶神之一手",
-                  "battleTag": "奕星丶神之一手",
-                  "totalPoints": 13,
-                  "games": [
-                    2,
-                    6,
-                    5
-                  ],
-                  "placements": [
-                    7,
-                    3,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "莫见乎隐",
                   "displayName": "莫见乎隐",
                   "battleTag": "莫见乎隐",
@@ -99,6 +81,24 @@
                     4,
                     8,
                     2
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "奕星丶神之一手",
+                  "displayName": "奕星丶神之一手",
+                  "battleTag": "奕星丶神之一手",
+                  "totalPoints": 13,
+                  "games": [
+                    2,
+                    6,
+                    5
+                  ],
+                  "placements": [
+                    7,
+                    3,
+                    4
                   ],
                   "empty": false,
                   "points": 13
@@ -685,24 +685,6 @@
                   "points": 17
                 },
                 {
-                  "name": "小薯条",
-                  "displayName": "小薯条",
-                  "battleTag": "小薯条",
-                  "totalPoints": 16,
-                  "games": [
-                    7,
-                    6,
-                    3
-                  ],
-                  "placements": [
-                    2,
-                    3,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 16
-                },
-                {
                   "name": "卡拉沃沃",
                   "displayName": "卡拉沃沃",
                   "battleTag": "卡拉沃沃",
@@ -716,6 +698,24 @@
                     1,
                     7,
                     4
+                  ],
+                  "empty": false,
+                  "points": 16
+                },
+                {
+                  "name": "小薯条",
+                  "displayName": "小薯条",
+                  "battleTag": "小薯条",
+                  "totalPoints": 16,
+                  "games": [
+                    7,
+                    6,
+                    3
+                  ],
+                  "placements": [
+                    2,
+                    3,
+                    6
                   ],
                   "empty": false,
                   "points": 16

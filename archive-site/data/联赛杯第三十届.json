@@ -68,24 +68,6 @@
                   "points": 15
                 },
                 {
-                  "name": "苦奶盖",
-                  "displayName": "苦奶盖",
-                  "battleTag": "苦奶盖",
-                  "totalPoints": 14,
-                  "games": [
-                    2,
-                    9,
-                    3
-                  ],
-                  "placements": [
-                    7,
-                    1,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "hhh",
                   "displayName": "hhh",
                   "battleTag": "hhh",
@@ -99,6 +81,24 @@
                     1,
                     8,
                     5
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "苦奶盖",
+                  "displayName": "苦奶盖",
+                  "battleTag": "苦奶盖",
+                  "totalPoints": 14,
+                  "games": [
+                    2,
+                    9,
+                    3
+                  ],
+                  "placements": [
+                    7,
+                    1,
+                    6
                   ],
                   "empty": false,
                   "points": 14
@@ -527,24 +527,6 @@
                   "points": 14
                 },
                 {
-                  "name": "彩虹丨墨狸舟",
-                  "displayName": "彩虹丨墨狸舟",
-                  "battleTag": "彩虹丨墨狸舟",
-                  "totalPoints": 13,
-                  "games": [
-                    5,
-                    7,
-                    1
-                  ],
-                  "placements": [
-                    4,
-                    2,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "荀彧丨千音",
                   "displayName": "荀彧丨千音",
                   "battleTag": "荀彧丨千音",
@@ -558,6 +540,24 @@
                     7,
                     7,
                     1
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "彩虹丨墨狸舟",
+                  "displayName": "彩虹丨墨狸舟",
+                  "battleTag": "彩虹丨墨狸舟",
+                  "totalPoints": 13,
+                  "games": [
+                    5,
+                    7,
+                    1
+                  ],
+                  "placements": [
+                    4,
+                    2,
+                    8
                   ],
                   "empty": false,
                   "points": 13

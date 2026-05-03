@@ -86,24 +86,6 @@
                   "points": 13
                 },
                 {
-                  "name": "letting",
-                  "displayName": "letting",
-                  "battleTag": "letting",
-                  "totalPoints": 13,
-                  "games": [
-                    4,
-                    7,
-                    2
-                  ],
-                  "placements": [
-                    5,
-                    2,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "有局丨柯南",
                   "displayName": "有局丨柯南",
                   "battleTag": "有局丨柯南",
@@ -117,6 +99,24 @@
                     4,
                     5,
                     5
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "letting",
+                  "displayName": "letting",
+                  "battleTag": "letting",
+                  "totalPoints": 13,
+                  "games": [
+                    4,
+                    7,
+                    2
+                  ],
+                  "placements": [
+                    5,
+                    2,
+                    7
                   ],
                   "empty": false,
                   "points": 13
@@ -464,7 +464,7 @@
                   "points": 6
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",
@@ -685,24 +685,6 @@
                   "points": 15
                 },
                 {
-                  "name": "千里冰封泽",
-                  "displayName": "千里冰封泽",
-                  "battleTag": "千里冰封泽",
-                  "totalPoints": 14,
-                  "games": [
-                    7,
-                    5,
-                    2
-                  ],
-                  "placements": [
-                    2,
-                    4,
-                    7
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "北凉丨云长长",
                   "displayName": "北凉丨云长长",
                   "battleTag": "北凉丨云长长",
@@ -716,6 +698,24 @@
                     5,
                     1,
                     8
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "千里冰封泽",
+                  "displayName": "千里冰封泽",
+                  "battleTag": "千里冰封泽",
+                  "totalPoints": 14,
+                  "games": [
+                    7,
+                    5,
+                    2
+                  ],
+                  "placements": [
+                    2,
+                    4,
+                    7
                   ],
                   "empty": false,
                   "points": 14

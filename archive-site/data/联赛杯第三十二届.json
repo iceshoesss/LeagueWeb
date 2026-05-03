@@ -680,24 +680,6 @@
                   "points": 16
                 },
                 {
-                  "name": "有局丨轩哥",
-                  "displayName": "有局丨轩哥",
-                  "battleTag": "有局丨轩哥",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    3,
-                    7
-                  ],
-                  "placements": [
-                    4,
-                    6,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "北凉丨伊吹澪",
                   "displayName": "北凉丨伊吹澪",
                   "battleTag": "北凉丨伊吹澪",
@@ -711,6 +693,24 @@
                     2,
                     2,
                     8
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨轩哥",
+                  "displayName": "有局丨轩哥",
+                  "battleTag": "有局丨轩哥",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    3,
+                    7
+                  ],
+                  "placements": [
+                    4,
+                    6,
+                    2
                   ],
                   "empty": false,
                   "points": 15
@@ -1756,6 +1756,24 @@
                   "points": 16
                 },
                 {
+                  "name": "荀彧丨秋雨雪",
+                  "displayName": "荀彧丨秋雨雪",
+                  "battleTag": "荀彧丨秋雨雪",
+                  "totalPoints": 14,
+                  "games": [
+                    7,
+                    3,
+                    4
+                  ],
+                  "placements": [
+                    2,
+                    6,
+                    5
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
                   "name": "北凉丨叹春迟",
                   "displayName": "北凉丨叹春迟",
                   "battleTag": "北凉丨叹春迟",
@@ -1787,24 +1805,6 @@
                     3,
                     7,
                     3
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
-                  "name": "荀彧丨秋雨雪",
-                  "displayName": "荀彧丨秋雨雪",
-                  "battleTag": "荀彧丨秋雨雪",
-                  "totalPoints": 14,
-                  "games": [
-                    7,
-                    3,
-                    4
-                  ],
-                  "placements": [
-                    2,
-                    6,
-                    5
                   ],
                   "empty": false,
                   "points": 14

@@ -1923,24 +1923,6 @@
                   "points": 16
                 },
                 {
-                  "name": "北凉丨谢谢",
-                  "displayName": "北凉丨谢谢",
-                  "battleTag": "北凉丨谢谢",
-                  "totalPoints": 14,
-                  "games": [
-                    4,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    5,
-                    3,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "浅若清风",
                   "displayName": "浅若清风",
                   "battleTag": "浅若清风",
@@ -1954,6 +1936,24 @@
                     7,
                     4,
                     2
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "北凉丨谢谢",
+                  "displayName": "北凉丨谢谢",
+                  "battleTag": "北凉丨谢谢",
+                  "totalPoints": 14,
+                  "games": [
+                    4,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    5,
+                    3,
+                    5
                   ],
                   "empty": false,
                   "points": 14

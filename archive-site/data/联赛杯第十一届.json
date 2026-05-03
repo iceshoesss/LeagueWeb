@@ -221,24 +221,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨手边丶初秋",
-                  "displayName": "有局丨手边丶初秋",
-                  "battleTag": "有局丨手边丶初秋",
-                  "totalPoints": 15,
-                  "games": [
-                    6,
-                    4,
-                    5
-                  ],
-                  "placements": [
-                    3,
-                    5,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "NikoXP",
                   "displayName": "NikoXP",
                   "battleTag": "NikoXP",
@@ -252,6 +234,24 @@
                     8,
                     2,
                     2
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨手边丶初秋",
+                  "displayName": "有局丨手边丶初秋",
+                  "battleTag": "有局丨手边丶初秋",
+                  "totalPoints": 15,
+                  "games": [
+                    6,
+                    4,
+                    5
+                  ],
+                  "placements": [
+                    3,
+                    5,
+                    4
                   ],
                   "empty": false,
                   "points": 15
@@ -311,7 +311,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "3组",
@@ -464,7 +464,7 @@
                   "points": 10
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",
@@ -617,7 +617,7 @@
                   "points": 5
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             }
           ]
         },

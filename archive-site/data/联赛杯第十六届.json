@@ -104,24 +104,6 @@
                   "points": 14
                 },
                 {
-                  "name": "有局丨尹志平",
-                  "displayName": "有局丨尹志平",
-                  "battleTag": "有局丨尹志平",
-                  "totalPoints": 13,
-                  "games": [
-                    5,
-                    5,
-                    3
-                  ],
-                  "placements": [
-                    4,
-                    4,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "荀彧丨九筱",
                   "displayName": "荀彧丨九筱",
                   "battleTag": "荀彧丨九筱",
@@ -135,6 +117,24 @@
                     3,
                     6,
                     5
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "有局丨尹志平",
+                  "displayName": "有局丨尹志平",
+                  "battleTag": "有局丨尹志平",
+                  "totalPoints": 13,
+                  "games": [
+                    5,
+                    5,
+                    3
+                  ],
+                  "placements": [
+                    4,
+                    4,
+                    6
                   ],
                   "empty": false,
                   "points": 13
@@ -833,24 +833,6 @@
                   "points": 17
                 },
                 {
-                  "name": "荀彧丨好想吃豆饭",
-                  "displayName": "荀彧丨好想吃豆饭",
-                  "battleTag": "荀彧丨好想吃豆饭",
-                  "totalPoints": 16,
-                  "games": [
-                    6,
-                    5,
-                    5
-                  ],
-                  "placements": [
-                    3,
-                    4,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 16
-                },
-                {
                   "name": "有局丨柯南",
                   "displayName": "有局丨柯南",
                   "battleTag": "有局丨柯南",
@@ -864,6 +846,24 @@
                     6,
                     2,
                     3
+                  ],
+                  "empty": false,
+                  "points": 16
+                },
+                {
+                  "name": "荀彧丨好想吃豆饭",
+                  "displayName": "荀彧丨好想吃豆饭",
+                  "battleTag": "荀彧丨好想吃豆饭",
+                  "totalPoints": 16,
+                  "games": [
+                    6,
+                    5,
+                    5
+                  ],
+                  "placements": [
+                    3,
+                    4,
+                    4
                   ],
                   "empty": false,
                   "points": 16
@@ -986,24 +986,6 @@
                   "points": 15
                 },
                 {
-                  "name": "羽哥陪你浪",
-                  "displayName": "羽哥陪你浪",
-                  "battleTag": "羽哥陪你浪",
-                  "totalPoints": 14,
-                  "games": [
-                    7,
-                    6,
-                    1
-                  ],
-                  "placements": [
-                    2,
-                    3,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨楯山",
                   "displayName": "有局丨楯山",
                   "battleTag": "有局丨楯山",
@@ -1017,6 +999,24 @@
                     8,
                     5,
                     1
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "羽哥陪你浪",
+                  "displayName": "羽哥陪你浪",
+                  "battleTag": "羽哥陪你浪",
+                  "totalPoints": 14,
+                  "games": [
+                    7,
+                    6,
+                    1
+                  ],
+                  "placements": [
+                    2,
+                    3,
+                    8
                   ],
                   "empty": false,
                   "points": 14
@@ -1121,24 +1121,6 @@
                   "points": 17
                 },
                 {
-                  "name": "我爹是铜须",
-                  "displayName": "我爹是铜须",
-                  "battleTag": "我爹是铜须",
-                  "totalPoints": 16,
-                  "games": [
-                    6,
-                    7,
-                    3
-                  ],
-                  "placements": [
-                    3,
-                    2,
-                    6
-                  ],
-                  "empty": false,
-                  "points": 16
-                },
-                {
                   "name": "风的二次救赎",
                   "displayName": "风的二次救赎",
                   "battleTag": "风的二次救赎",
@@ -1170,6 +1152,24 @@
                     7,
                     1,
                     4
+                  ],
+                  "empty": false,
+                  "points": 16
+                },
+                {
+                  "name": "我爹是铜须",
+                  "displayName": "我爹是铜须",
+                  "battleTag": "我爹是铜须",
+                  "totalPoints": 16,
+                  "games": [
+                    6,
+                    7,
+                    3
+                  ],
+                  "placements": [
+                    3,
+                    2,
+                    6
                   ],
                   "empty": false,
                   "points": 16

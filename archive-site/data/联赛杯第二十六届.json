@@ -1225,24 +1225,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨对手",
-                  "displayName": "有局丨对手",
-                  "battleTag": "有局丨对手",
-                  "totalPoints": 14,
-                  "games": [
-                    6,
-                    4,
-                    4
-                  ],
-                  "placements": [
-                    3,
-                    5,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "北凉丨好叭",
                   "displayName": "北凉丨好叭",
                   "battleTag": "北凉丨好叭",
@@ -1256,6 +1238,24 @@
                     4,
                     6,
                     3
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "有局丨对手",
+                  "displayName": "有局丨对手",
+                  "battleTag": "有局丨对手",
+                  "totalPoints": 14,
+                  "games": [
+                    6,
+                    4,
+                    4
+                  ],
+                  "placements": [
+                    3,
+                    5,
+                    5
                   ],
                   "empty": false,
                   "points": 14

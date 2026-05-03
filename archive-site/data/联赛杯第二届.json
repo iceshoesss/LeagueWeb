@@ -464,7 +464,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",
@@ -527,6 +527,24 @@
                   "points": 15
                 },
                 {
+                  "name": "有局丨宿命呦",
+                  "displayName": "有局丨宿命呦",
+                  "battleTag": "有局丨宿命呦",
+                  "totalPoints": 13,
+                  "games": [
+                    2,
+                    4,
+                    7
+                  ],
+                  "placements": [
+                    7,
+                    5,
+                    2
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
                   "name": "有局丨孤独患者",
                   "displayName": "有局丨孤独患者",
                   "battleTag": "有局丨孤独患者",
@@ -558,24 +576,6 @@
                     2,
                     8,
                     4
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
-                  "name": "有局丨宿命呦",
-                  "displayName": "有局丨宿命呦",
-                  "battleTag": "有局丨宿命呦",
-                  "totalPoints": 13,
-                  "games": [
-                    2,
-                    4,
-                    7
-                  ],
-                  "placements": [
-                    7,
-                    5,
-                    2
                   ],
                   "empty": false,
                   "points": 13

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""修复归档 JSON：排序 + 晋级对齐 + 标签重命名"""
+"""修复归档 JSON：排序(含同分反推) + 标签重命名"""
 
 import json
 import os
@@ -12,46 +12,40 @@ def fix_tournament(t):
     rounds = t['rounds']
     changes = []
 
-    # ── 第一步：每组按 totalPoints 降序排序 ──
-    for r in rounds:
-        for g in r['groups']:
-            old_order = [p['name'] for p in g['players']]
-            g['players'].sort(key=lambda p: p['totalPoints'], reverse=True)
-            new_order = [p['name'] for p in g['players']]
-            if old_order != new_order:
-                changes.append(f"排序 {r['label']} {g['label']}")
-
-    # ── 第二步：修正 nextRoundGroupId（用选手名字反推）──
-    for ri in range(len(rounds) - 1):
+    # 从后往前处理：用下一轮选手集合来确定当前轮同分排序
+    for ri in range(len(rounds) - 1, -1, -1):
         curr = rounds[ri]
-        nxt = rounds[ri + 1]
+        nxt = rounds[ri + 1] if ri + 1 < len(rounds) else None
 
-        # 建立下一轮每组的选手集合
-        next_group_players = {}
-        for ng in nxt['groups']:
-            next_group_players[ng['groupIndex']] = {p['name'] for p in ng['players']}
+        # 收集下一轮所有选手名字
+        next_all_names = set()
+        if nxt:
+            for ng in nxt['groups']:
+                for p in ng['players']:
+                    next_all_names.add(p['name'])
 
-        # 对当前轮每个组，找它的前4名实际出现在下一轮哪个组
         for g in curr['groups']:
-            top4 = {p['name'] for p in g['players'][:4]}
-            best_group = None
-            best_overlap = 0
-            for ng_idx, ng_names in next_group_players.items():
-                overlap = len(top4 & ng_names)
-                if overlap > best_overlap:
-                    best_overlap = overlap
-                    best_group = ng_idx
+            players = g['players']
 
-            if best_group is not None and best_group != g.get('nextRoundGroupId'):
-                old = g.get('nextRoundGroupId')
-                g['nextRoundGroupId'] = best_group
-                changes.append(f"晋级 {curr['label']} {g['label']}: {old} → {best_group}")
+            # 先按 totalPoints 降序排
+            players.sort(key=lambda p: -p['totalPoints'])
 
-    # ── 第三步：重命名标签 ──
+            # 同分时：晋级者排前面
+            i = 0
+            while i < len(players):
+                j = i + 1
+                while j < len(players) and players[j]['totalPoints'] == players[i]['totalPoints']:
+                    j += 1
+                if j > i + 1:
+                    tied = players[i:j]
+                    tied.sort(key=lambda p: (0 if p['name'] in next_all_names else 1))
+                    players[i:j] = tied
+                i = j
+
+    # 标签重命名
     for r in rounds:
-        groups = r['groups']
-        is_final = (len(groups) == 1 and len(rounds) > 1)
-        for i, g in enumerate(groups):
+        is_final = (len(r['groups']) == 1 and len(rounds) > 1)
+        for i, g in enumerate(r['groups']):
             old_label = g['label']
             if is_final:
                 g['label'] = '决赛'

@@ -68,6 +68,24 @@
                   "points": 15
                 },
                 {
+                  "name": "抚平",
+                  "displayName": "抚平",
+                  "battleTag": "抚平",
+                  "totalPoints": 14,
+                  "games": [
+                    1,
+                    4,
+                    9
+                  ],
+                  "placements": [
+                    8,
+                    5,
+                    1
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
                   "name": "荀彧",
                   "displayName": "荀彧",
                   "battleTag": "荀彧",
@@ -99,24 +117,6 @@
                     2,
                     6,
                     5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
-                  "name": "抚平",
-                  "displayName": "抚平",
-                  "battleTag": "抚平",
-                  "totalPoints": 14,
-                  "games": [
-                    1,
-                    4,
-                    9
-                  ],
-                  "placements": [
-                    8,
-                    5,
-                    1
                   ],
                   "empty": false,
                   "points": 14
@@ -158,7 +158,7 @@
                   "points": 7
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "2组",
@@ -464,7 +464,7 @@
                   "points": 7
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",
@@ -617,7 +617,7 @@
                   "points": 7
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             }
           ]
         },

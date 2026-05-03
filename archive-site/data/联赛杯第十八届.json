@@ -851,24 +851,6 @@
                   "points": 14
                 },
                 {
-                  "name": "有局丨元元",
-                  "displayName": "有局丨元元",
-                  "battleTag": "有局丨元元",
-                  "totalPoints": 12,
-                  "games": [
-                    4,
-                    1,
-                    7
-                  ],
-                  "placements": [
-                    5,
-                    8,
-                    2
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
                   "name": "彩虹丨芒果",
                   "displayName": "彩虹丨芒果",
                   "battleTag": "彩虹丨芒果",
@@ -882,6 +864,24 @@
                     7,
                     5,
                     3
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
+                  "name": "有局丨元元",
+                  "displayName": "有局丨元元",
+                  "battleTag": "有局丨元元",
+                  "totalPoints": 12,
+                  "games": [
+                    4,
+                    1,
+                    7
+                  ],
+                  "placements": [
+                    5,
+                    8,
+                    2
                   ],
                   "empty": false,
                   "points": 12
@@ -1914,24 +1914,6 @@
                   "points": 16
                 },
                 {
-                  "name": "荀彧丨安河桥",
-                  "displayName": "荀彧丨安河桥",
-                  "battleTag": "荀彧丨安河桥",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    4,
-                    3,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "有局丨鱼板面",
                   "displayName": "有局丨鱼板面",
                   "battleTag": "有局丨鱼板面",
@@ -1945,6 +1927,24 @@
                     6,
                     2,
                     4
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "荀彧丨安河桥",
+                  "displayName": "荀彧丨安河桥",
+                  "battleTag": "荀彧丨安河桥",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    4,
+                    3,
+                    5
                   ],
                   "empty": false,
                   "points": 15

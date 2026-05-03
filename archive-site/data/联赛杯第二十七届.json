@@ -991,24 +991,6 @@
                   "points": 15
                 },
                 {
-                  "name": "有局丨快转运",
-                  "displayName": "有局丨快转运",
-                  "battleTag": "有局丨快转运",
-                  "totalPoints": 13,
-                  "games": [
-                    4,
-                    5,
-                    4
-                  ],
-                  "placements": [
-                    5,
-                    4,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "抖音丨有局丨冰魂",
                   "displayName": "抖音丨有局丨冰魂",
                   "battleTag": "抖音丨有局丨冰魂",
@@ -1022,6 +1004,24 @@
                     6,
                     8,
                     1
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "有局丨快转运",
+                  "displayName": "有局丨快转运",
+                  "battleTag": "有局丨快转运",
+                  "totalPoints": 13,
+                  "games": [
+                    4,
+                    5,
+                    4
+                  ],
+                  "placements": [
+                    5,
+                    4,
+                    5
                   ],
                   "empty": false,
                   "points": 13
@@ -1144,24 +1144,6 @@
                   "points": 15
                 },
                 {
-                  "name": "荀彧丨吵吵",
-                  "displayName": "荀彧丨吵吵",
-                  "battleTag": "荀彧丨吵吵",
-                  "totalPoints": 14,
-                  "games": [
-                    3,
-                    5,
-                    6
-                  ],
-                  "placements": [
-                    6,
-                    4,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "谢谢",
                   "displayName": "谢谢",
                   "battleTag": "谢谢",
@@ -1175,6 +1157,24 @@
                     1,
                     6,
                     7
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "荀彧丨吵吵",
+                  "displayName": "荀彧丨吵吵",
+                  "battleTag": "荀彧丨吵吵",
+                  "totalPoints": 14,
+                  "games": [
+                    3,
+                    5,
+                    6
+                  ],
+                  "placements": [
+                    6,
+                    4,
+                    3
                   ],
                   "empty": false,
                   "points": 14

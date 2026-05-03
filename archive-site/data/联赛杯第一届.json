@@ -311,7 +311,7 @@
                   "points": 4
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "3组",
@@ -374,6 +374,24 @@
                   "points": 14
                 },
                 {
+                  "name": "有局丨柯南",
+                  "displayName": "有局丨柯南",
+                  "battleTag": "有局丨柯南",
+                  "totalPoints": 12,
+                  "games": [
+                    2,
+                    4,
+                    6
+                  ],
+                  "placements": [
+                    7,
+                    5,
+                    3
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
                   "name": "有局丨亦思念",
                   "displayName": "有局丨亦思念",
                   "battleTag": "有局丨亦思念",
@@ -428,24 +446,6 @@
                   "points": 12
                 },
                 {
-                  "name": "有局丨柯南",
-                  "displayName": "有局丨柯南",
-                  "battleTag": "有局丨柯南",
-                  "totalPoints": 12,
-                  "games": [
-                    2,
-                    4,
-                    6
-                  ],
-                  "placements": [
-                    7,
-                    5,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
                   "name": "wowkoko",
                   "displayName": "wowkoko",
                   "battleTag": "wowkoko",
@@ -464,7 +464,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             },
             {
               "label": "4组",

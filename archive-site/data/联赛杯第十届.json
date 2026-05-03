@@ -838,24 +838,6 @@
                   "points": 16
                 },
                 {
-                  "name": "有局丨唯爱清野",
-                  "displayName": "有局丨唯爱清野",
-                  "battleTag": "有局丨唯爱清野",
-                  "totalPoints": 14,
-                  "games": [
-                    2,
-                    6,
-                    6
-                  ],
-                  "placements": [
-                    7,
-                    3,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨绫地宁宁",
                   "displayName": "有局丨绫地宁宁",
                   "battleTag": "有局丨绫地宁宁",
@@ -869,6 +851,24 @@
                     4,
                     2,
                     7
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "有局丨唯爱清野",
+                  "displayName": "有局丨唯爱清野",
+                  "battleTag": "有局丨唯爱清野",
+                  "totalPoints": 14,
+                  "games": [
+                    2,
+                    6,
+                    6
+                  ],
+                  "placements": [
+                    7,
+                    3,
+                    3
                   ],
                   "empty": false,
                   "points": 14

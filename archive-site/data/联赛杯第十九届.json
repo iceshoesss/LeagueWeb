@@ -509,24 +509,6 @@
                   "points": 15
                 },
                 {
-                  "name": "荀彧丨啊吧啊吧",
-                  "displayName": "荀彧丨啊吧啊吧",
-                  "battleTag": "荀彧丨啊吧啊吧",
-                  "totalPoints": 14,
-                  "games": [
-                    6,
-                    4,
-                    4
-                  ],
-                  "placements": [
-                    3,
-                    5,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "北凉丨好叭",
                   "displayName": "北凉丨好叭",
                   "battleTag": "北凉丨好叭",
@@ -540,6 +522,24 @@
                     4,
                     3,
                     6
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "荀彧丨啊吧啊吧",
+                  "displayName": "荀彧丨啊吧啊吧",
+                  "battleTag": "荀彧丨啊吧啊吧",
+                  "totalPoints": 14,
+                  "games": [
+                    6,
+                    4,
+                    4
+                  ],
+                  "placements": [
+                    3,
+                    5,
+                    5
                   ],
                   "empty": false,
                   "points": 14
@@ -815,24 +815,6 @@
                   "points": 16
                 },
                 {
-                  "name": "有局丨唯世酱",
-                  "displayName": "有局丨唯世酱",
-                  "battleTag": "有局丨唯世酱",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    4,
-                    6
-                  ],
-                  "placements": [
-                    4,
-                    5,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "可乐咯",
                   "displayName": "可乐咯",
                   "battleTag": "可乐咯",
@@ -846,6 +828,24 @@
                     6,
                     4,
                     2
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨唯世酱",
+                  "displayName": "有局丨唯世酱",
+                  "battleTag": "有局丨唯世酱",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    4,
+                    6
+                  ],
+                  "placements": [
+                    4,
+                    5,
+                    3
                   ],
                   "empty": false,
                   "points": 15
@@ -968,24 +968,6 @@
                   "points": 16
                 },
                 {
-                  "name": "月光浅酌丨小妖孽",
-                  "displayName": "月光浅酌丨小妖孽",
-                  "battleTag": "月光浅酌丨小妖孽",
-                  "totalPoints": 13,
-                  "games": [
-                    4,
-                    4,
-                    5
-                  ],
-                  "placements": [
-                    5,
-                    5,
-                    4
-                  ],
-                  "empty": false,
-                  "points": 13
-                },
-                {
                   "name": "彩虹丨芒果",
                   "displayName": "彩虹丨芒果",
                   "battleTag": "彩虹丨芒果",
@@ -999,6 +981,24 @@
                     1,
                     8,
                     6
+                  ],
+                  "empty": false,
+                  "points": 13
+                },
+                {
+                  "name": "月光浅酌丨小妖孽",
+                  "displayName": "月光浅酌丨小妖孽",
+                  "battleTag": "月光浅酌丨小妖孽",
+                  "totalPoints": 13,
+                  "games": [
+                    4,
+                    4,
+                    5
+                  ],
+                  "placements": [
+                    5,
+                    5,
+                    4
                   ],
                   "empty": false,
                   "points": 13
@@ -1585,24 +1585,6 @@
                   "points": 14
                 },
                 {
-                  "name": "YC丶",
-                  "displayName": "YC丶",
-                  "battleTag": "YC丶",
-                  "totalPoints": 14,
-                  "games": [
-                    5,
-                    3,
-                    6
-                  ],
-                  "placements": [
-                    4,
-                    6,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "可乐风情万种",
                   "displayName": "可乐风情万种",
                   "battleTag": "可乐风情万种",
@@ -1616,6 +1598,24 @@
                     2,
                     5,
                     6
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "YC丶",
+                  "displayName": "YC丶",
+                  "battleTag": "YC丶",
+                  "totalPoints": 14,
+                  "games": [
+                    5,
+                    3,
+                    6
+                  ],
+                  "placements": [
+                    4,
+                    6,
+                    3
                   ],
                   "empty": false,
                   "points": 14
@@ -1738,6 +1738,24 @@
                   "points": 17
                 },
                 {
+                  "name": "恐惧之裤",
+                  "displayName": "恐惧之裤",
+                  "battleTag": "恐惧之裤",
+                  "totalPoints": 12,
+                  "games": [
+                    2,
+                    1,
+                    9
+                  ],
+                  "placements": [
+                    7,
+                    8,
+                    1
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
                   "name": "有局丨孤寂岭",
                   "displayName": "有局丨孤寂岭",
                   "battleTag": "有局丨孤寂岭",
@@ -1769,24 +1787,6 @@
                     2,
                     5,
                     8
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
-                  "name": "恐惧之裤",
-                  "displayName": "恐惧之裤",
-                  "battleTag": "恐惧之裤",
-                  "totalPoints": 12,
-                  "games": [
-                    2,
-                    1,
-                    9
-                  ],
-                  "placements": [
-                    7,
-                    8,
-                    1
                   ],
                   "empty": false,
                   "points": 12
@@ -2049,24 +2049,6 @@
                   "points": 14
                 },
                 {
-                  "name": "南医超唐棋手",
-                  "displayName": "南医超唐棋手",
-                  "battleTag": "南医超唐棋手",
-                  "totalPoints": 14,
-                  "games": [
-                    7,
-                    6,
-                    1
-                  ],
-                  "placements": [
-                    2,
-                    3,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "庭燎giegie",
                   "displayName": "庭燎giegie",
                   "battleTag": "庭燎giegie",
@@ -2080,6 +2062,24 @@
                     7,
                     1,
                     6
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "南医超唐棋手",
+                  "displayName": "南医超唐棋手",
+                  "battleTag": "南医超唐棋手",
+                  "totalPoints": 14,
+                  "games": [
+                    7,
+                    6,
+                    1
+                  ],
+                  "placements": [
+                    2,
+                    3,
+                    8
                   ],
                   "empty": false,
                   "points": 14

@@ -68,24 +68,6 @@
                   "points": 16
                 },
                 {
-                  "name": "苍龙之颉",
-                  "displayName": "苍龙之颉",
-                  "battleTag": "苍龙之颉",
-                  "totalPoints": 14,
-                  "games": [
-                    4,
-                    4,
-                    6
-                  ],
-                  "placements": [
-                    5,
-                    5,
-                    3
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨孤寂岭",
                   "displayName": "有局丨孤寂岭",
                   "battleTag": "有局丨孤寂岭",
@@ -99,6 +81,24 @@
                     7,
                     4,
                     2
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "苍龙之颉",
+                  "displayName": "苍龙之颉",
+                  "battleTag": "苍龙之颉",
+                  "totalPoints": 14,
+                  "games": [
+                    4,
+                    4,
+                    6
+                  ],
+                  "placements": [
+                    5,
+                    5,
+                    3
                   ],
                   "empty": false,
                   "points": 14
@@ -158,7 +158,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "2组",
@@ -311,7 +311,7 @@
                   "points": 6
                 }
               ],
-              "nextRoundGroupId": 2
+              "nextRoundGroupId": 1
             },
             {
               "label": "3组",
@@ -374,24 +374,6 @@
                   "points": 16
                 },
                 {
-                  "name": "有局丨宿命呦",
-                  "displayName": "有局丨宿命呦",
-                  "battleTag": "有局丨宿命呦",
-                  "totalPoints": 15,
-                  "games": [
-                    5,
-                    9,
-                    1
-                  ],
-                  "placements": [
-                    4,
-                    1,
-                    8
-                  ],
-                  "empty": false,
-                  "points": 15
-                },
-                {
                   "name": "有局丨不归人",
                   "displayName": "有局丨不归人",
                   "battleTag": "有局丨不归人",
@@ -405,6 +387,24 @@
                     1,
                     8,
                     4
+                  ],
+                  "empty": false,
+                  "points": 15
+                },
+                {
+                  "name": "有局丨宿命呦",
+                  "displayName": "有局丨宿命呦",
+                  "battleTag": "有局丨宿命呦",
+                  "totalPoints": 15,
+                  "games": [
+                    5,
+                    9,
+                    1
+                  ],
+                  "placements": [
+                    4,
+                    1,
+                    8
                   ],
                   "empty": false,
                   "points": 15
@@ -617,7 +617,7 @@
                   "points": 8
                 }
               ],
-              "nextRoundGroupId": 1
+              "nextRoundGroupId": 2
             }
           ]
         },

@@ -1139,6 +1139,24 @@
                   "points": 17
                 },
                 {
+                  "name": "虎牙丶终离殇",
+                  "displayName": "虎牙丶终离殇",
+                  "battleTag": "虎牙丶终离殇",
+                  "totalPoints": 12,
+                  "games": [
+                    4,
+                    7,
+                    1
+                  ],
+                  "placements": [
+                    5,
+                    2,
+                    8
+                  ],
+                  "empty": false,
+                  "points": 12
+                },
+                {
                   "name": "CR7",
                   "displayName": "CR7",
                   "battleTag": "CR7",
@@ -1170,24 +1188,6 @@
                     7,
                     3,
                     5
-                  ],
-                  "empty": false,
-                  "points": 12
-                },
-                {
-                  "name": "虎牙丶终离殇",
-                  "displayName": "虎牙丶终离殇",
-                  "battleTag": "虎牙丶终离殇",
-                  "totalPoints": 12,
-                  "games": [
-                    4,
-                    7,
-                    1
-                  ],
-                  "placements": [
-                    5,
-                    2,
-                    8
                   ],
                   "empty": false,
                   "points": 12
@@ -1756,24 +1756,6 @@
                   "points": 16
                 },
                 {
-                  "name": "北凉丨好叭",
-                  "displayName": "北凉丨好叭",
-                  "battleTag": "北凉丨好叭",
-                  "totalPoints": 14,
-                  "games": [
-                    4,
-                    6,
-                    4
-                  ],
-                  "placements": [
-                    5,
-                    3,
-                    5
-                  ],
-                  "empty": false,
-                  "points": 14
-                },
-                {
                   "name": "有局丨孤寂岭",
                   "displayName": "有局丨孤寂岭",
                   "battleTag": "有局丨孤寂岭",
@@ -1787,6 +1769,24 @@
                     3,
                     2,
                     8
+                  ],
+                  "empty": false,
+                  "points": 14
+                },
+                {
+                  "name": "北凉丨好叭",
+                  "displayName": "北凉丨好叭",
+                  "battleTag": "北凉丨好叭",
+                  "totalPoints": 14,
+                  "games": [
+                    4,
+                    6,
+                    4
+                  ],
+                  "placements": [
+                    5,
+                    3,
+                    5
                   ],
                   "empty": false,
                   "points": 14
