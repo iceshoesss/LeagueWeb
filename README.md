@@ -190,6 +190,37 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.18.12 (2026-05-03) — 从 hotfix/0.17.x 合入 SSE 重构 + 内存泄漏修复
+- 从 `hotfix/0.17.x` 分支合入 v0.17.12 ~ v0.17.16 的全部改动
+- SSE 架构从 `CacheEntry` + `GEvent` 重构为 `_ttl_cache` + `ChangeStamp`（独立轮询，消除 gevent Hub 冲突）
+- SSE 增量推送（delta），对阵图带宽降 98%
+- 对阵图 HTTP 缓存（ETag + Cache-Control 5s）
+- 内存泄漏修复：SSE 断连 / 速率限制清理 / webhook 线程池 / context processor 优化 / 后台 GC
+- gunicorn worker 自动重启安全网（max_requests=2000）
+- 新增 SSE 测试脚本（test_sse_delta.py / test_sse_live.py）
+
+### v0.17.16 (2026-05-03) — 内存泄漏修复（hotfix/0.17.x）
+- **SSE 生成器断连修复**: 客户端断开时 `BrokenPipeError`/`ConnectionResetError` 被 `except Exception` 吞掉导致 greenlet 堆积，改为立即 break 释放（`_sse_generate` + `_sse_generate_bracket`）
+- **速率限制清理**: `_rate_limit_store` 长期不活跃条目随机抽样清理，防止字典无限增长
+- **webhook 线程池**: `send_webhook` 从每次开新线程改为 `ThreadPoolExecutor(max_workers=2)`，防止线程堆积
+- **context processor 优化**: API/SSE 请求跳过 `inject_counts` 的 MongoDB 查询
+- **后台 GC**: cleanup 线程每次循环后调用 `gc.collect()` 回收循环引用
+- **gunicorn worker 自动重启**: `max_requests=2000` + `max_requests_jitter=500` 作为安全网
+
+### v0.17.15 (2026-05-03) — 修复 SSE gevent Hub 冲突（hotfix/0.17.x）
+- **根因修复**：撤回 v0.17.14 的简单轮询回退，改为彻底解决 Hub 冲突
+- **去掉 CacheEntry**：删除所有 SSE 端点的共享 `CacheEntry` + `GEvent`/`GSemaphore`，消除跨 greenlet 共享可变状态
+- **函数级 TTL 缓存**：新增 `_ttl_cache` 装饰器，fetch 函数结果缓存 5 秒，N 个连接同一周期只查一次 MongoDB
+- **独立轮询**：每个 SSE 连接独立 `gsleep()` + 调 fetch 函数，不依赖共享事件对象
+- **兼容旧接口**：`evt_active_games.set()` 等调用映射到 `ChangeStamp.notify()`，外部模块无需改动
+
+### v0.17.14 (2026-05-02) — SSE bracket 首连即时推送（hotfix/0.17.x）
+- 修复首次连接 SSE bracket 端点需等待 10 秒才收到数据的问题
+
+### v0.17.12 (2026-05-02) — SSE 增量推送 + HTTP 缓存（hotfix/0.17.x）
+- **SSE 增量推送**：对阵图 SSE 改为全量首推 + 后续 delta，带宽降 98%
+- **HTTP 缓存**：对阵图页面和 API 添加 ETag + Cache-Control 5s
+
 ### v0.18.10 (2026-05-02) — 归档赛事预计算，零聚合查询
 - 归档赛事的 bracket 数据在归档时一次性预计算并存储到 `tournaments.bracketData`
 - 查看归档赛事页面从全量查询 + 内存过滤改为直接读取预计算数据

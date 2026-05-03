@@ -39,7 +39,7 @@ app.config["SESSION_COOKIE_SECURE"] = False
 SITE_NAME = os.environ.get("SITE_NAME", "酒馆战棋联赛")
 SITE_LOGO = os.environ.get("SITE_LOGO", "🍺")
 ICP_NUMBER = os.environ.get("ICP_NUMBER", "")
-WEB_VERSION = "0.18.10"
+WEB_VERSION = "0.18.12"
 
 # ── 注册蓝图 ──────────────────────────────────────
 from routes_pages import pages
@@ -69,6 +69,10 @@ from cleanup import CLEANUP_INTERVAL, _background_cleanup
 
 @app.context_processor
 def inject_counts():
+    from flask import request
+    # API/SSE 端点不需要模板上下文，跳过查询
+    if request.path.startswith("/api/"):
+        return {}
     try:
         db = get_db()
         cutoff_str = (datetime.now(UTC) - timedelta(minutes=GAME_TIMEOUT_MINUTES)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -163,6 +167,7 @@ def page_not_found(e):
 
 def _background_cleanup_with_enroll():
     """后台清理（含报名截止检查）"""
+    import gc
     import time
     while True:
         try:
@@ -171,6 +176,7 @@ def _background_cleanup_with_enroll():
             cleanup_partial_matches()
             cleanup_stale_queues()
             cleanup_expired_bind_codes()
+            gc.collect()
         except Exception as e:
             log.error(f"后台 cleanup 异常: {e}")
         time.sleep(CLEANUP_INTERVAL)
