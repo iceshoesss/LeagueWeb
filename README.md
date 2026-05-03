@@ -190,6 +190,12 @@ BO N 赛制下每局积分不变，N 局累加为总分。
 - **主版本 +1** — 大改/重构/正式发布
 
 ## 更新日志
+### v0.17.18 (2026-05-03) — bracket SSE base 快照 + delta 缓冲
+- **服务端快照重构**: 1 个 base 快照 + 50 条 delta 环形缓冲，替代 50 个全量快照（内存 ~800KB vs ~15MB）
+- **客户端 last_seq 生效**: 客户端带 `?last_seq=X` 刷新时，服务端从 base replay 到 seq X 算 delta，只发 patches
+- **深拷贝防污染**: `_extract_groups` / `_apply_patches` 均深拷贝，防止 build_bracket_data 的 mutation 污染快照
+- **去掉 30 秒兜底全量**: 只在首次连接（无 last_seq）或 seq 溢出缓冲区时全量
+
 ### v0.17.17 (2026-05-03) — bracket SSE delta 优化
 - **去掉 30 秒兜底全量**: 原逻辑每 30 秒强制推全量，实际无作用只增加带宽，已移除
 - **客户端 last_seq 持久化**: sessionStorage 存储 `bracket-last-seq`，刷新页面时通过 URL 参数传给服务端，命中缓冲区则只补发 delta 而非全量
