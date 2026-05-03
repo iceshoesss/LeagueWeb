@@ -4,6 +4,7 @@
 通过函数级 TTL 缓存减少 MongoDB 查询：N 个连接在同一个缓存周期内只查一次。
 """
 
+import copy
 import json
 import logging
 import threading
@@ -213,9 +214,10 @@ def sse_problem_matches():
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-# ── Bracket SSE：全量首推 + 后续 delta ──────────────
+# ── Bracket SSE：base 快照 + delta 环形缓冲 ──────────
 
 _bracket_seq = 0             # 全局递增序号
+_bracket_base = {"seq": 0, "data": None}   # 基础快照（深拷贝，不可变）
 _bracket_deltas = []         # 环形缓冲 [{seq, patches}]
 _BRACKET_DELTA_BUF = 50      # 保留最近 50 条 delta
 
@@ -226,7 +228,7 @@ def _group_key(tname, round_idx, group_index):
 
 
 def _extract_groups(data):
-    """从 build_bracket_data() 输出提取 {key: group} 的扁平映射"""
+    """从 build_bracket_data() 输出提取 {key: group} 的扁平映射（深拷贝，不修改原数据）"""
     groups = {}
     for t in data.get("tournaments", []):
         tname = t.get("name", "")
@@ -234,20 +236,17 @@ def _extract_groups(data):
             ridx = r.get("round", 0)
             for g in r.get("groups", []):
                 key = _group_key(tname, ridx, g.get("groupIndex", 0))
-                groups[key] = g
+                groups[key] = copy.deepcopy(g)
     return groups
 
 
 def _compute_delta(prev_data, new_data):
-    """对比两次全量数据，返回变化的 group 列表（patches）"""
-    if prev_data is None:
-        return None  # 首次，需要全量
-
+    """对比两次全量数据，返回变化的 group 列表（patches）。
+    prev_data 和 new_data 不会被修改。"""
     prev_groups = _extract_groups(prev_data)
     new_groups = _extract_groups(new_data)
 
     patches = []
-    # 检查新增和修改
     for key, ng in new_groups.items():
         og = prev_groups.get(key)
         if og is None or json.dumps(og, sort_keys=True, default=str) != json.dumps(ng, sort_keys=True, default=str):
@@ -258,7 +257,6 @@ def _compute_delta(prev_data, new_data):
                 "groupIndex": int(parts[2]),
                 "groupData": ng
             })
-    # 检查删除（某组消失了，比如赛事被删除）
     for key in prev_groups:
         if key not in new_groups:
             parts = key.split("|")
@@ -266,76 +264,166 @@ def _compute_delta(prev_data, new_data):
                 "tournament": parts[0],
                 "round": int(parts[1]),
                 "groupIndex": int(parts[2]),
-                "groupData": None  # null 表示删除
+                "groupData": None
             })
 
     return patches if patches else None
 
 
-def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
-    """Bracket 专用 SSE 生成器：首推全量 + 后续 delta（独立轮询版）。
+def _apply_patches(base_data, patches):
+    """将 patches 应用到 base_data，返回新数据（不修改 base_data）"""
+    result = copy.deepcopy(base_data)
+    groups = {}
+    for t in result.get("tournaments", []):
+        tname = t.get("name", "")
+        for r in t.get("rounds", []):
+            ridx = r.get("round", 0)
+            for g in r.get("groups", []):
+                key = _group_key(tname, ridx, g.get("groupIndex", 0))
+                groups[key] = g
 
-    每个连接独立调用 _fetch_bracket()（函数级 TTL 缓存），
-    对比本地 prev_data 计算 delta，不依赖共享 CacheEntry。
+    for p in patches:
+        key = _group_key(p["tournament"], p["round"], p["groupIndex"])
+        if p["groupData"] is None:
+            groups.pop(key, None)
+        else:
+            groups[key] = p["groupData"]
+
+    # 从 groups 映射重建 tournaments 结构
+    tournaments_map = {}
+    for key, g in groups.items():
+        parts = key.split("|")
+        tname = parts[0]
+        tournaments_map.setdefault(tname, []).append(g)
+
+    result["tournaments"] = []
+    for tname, tgroups in tournaments_map.items():
+        rounds_map = {}
+        for g in tgroups:
+            rounds_map.setdefault(g.get("round", 1), []).append(g)
+        rounds_data = []
+        for r in sorted(rounds_map.keys()):
+            rounds_data.append({"groups": sorted(rounds_map[r], key=lambda x: x.get("groupIndex", 0))})
+        result["tournaments"].append({"name": tname, "rounds": rounds_data})
+
+    return result
+
+
+def _reconstruct_state(target_seq):
+    """从 base 快照 replay deltas 到 target_seq，返回该时刻的全量数据。
+    如果 target_seq 超出缓冲范围，返回 None。"""
+    if target_seq < _bracket_base["seq"]:
+        return None  # 比 base 还旧，无法恢复
+    if target_seq == _bracket_base["seq"]:
+        return copy.deepcopy(_bracket_base["data"])
+    if target_seq > _bracket_seq:
+        return None  # 超过当前最新
+
+    data = copy.deepcopy(_bracket_base["data"])
+    for d in _bracket_deltas:
+        if d["seq"] <= target_seq:
+            data = _apply_patches(data, d["patches"])
+        else:
+            break
+    return data
+
+
+def _advance_base():
+    """缓冲区满时，把最旧的 delta 合并进 base"""
+    global _bracket_base
+    cut = len(_bracket_deltas) - _BRACKET_DELTA_BUF
+    if cut <= 0:
+        return
+    for d in _bracket_deltas[:cut]:
+        _bracket_base["data"] = _apply_patches(_bracket_base["data"], d["patches"])
+        _bracket_base["seq"] = d["seq"]
+    del _bracket_deltas[:cut]
+
+
+def _sse_generate_bracket(initial_seq, poll_interval=5, max_lifetime=120):
+    """Bracket SSE 生成器：base + delta 环形缓冲。
+
+    客户端带 last_seq=X：
+      - X 在缓冲内 → 从 base replay 到 X → 算 delta → 发 patches
+      - X 不在缓冲内（或 X=0）→ 全量
     """
     global _bracket_seq
 
-    prev_data = None           # 本连接上次推送的全量数据
-    prev_fingerprint = None    # 本连接上次推送的指纹
+    prev_data = None           # 本连接上次推送的数据（用于本连接内算 delta）
+    prev_fingerprint = None
     last_heartbeat = time.time()
     start_time = time.time()
+    first_push = True
 
     while True:
         try:
             if time.time() - start_time > max_lifetime:
                 break
 
-            # ── 获取最新数据（_fetch_bracket 内部有 5 秒缓存）──
             new_data = _fetch_bracket()
+            new_data_copy = copy.deepcopy(new_data)  # 深拷贝，防止后续 mutation 影响快照
             fingerprint = json.dumps(new_data, sort_keys=True, default=str)
 
-            # ── 计算 delta ──
-            patches = _compute_delta(prev_data, new_data)
+            # ── 计算 delta（基于本连接的 prev_data）──
+            if prev_data is not None:
+                patches = _compute_delta(prev_data, new_data_copy)
+            else:
+                patches = None
 
             if patches:
                 _bracket_seq += 1
-                delta_entry = {"seq": _bracket_seq, "patches": patches}
-                _bracket_deltas.append(delta_entry)
+                _bracket_deltas.append({"seq": _bracket_seq, "patches": patches})
                 if len(_bracket_deltas) > _BRACKET_DELTA_BUF:
-                    del _bracket_deltas[:len(_bracket_deltas) - _BRACKET_DELTA_BUF]
+                    _advance_base()
 
-            # ── 判断推全量还是 delta ──
-            need_full = (
-                prev_data is None                          # 本连接首次推送
-                or initial_seq < _bracket_seq - _BRACKET_DELTA_BUF  # seq 过旧，缓冲区外
-            )
+            # ── 首次推送：尝试 delta（last_seq 在缓冲内）──
+            if first_push:
+                first_push = False
+                if initial_seq > 0 and initial_seq >= _bracket_base["seq"] and initial_seq < _bracket_seq:
+                    # 从 base replay 到 initial_seq，得到客户端的旧状态
+                    old_state = _reconstruct_state(initial_seq)
+                    if old_state is not None:
+                        delta_patches = _compute_delta(old_state, new_data_copy)
+                        if delta_patches:
+                            payload = {"type": "delta", "seq": _bracket_seq, "patches": delta_patches}
+                            yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                        # 即使 patches 为空（数据没变），也推全量以同步客户端状态
+                        # 但避免重复：如果 delta 有内容就不需要全量
+                        if delta_patches:
+                            prev_data = new_data_copy
+                            prev_fingerprint = fingerprint
+                            continue
+                        # patches 为空但客户端可能有旧数据 → 跳过，等下一轮变化
 
-            if need_full:
+                # fallback：全量
                 if fingerprint != prev_fingerprint:
                     payload = {"type": "full", "seq": _bracket_seq, "data": new_data}
                     yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
-                    prev_data = new_data
+                    prev_data = new_data_copy
                     prev_fingerprint = fingerprint
-                    initial_seq = _bracket_seq
-            elif patches:
+                continue
+
+            # ── 后续推送：delta 或无变化 ──
+            if patches:
                 payload = {"type": "delta", "seq": _bracket_seq, "patches": patches}
                 yield f"id: {_bracket_seq}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
-                prev_data = new_data
+                prev_data = new_data_copy
                 prev_fingerprint = fingerprint
             elif initial_seq < _bracket_seq:
-                # 补发缺失的 delta
+                # 补发缺失的 delta（本连接断过，但服务端有新数据）
                 missed = [d for d in _bracket_deltas if d["seq"] > initial_seq]
                 if missed:
                     for d in missed:
                         yield f"id: {d['seq']}\ndata: {json.dumps({'type': 'delta', 'seq': d['seq'], 'patches': d['patches']}, ensure_ascii=False)}\n\n"
                     initial_seq = _bracket_seq
+                    prev_data = new_data_copy
+                    prev_fingerprint = fingerprint
 
             # ── 心跳 ──
             if time.time() - last_heartbeat > 30:
                 yield ": heartbeat\n\n"
                 last_heartbeat = time.time()
 
-            # ── 等待下一轮 ──
             gsleep(poll_interval)
 
         except GeneratorExit:
